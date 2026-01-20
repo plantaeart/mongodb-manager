@@ -1,0 +1,278 @@
+<template>
+  <div class="password-overlay">
+    <div class="password-modal">
+      <div class="password-header">
+        <h2 class="text-xl font-bold text-gb-yellow mb-2">Change Password Required</h2>
+        <p class="text-gb-fg-dim text-sm">You must change your password to continue</p>
+      </div>
+
+      <form @submit.prevent="handleChangePassword" class="password-form">
+        <div class="form-group">
+          <label for="oldPassword" class="text-gb-fg text-sm mb-2 block">Current Password</label>
+          <input
+            id="oldPassword"
+            v-model="oldPassword"
+            type="password"
+            placeholder="Enter current password"
+            class="terminal-input w-full"
+            :disabled="authStore.isLoading"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="newPassword" class="text-gb-fg text-sm mb-2 block">New Password</label>
+          <input
+            id="newPassword"
+            v-model="newPassword"
+            type="password"
+            placeholder="Enter new password (min 8 chars)"
+            class="terminal-input w-full"
+            :disabled="authStore.isLoading"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="confirmPassword" class="text-gb-fg text-sm mb-2 block">Confirm Password</label>
+          <input
+            id="confirmPassword"
+            v-model="confirmPassword"
+            type="password"
+            placeholder="Confirm new password"
+            class="terminal-input w-full"
+            :disabled="authStore.isLoading"
+          />
+        </div>
+
+        <div v-if="validationError" class="error-message">
+          {{ validationError }}
+        </div>
+
+        <div v-if="success" class="success-message">
+          Password changed successfully! Logging in...
+        </div>
+
+        <div class="button-group">
+          <button 
+            type="submit" 
+            class="terminal-button"
+            :disabled="authStore.isLoading || !isFormValid"
+          >
+            {{ authStore.isLoading ? 'Changing...' : 'Change Password' }}
+          </button>
+        </div>
+      </form>
+
+      <div class="password-footer">
+        <ul class="requirements-list">
+          <li :class="{ valid: newPassword.length >= 8 }">
+            Minimum 8 characters
+          </li>
+          <li :class="{ valid: newPassword === confirmPassword && newPassword.length > 0 }">
+            Passwords match
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+const authStore = useAuthStore()
+
+const oldPassword = ref('')
+const newPassword = ref('')
+const confirmPassword = ref('')
+const validationError = ref('')
+const success = ref(false)
+
+const emit = defineEmits<{
+  success: []
+  cancel: []
+}>()
+
+const isFormValid = computed(() => {
+  return (
+    oldPassword.value.length > 0 &&
+    newPassword.value.length >= 8 &&
+    newPassword.value === confirmPassword.value
+  )
+})
+
+watch([newPassword, confirmPassword], () => {
+  validationError.value = ''
+  
+  if (newPassword.value.length > 0 && newPassword.value.length < 8) {
+    validationError.value = 'Password must be at least 8 characters'
+  } else if (
+    newPassword.value.length > 0 && 
+    confirmPassword.value.length > 0 && 
+    newPassword.value !== confirmPassword.value
+  ) {
+    validationError.value = 'Passwords do not match'
+  }
+})
+
+const handleChangePassword = async () => {
+  validationError.value = ''
+
+  try {
+    const result = await authStore.changePassword(oldPassword.value, newPassword.value)
+    
+    if (result.success) {
+      success.value = true
+      
+      // Close modal after brief delay
+      setTimeout(() => {
+        emit('success')
+      }, 800)
+    }
+  } catch (err) {
+    // Error handling is done in the store with toast notifications
+  }
+}
+</script>
+
+<style scoped>
+.password-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.password-modal {
+  background: var(--gb-bg-hard);
+  border: 2px solid var(--gb-yellow);
+  border-radius: 8px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 450px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+
+.password-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.password-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-input {
+  background: var(--gb-bg);
+  border: 1px solid var(--gb-gray);
+  color: var(--gb-fg);
+  padding: 0.75rem;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.terminal-input:focus {
+  outline: none;
+  border-color: var(--gb-yellow);
+}
+
+.terminal-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.terminal-button {
+  background: var(--gb-yellow);
+  color: var(--gb-bg-hard);
+  padding: 0.75rem;
+  border: none;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.terminal-button:hover:not(:disabled) {
+  background: var(--gb-yellow-bright);
+  transform: translateY(-1px);
+}
+
+.terminal-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button-group {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.error-message {
+  background: rgba(251, 73, 52, 0.1);
+  border: 1px solid var(--gb-red);
+  color: var(--gb-red);
+  padding: 0.75rem;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.success-message {
+  background: rgba(184, 187, 38, 0.1);
+  border: 1px solid var(--gb-green);
+  color: var(--gb-green);
+  padding: 0.75rem;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.password-footer {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--gb-gray);
+}
+
+.requirements-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 13px;
+  color: var(--gb-fg-dim);
+}
+
+.requirements-list li {
+  padding: 0.25rem 0;
+  padding-left: 1.5rem;
+  position: relative;
+}
+
+.requirements-list li::before {
+  content: '✗';
+  position: absolute;
+  left: 0;
+  color: var(--gb-red);
+  font-weight: bold;
+}
+
+.requirements-list li.valid {
+  color: var(--gb-green);
+}
+
+.requirements-list li.valid::before {
+  content: '✓';
+  color: var(--gb-green);
+}
+</style>

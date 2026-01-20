@@ -1,0 +1,42 @@
+# Development Dockerfile for Backend
+# Optimized for hot-reload and debugging
+
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install MongoDB tools
+RUN curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
+    gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg --dearmor && \
+    echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] http://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main" | \
+    tee /etc/apt/sources.list.d/mongodb-org-7.0.list && \
+    apt-get update && \
+    apt-get install -y mongodb-org-tools mongodb-mongosh && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install uv for fast package management
+RUN pip install uv
+
+# Copy dependency files
+COPY pyproject.toml uv.lock* ./
+
+# Install dependencies (including dev dependencies)
+RUN uv pip install --system -e ".[dev]" || uv pip install --system -e .
+
+# The source code will be mounted as a volume, so we don't COPY it here
+
+# Set environment variables for development
+ENV PYTHONUNBUFFERED=1
+ENV WATCHFILES_FORCE_POLLING=true
+
+# Expose port
+EXPOSE 8000
+
+# Use uvicorn with hot reload
+CMD ["uvicorn", "app.main_api:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

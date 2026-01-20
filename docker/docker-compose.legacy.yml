@@ -1,0 +1,89 @@
+name: mongodb-manager
+
+services:
+  # Internal MongoDB for app session storage
+  manager-mongodb:
+    image: mongo:7.0
+    container_name: manager-mongodb
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MANAGER_DB_USERNAME:-manager_admin}
+      - MONGO_INITDB_ROOT_PASSWORD=${MANAGER_DB_PASSWORD:-changeme123}
+      - TZ=Europe/Paris
+    volumes:
+      - manager-mongodb-data:/data/db
+    networks:
+      - mongodb-manager-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Backend API
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: mongodb-manager-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      manager-mongodb:
+        condition: service_healthy
+    volumes:
+      # Backup storage
+      - mongodb-backups:/backups_mongodb_manager
+      # Config persistence (connections.json)
+      - mongodb-manager-data:/data/.mongodb-manager
+    networks:
+      - mongodb-manager-network
+    environment:
+      - TZ=Europe/Paris
+      # Internal MongoDB connection (for sessions and users)
+      - MANAGER_DB_URI=mongodb://${MANAGER_DB_USERNAME:-manager_admin}:${MANAGER_DB_PASSWORD:-changeme123}@manager-mongodb:27017/manager_app?authSource=admin
+      # JWT Secret
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production-please-use-strong-secret}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend Web UI
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: mongodb-manager-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:${FRONTEND_PORT:-3000}"
+    depends_on:
+      - backend
+    networks:
+      - mongodb-manager-network
+    environment:
+      - TZ=Europe/Paris
+      - PORT=${FRONTEND_PORT:-3000}
+      - NUXT_PUBLIC_API_URL=http://backend:8000
+      - NUXT_PUBLIC_WS_URL=ws://backend:8000
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:${FRONTEND_PORT:-3000}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mongodb-backups:
+    driver: local
+  mongodb-manager-data:
+    driver: local
+  manager-mongodb-data:
+    driver: local
+
+networks:
+  mongodb-manager-network:
+    driver: bridge

@@ -1,0 +1,38 @@
+:root {
+  /* Gruvbox color palette */
+  --gb-bg: #282828;
+  --gb-bg-hard: #1d2021;
+  --gb-bg-soft: #32302f;
+  --gb-fg: #ebdbb2;
+  --gb-fg-dim: #a89984;
+  
+  /* Gruvbox accent colors */
+  --gb-red: #fb4934;
+  --gb-green: #b8bb26;
+  --gb-green-bright: #98971a;
+  --gb-yellow: #fabd2f;
+  --gb-yellow-bright: #d79921;
+  --gb-blue: #83a598;
+  --gb-purple: #d3869b;
+  --gb-aqua: #8ec07c;
+  --gb-orange: #fe8019;
+  --gb-gray: #504945;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--gb-bg-hard);
+  color: var(--gb-fg);
+  overflow: hidden;
+}
+
+#__nuxt {
+  height: 100vh;
+  width: 100vw;
+}

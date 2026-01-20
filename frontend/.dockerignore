@@ -1,0 +1,17 @@
+node_modules
+.nuxt
+.output
+.nitro
+.cache
+dist
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.vscode
+.idea
+
+# Exclude lock file - let Docker generate it for Linux platform
+package-lock.json
+npm-debug.log*

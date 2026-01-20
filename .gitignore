@@ -1,0 +1,50 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Test backups
+*_mongodb_manager/
+
+# MongoDB Manager config
+.mongodb-manager/
+
+# Environment files with credentials
+.env
+.env.local
+.env.*.local
+!.env.example
+.env.dev
+.env.prod
+
+# Frontend
+node_modules/
+.nuxt/
+.output/
+.cache/
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Docker volumes (if mounted locally)
+mongodb-data/
+backups/

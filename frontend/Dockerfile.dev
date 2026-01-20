@@ -1,0 +1,22 @@
+# Development Dockerfile for Frontend
+# Optimized for hot-reload with Nuxt
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies for development
+COPY package.json ./
+RUN npm install
+
+# The source code will be mounted as a volume, so we don't COPY it here
+
+# Set environment variables for development
+ENV NODE_ENV=development
+ENV HOST=0.0.0.0
+
+# Expose port (default 3000, can be overridden)
+EXPOSE 3000
+
+# Use Nuxt dev server with hot reload
+CMD ["npm", "run", "dev"]

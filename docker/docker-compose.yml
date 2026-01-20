@@ -1,0 +1,12 @@
+# MongoDB Manager - Default Docker Compose
+# This file points to the production configuration by default
+# 
+# For development, use: docker-compose -f docker-compose.dev.yml up
+# For production, use: docker-compose -f docker-compose.prod.yml up
+#
+# Or use the helper script:
+#   ./scripts/docker.sh [dev|prod] [up|down|build|logs]
+
+# Include production configuration by default
+include:
+  - docker-compose.prod.yml
