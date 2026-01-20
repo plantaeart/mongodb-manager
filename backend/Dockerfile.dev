@@ -23,8 +23,8 @@ RUN curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
 # Install uv for fast package management
 RUN pip install uv
 
-# Copy dependency files
-COPY pyproject.toml uv.lock* ./
+# Copy dependency files and minimal files needed for install
+COPY pyproject.toml uv.lock* README.md ./
 
 # Install dependencies (including dev dependencies)
 RUN uv pip install --system -e ".[dev]" || uv pip install --system -e .

@@ -31,7 +31,7 @@ services:
     build:
       context: ../backend
       dockerfile: Dockerfile
-    image: mongodb-manager-backend:latest
+    image: mongodb-manager-prod-backend:latest
     container_name: mongodb-manager-backend-prod
     restart: always
     ports:
@@ -83,7 +83,7 @@ services:
     build:
       context: ../frontend
       dockerfile: Dockerfile
-    image: mongodb-manager-frontend:latest
+    image: mongodb-manager-prod-frontend:latest
     container_name: mongodb-manager-frontend-prod
     restart: always
     ports:
