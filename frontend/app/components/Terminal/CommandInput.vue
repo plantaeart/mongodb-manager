@@ -79,15 +79,20 @@ const computedSuggestions = computed(() => {
   if (!currentCommand.value) return []
   
   const input = currentCommand.value.toLowerCase()
-  const matches: string[] = availableCommands.filter(cmd => 
-    cmd.toLowerCase().startsWith(input)
-  )
   
-  // Also include favorites that match
-  const favoriteMatches = props.favorites.filter(fav => 
-    fav.toLowerCase().startsWith(input) && 
-    !matches.includes(fav)
-  )
+  // Filter commands that start with input BUT exclude exact matches
+  const matches: string[] = availableCommands.filter(cmd => {
+    const cmdLower = cmd.toLowerCase()
+    return cmdLower.startsWith(input) && cmdLower !== input
+  })
+  
+  // Also include favorites that match (but not exact matches)
+  const favoriteMatches = props.favorites.filter(fav => {
+    const favLower = fav.toLowerCase()
+    return favLower.startsWith(input) && 
+           favLower !== input && 
+           !matches.includes(fav)
+  })
   
   return [...matches, ...favoriteMatches].slice(0, 5)
 })
@@ -117,6 +122,10 @@ const handleSubmit = async () => {
   currentCommand.value = ''
   historyIndex.value = -1
   showSuggestions.value = false
+  
+  // Keep input focused for next command
+  await nextTick()
+  inputField.value?.focus()
 }
 
 const navigateHistory = (direction: 'up' | 'down') => {
