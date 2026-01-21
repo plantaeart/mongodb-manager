@@ -49,6 +49,7 @@ services:
     environment:
       - TZ=${TZ:-UTC}
       - PYTHONUNBUFFERED=1
+      - NODE_ENV=${NODE_ENV:-production}
       # Internal MongoDB connection (for sessions and users)
       - MANAGER_DB_URI=mongodb://${MANAGER_DB_USERNAME}:${MANAGER_DB_PASSWORD}@manager-mongodb:27017/manager_app?authSource=admin
       # JWT Secret (MUST be set in production!)

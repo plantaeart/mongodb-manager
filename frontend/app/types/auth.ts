@@ -11,13 +11,16 @@ export interface LoginResponse {
 
 export interface LoginResult {
   success: boolean
+  username?: string
   needsPasswordChange?: boolean
   error?: string
+  message?: string
 }
 
 export interface PasswordChangeResult {
   success: boolean
   error?: string
+  message?: string
 }
 
 export interface PasswordChangeResponse {

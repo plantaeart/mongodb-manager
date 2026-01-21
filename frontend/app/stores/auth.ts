@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { setToken, getToken, removeToken, isTokenExpired, getTimeUntilExpiration, isRememberMeEnabled } from '~/utils/token'
 import type { LoginResult, PasswordChangeResult, LoginResponse, PasswordChangeResponse } from '~/types/auth'
+import { SessionTimeout } from '~/enums'
 
 interface AuthState {
   token: string | null
@@ -11,9 +12,6 @@ interface AuthState {
   refreshTimer: NodeJS.Timeout | null
   warningTimer: NodeJS.Timeout | null
 }
-
-const SESSION_WARNING_TIME = 5 * 60 * 1000 // 5 minutes before expiration
-const REFRESH_BUFFER_TIME = 2 * 60 * 1000 // 2 minutes before expiration
 
 export const useAuthStore = defineStore('auth', {
   state: (): AuthState => ({
@@ -89,22 +87,15 @@ export const useAuthStore = defineStore('auth', {
       }
 
       // Setup warning timer (5 minutes before expiration)
-      const warningTime = timeUntilExpiration - SESSION_WARNING_TIME
+      const warningTime = timeUntilExpiration - SessionTimeout.WARNING_TIME
       if (warningTime > 0) {
         this.warningTimer = setTimeout(() => {
           this.sessionTimeoutWarning = true
-          const toast = useToast()
-          toast.add({
-            title: 'Session Expiring Soon',
-            description: 'Your session will expire in 5 minutes. Please save your work.',
-            color: 'yellow',
-            timeout: 10000
-          })
         }, warningTime)
       }
 
       // Setup auto-refresh timer (2 minutes before expiration)
-      const refreshTime = timeUntilExpiration - REFRESH_BUFFER_TIME
+      const refreshTime = timeUntilExpiration - SessionTimeout.REFRESH_BUFFER
       if (refreshTime > 0) {
         this.refreshTimer = setTimeout(() => {
           this.refreshToken()
@@ -180,7 +171,6 @@ export const useAuthStore = defineStore('auth', {
       this.error = null
       
       const config = useRuntimeConfig()
-      const toast = useToast()
       
       try {
         const response = await fetch(`${config.public.apiUrl}/api/auth/login`, {
@@ -193,15 +183,10 @@ export const useAuthStore = defineStore('auth', {
 
         if (response.ok) {
           if (data.needs_password_change) {
-            toast.add({
-              title: 'Password Change Required',
-              description: 'You must change your password to continue',
-              color: 'yellow',
-              timeout: 5000
-            })
             return {
               success: true,
-              needsPasswordChange: true
+              needsPasswordChange: true,
+              message: 'You must change your password to continue'
             }
           }
           
@@ -213,38 +198,20 @@ export const useAuthStore = defineStore('auth', {
             // Setup automatic refresh
             this.setupTokenRefresh()
             
-            toast.add({
-              title: 'Login Successful',
-              description: `Welcome back, ${this.username}!`,
-              color: 'green',
-              timeout: 3000
-            })
-            
             return {
               success: true,
-              needsPasswordChange: false
+              needsPasswordChange: false,
+              message: `Welcome back, ${this.username}!`
             }
           }
           
           this.error = 'Invalid server response'
-          toast.add({
-            title: 'Login Failed',
-            description: 'Invalid server response',
-            color: 'red',
-            timeout: 5000
-          })
           return {
             success: false,
             error: 'Invalid server response'
           }
         } else {
           this.error = data.message || 'Login failed'
-          toast.add({
-            title: 'Login Failed',
-            description: data.message || 'Invalid credentials',
-            color: 'red',
-            timeout: 5000
-          })
           return {
             success: false,
             error: data.message || 'Login failed'
@@ -252,12 +219,6 @@ export const useAuthStore = defineStore('auth', {
         }
       } catch (error) {
         this.error = 'Network error'
-        toast.add({
-          title: 'Network Error',
-          description: 'Unable to connect to the server',
-          color: 'red',
-          timeout: 5000
-        })
         return {
           success: false,
           error: 'Network error'
@@ -275,7 +236,6 @@ export const useAuthStore = defineStore('auth', {
       this.error = null
       
       const config = useRuntimeConfig()
-      const toast = useToast()
       
       try {
         const response = await fetch(`${config.public.apiUrl}/api/auth/first-time-password-change`, {
@@ -298,22 +258,12 @@ export const useAuthStore = defineStore('auth', {
           // Setup automatic refresh
           this.setupTokenRefresh()
           
-          toast.add({
-            title: 'Password Changed',
-            description: 'Your password has been updated successfully',
-            color: 'green',
-            timeout: 3000
-          })
-          
-          return { success: true }
+          return { 
+            success: true,
+            message: 'Your password has been updated successfully'
+          }
         } else {
           this.error = data.message || 'Password change failed'
-          toast.add({
-            title: 'Password Change Failed',
-            description: data.message || 'Unable to change password',
-            color: 'red',
-            timeout: 5000
-          })
           return {
             success: false,
             error: data.message || 'Password change failed'
@@ -321,12 +271,6 @@ export const useAuthStore = defineStore('auth', {
         }
       } catch (error) {
         this.error = 'Network error'
-        toast.add({
-          title: 'Network Error',
-          description: 'Unable to connect to the server',
-          color: 'red',
-          timeout: 5000
-        })
         return {
           success: false,
           error: 'Network error'
@@ -341,7 +285,6 @@ export const useAuthStore = defineStore('auth', {
      */
     async logout() {
       const config = useRuntimeConfig()
-      const toast = useToast()
       
       try {
         if (this.token) {
@@ -361,13 +304,6 @@ export const useAuthStore = defineStore('auth', {
         this.error = null
         this.sessionTimeoutWarning = false
         removeToken()
-        
-        toast.add({
-          title: 'Logged Out',
-          description: 'You have been logged out successfully',
-          color: 'gray',
-          timeout: 3000
-        })
       }
     },
 

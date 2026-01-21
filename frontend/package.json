@@ -21,6 +21,8 @@
   },
   "devDependencies": {
     "@nuxt/devtools": "latest",
-    "typescript": "^5.7.2"
+    "@types/node": "^25.0.9",
+    "typescript": "^5.9.3",
+    "vue-tsc": "^3.2.2"
   }
 }

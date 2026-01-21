@@ -50,6 +50,7 @@ services:
       - TZ=Europe/Paris
       - PYTHONUNBUFFERED=1
       - WATCHFILES_FORCE_POLLING=true
+      - NODE_ENV=${NODE_ENV:-development}
       # Internal MongoDB connection (for sessions and users)
       - MANAGER_DB_URI=mongodb://${MANAGER_DB_USERNAME:-manager_admin}:${MANAGER_DB_PASSWORD:-changeme123}@manager-mongodb:27017/manager_app?authSource=admin
       # JWT Secret

@@ -25,30 +25,96 @@
     <div class="terminal-content">
       <!-- Terminal section -->
       <div class="terminal-section" :class="{ 'with-panel': showPanel }">
-        <TerminalOutput />
-        <CommandInput />
+        <TerminalOutput 
+          :history="terminalHistory"
+          :auto-scroll="true"
+        />
+        <CommandInput 
+          :is-executing="isExecuting"
+          :favorites="favorites"
+          :suggestions="availableCommands"
+          @execute-command="handleExecuteCommand"
+        />
       </div>
 
       <!-- Visual panel (optional) -->
       <transition name="slide">
         <div v-if="showPanel" class="panel-section">
-          <VisualPanel @close="togglePanel" />
+          <VisualPanel 
+            :favorites="favorites"
+            :quick-commands="quickCommands"
+            :common-commands="commonCommands"
+            @execute-command="handleExecuteCommand"
+            @close="togglePanel"
+          />
         </div>
       </transition>
     </div>
 
     <!-- Status bar -->
-    <StatusBar />
+    <StatusBar 
+      :is-connected="wsConnected"
+      :username="currentUser"
+      @logout="handleLogout"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
+import { TerminalCommand, ButtonColor } from '~/enums'
 import TerminalOutput from './TerminalOutput.vue'
 import CommandInput from './CommandInput.vue'
 import StatusBar from './StatusBar.vue'
 import VisualPanel from '../Panel/VisualPanel.vue'
 
+// Access services at orchestrator level
+const { commandHistory, isExecuting, favorites, executeCommand } = useTerminal()
+const { isConnected } = useWebSocket()
+const authStore = useAuthStore()
+
 const showPanel = ref(false)
+
+// Computed values to pass as props
+const wsConnected = computed(() => isConnected.value)
+const currentUser = computed(() => authStore.getUsername)
+// Deep copy to remove readonly constraints from nested arrays
+const terminalHistory = computed(() => 
+  commandHistory.value.map(entry => ({
+    ...entry,
+    output: [...entry.output]
+  }))
+)
+
+// Available commands for autocomplete
+const availableCommands = Object.values(TerminalCommand)
+
+// Quick commands configuration
+const quickCommands = [
+  { command: TerminalCommand.CONNECT_LIST, label: 'Connections', icon: '🔗', color: ButtonColor.GREEN },
+  { command: TerminalCommand.BACKUP_LIST, label: 'Backups', icon: '💾', color: ButtonColor.BLUE },
+  { command: TerminalCommand.DB_LIST, label: 'Databases', icon: '📊', color: ButtonColor.PURPLE },
+  { command: TerminalCommand.HELP, label: 'Help', icon: '❓', color: ButtonColor.YELLOW }
+]
+
+// Common commands reference
+const commonCommands = [
+  { command: TerminalCommand.CONNECT_LIST, description: 'List all MongoDB connections' },
+  { command: TerminalCommand.CONNECT_ADD, description: 'Add a new connection' },
+  { command: TerminalCommand.BACKUP_CREATE, description: 'Create a backup' },
+  { command: TerminalCommand.BACKUP_LIST, description: 'List all backups' },
+  { command: TerminalCommand.DB_LIST, description: 'List all databases' },
+  { command: TerminalCommand.CLEAR, description: 'Clear terminal output' }
+]
+
+// Event handlers
+const handleExecuteCommand = async (command: string) => {
+  await executeCommand(command)
+}
+
+const handleLogout = async () => {
+  await authStore.logout()
+  window.location.reload()
+}
 
 const togglePanel = () => {
   showPanel.value = !showPanel.value

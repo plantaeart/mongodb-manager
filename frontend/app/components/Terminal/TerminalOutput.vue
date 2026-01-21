@@ -1,15 +1,15 @@
 <template>
   <div ref="outputContainer" class="terminal-output">
-    <div v-if="commandHistory.length === 0" class="welcome-message">
+    <div v-if="history.length === 0" class="welcome-message">
       <p class="text-gb-green">Welcome to MongoDB Manager</p>
       <p class="text-gb-fg-dim">Type 'help' to see available commands</p>
     </div>
 
     <div
-      v-for="entry in commandHistory"
+      v-for="entry in history"
       :key="entry.id"
       class="terminal-entry"
-      :class="{ 'entry-error': entry.status === 'error' }"
+      :class="{ 'entry-error': entry.status === CommandStatus.ERROR }"
     >
       <!-- Command prompt -->
       <div class="command-line">
@@ -39,7 +39,7 @@
       </div>
 
       <!-- Status indicator -->
-      <div v-if="entry.status === 'running'" class="status-indicator">
+      <div v-if="entry.status === CommandStatus.RUNNING" class="status-indicator">
         <span class="spinner"></span>
         <span class="text-gb-blue">Running...</span>
       </div>
@@ -48,37 +48,50 @@
 </template>
 
 <script setup lang="ts">
-const { commandHistory } = useTerminal()
+import { CommandStatus, OutputLinePattern } from '~/enums'
+import type { TerminalEntry } from '~/types/terminal'
+
+interface Props {
+  history: TerminalEntry[]
+  autoScroll?: boolean
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  autoScroll: true
+})
+
 const outputContainer = ref<HTMLElement | null>(null)
 
 // Auto-scroll to bottom when new output arrives
 watch(
-  () => commandHistory.value,
+  () => props.history,
   () => {
-    nextTick(() => {
-      if (outputContainer.value) {
-        outputContainer.value.scrollTop = outputContainer.value.scrollHeight
-      }
-    })
+    if (props.autoScroll) {
+      nextTick(() => {
+        if (outputContainer.value) {
+          outputContainer.value.scrollTop = outputContainer.value.scrollHeight
+        }
+      })
+    }
   },
   { deep: true }
 )
 
 // Helper functions for syntax highlighting
 const isSuccessLine = (line: string): boolean => {
-  return /^(✓|✔|SUCCESS|Created|Added|Completed|Connected)/i.test(line)
+  return new RegExp(OutputLinePattern.SUCCESS, 'i').test(line)
 }
 
 const isErrorLine = (line: string): boolean => {
-  return /^(✗|✘|ERROR|Failed|Error:|Exception)/i.test(line)
+  return new RegExp(OutputLinePattern.ERROR, 'i').test(line)
 }
 
 const isWarningLine = (line: string): boolean => {
-  return /^(⚠|WARNING|Warning:|Note:)/i.test(line)
+  return new RegExp(OutputLinePattern.WARNING, 'i').test(line)
 }
 
 const isInfoLine = (line: string): boolean => {
-  return /^(ℹ|INFO|→|•)/i.test(line)
+  return new RegExp(OutputLinePattern.INFO, 'i').test(line)
 }
 </script>
 

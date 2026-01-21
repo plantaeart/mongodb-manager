@@ -75,32 +75,51 @@
 </template>
 
 <script setup lang="ts">
-const { executeCommand, favorites } = useTerminal()
+import { TerminalCommand, ButtonColor } from '~/enums'
+
+interface QuickCommand {
+  command: string
+  label: string
+  icon: string
+  color: ButtonColor
+}
+
+interface CommonCommand {
+  command: string
+  description: string
+}
+
+interface Props {
+  favorites?: string[]
+  quickCommands?: QuickCommand[]
+  commonCommands?: CommonCommand[]
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  favorites: () => [],
+  quickCommands: () => [
+    { command: TerminalCommand.CONNECT_LIST, label: 'Connections', icon: '🔗', color: ButtonColor.GREEN },
+    { command: TerminalCommand.BACKUP_LIST, label: 'Backups', icon: '💾', color: ButtonColor.BLUE },
+    { command: TerminalCommand.DB_LIST, label: 'Databases', icon: '📊', color: ButtonColor.PURPLE },
+    { command: TerminalCommand.HELP, label: 'Help', icon: '❓', color: ButtonColor.YELLOW }
+  ],
+  commonCommands: () => [
+    { command: TerminalCommand.CONNECT_LIST, description: 'List all MongoDB connections' },
+    { command: TerminalCommand.CONNECT_ADD, description: 'Add a new connection' },
+    { command: TerminalCommand.BACKUP_CREATE, description: 'Create a backup' },
+    { command: TerminalCommand.BACKUP_LIST, description: 'List all backups' },
+    { command: TerminalCommand.DB_LIST, description: 'List all databases' },
+    { command: TerminalCommand.CLEAR, description: 'Clear terminal output' }
+  ]
+})
 
 const emit = defineEmits<{
+  executeCommand: [command: string]
   close: []
 }>()
 
-// Quick action buttons
-const quickCommands = [
-  { command: 'connect list', label: 'Connections', icon: '🔗', color: 'green' },
-  { command: 'backup list', label: 'Backups', icon: '💾', color: 'blue' },
-  { command: 'db list', label: 'Databases', icon: '📊', color: 'purple' },
-  { command: 'help', label: 'Help', icon: '❓', color: 'yellow' }
-]
-
-// Common commands reference
-const commonCommands = [
-  { command: 'connect list', description: 'List all MongoDB connections' },
-  { command: 'connect add', description: 'Add a new connection' },
-  { command: 'backup create', description: 'Create a backup' },
-  { command: 'backup list', description: 'List all backups' },
-  { command: 'db list', description: 'List all databases' },
-  { command: 'clear', description: 'Clear terminal output' }
-]
-
-const runCommand = async (command: string) => {
-  await executeCommand(command)
+const runCommand = (command: string) => {
+  emit('executeCommand', command)
 }
 </script>
 

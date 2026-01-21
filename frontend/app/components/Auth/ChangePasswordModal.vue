@@ -15,7 +15,7 @@
             type="password"
             placeholder="Enter current password"
             class="terminal-input w-full"
-            :disabled="authStore.isLoading"
+            :disabled="isLoading"
           />
         </div>
 
@@ -27,7 +27,7 @@
             type="password"
             placeholder="Enter new password (min 8 chars)"
             class="terminal-input w-full"
-            :disabled="authStore.isLoading"
+            :disabled="isLoading"
           />
         </div>
 
@@ -39,7 +39,7 @@
             type="password"
             placeholder="Confirm new password"
             class="terminal-input w-full"
-            :disabled="authStore.isLoading"
+            :disabled="isLoading"
           />
         </div>
 
@@ -55,9 +55,9 @@
           <button 
             type="submit" 
             class="terminal-button"
-            :disabled="authStore.isLoading || !isFormValid"
+            :disabled="isLoading || !isFormValid"
           >
-            {{ authStore.isLoading ? 'Changing...' : 'Change Password' }}
+            {{ isLoading ? 'Changing...' : 'Change Password' }}
           </button>
         </div>
       </form>
@@ -77,18 +77,32 @@
 </template>
 
 <script setup lang="ts">
-const authStore = useAuthStore()
+import { ToastColor, ToastDuration } from '~/enums'
+import type { PasswordChangeResult } from '~/types/auth'
+
+interface Props {
+  isLoading?: boolean
+  showToasts?: boolean
+  onChangePassword?: (oldPassword: string, newPassword: string) => Promise<PasswordChangeResult>
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  isLoading: false,
+  showToasts: true
+})
+
+const emit = defineEmits<{
+  success: []
+  cancel: []
+  error: [error: string]
+}>()
 
 const oldPassword = ref('')
 const newPassword = ref('')
 const confirmPassword = ref('')
 const validationError = ref('')
 const success = ref(false)
-
-const emit = defineEmits<{
-  success: []
-  cancel: []
-}>()
+const toast = useToast()
 
 const isFormValid = computed(() => {
   return (
@@ -115,19 +129,54 @@ watch([newPassword, confirmPassword], () => {
 const handleChangePassword = async () => {
   validationError.value = ''
 
+  if (!props.onChangePassword) {
+    console.warn('[ChangePasswordModal] No onChangePassword callback provided')
+    return
+  }
+
   try {
-    const result = await authStore.changePassword(oldPassword.value, newPassword.value)
+    const result = await props.onChangePassword(oldPassword.value, newPassword.value)
     
     if (result.success) {
       success.value = true
+      
+      if (props.showToasts) {
+        toast.add({
+          title: 'Password Changed',
+          description: result.message || 'Your password has been updated successfully',
+          color: ToastColor.SUCCESS,
+          duration: ToastDuration.SHORT
+        })
+      }
       
       // Close modal after brief delay
       setTimeout(() => {
         emit('success')
       }, 800)
+    } else {
+      emit('error', result.error || 'Unable to change password')
+      
+      if (props.showToasts) {
+        toast.add({
+          title: 'Password Change Failed',
+          description: result.error || 'Unable to change password',
+          color: ToastColor.ERROR,
+          duration: ToastDuration.MEDIUM
+        })
+      }
     }
   } catch (err) {
-    // Error handling is done in the store with toast notifications
+    const errorMsg = err instanceof Error ? err.message : 'An unexpected error occurred'
+    emit('error', errorMsg)
+    
+    if (props.showToasts) {
+      toast.add({
+        title: 'Error',
+        description: errorMsg,
+        color: ToastColor.ERROR,
+        duration: ToastDuration.MEDIUM
+      })
+    }
   }
 }
 </script>

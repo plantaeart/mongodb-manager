@@ -15,7 +15,7 @@
             type="password"
             placeholder="Enter password"
             class="terminal-input w-full"
-            :disabled="authStore.isLoading"
+            :disabled="isLoading"
             autofocus
           />
         </div>
@@ -26,7 +26,7 @@
               type="checkbox"
               v-model="rememberMe"
               class="checkbox-input"
-              :disabled="authStore.isLoading"
+              :disabled="isLoading"
             />
             <span class="checkbox-text">Remember me</span>
           </label>
@@ -35,9 +35,9 @@
         <button 
           type="submit" 
           class="terminal-button w-full"
-          :disabled="authStore.isLoading || !password"
+          :disabled="isLoading || !password"
         >
-          {{ authStore.isLoading ? 'Logging in...' : 'Login' }}
+          {{ isLoading ? 'Logging in...' : 'Login' }}
         </button>
 
         <div v-if="needsPasswordChange" class="warning-message">
@@ -55,29 +55,91 @@
 </template>
 
 <script setup lang="ts">
-const authStore = useAuthStore()
-const password = ref('')
-const rememberMe = ref(false)
-const needsPasswordChange = ref(false)
+import { ToastColor, ToastDuration } from '~/enums'
+import type { LoginResult } from '~/types/auth'
+
+interface Props {
+  isLoading?: boolean
+  showToasts?: boolean
+  onLogin?: (password: string, rememberMe: boolean) => Promise<LoginResult>
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  isLoading: false,
+  showToasts: true
+})
 
 const emit = defineEmits<{
   needsPasswordChange: []
+  loginSuccess: [username: string]
+  loginError: [error: string]
 }>()
+
+const password = ref('')
+const rememberMe = ref(false)
+const needsPasswordChange = ref(false)
+const toast = useToast()
 
 const handleLogin = async () => {
   needsPasswordChange.value = false
 
+  if (!props.onLogin) {
+    console.warn('[LoginModal] No onLogin callback provided')
+    return
+  }
+
   try {
-    const result = await authStore.login(password.value, rememberMe.value)
+    const result = await props.onLogin(password.value, rememberMe.value)
     
     if (result.success) {
       if (result.needsPasswordChange) {
         needsPasswordChange.value = true
         emit('needsPasswordChange')
+        
+        if (props.showToasts) {
+          toast.add({
+            title: 'Password Change Required',
+            description: result.message || 'You must change your password to continue',
+            color: ToastColor.WARNING,
+            duration: ToastDuration.MEDIUM
+          })
+        }
+      } else {
+        emit('loginSuccess', result.username || 'admin')
+        
+        if (props.showToasts) {
+          toast.add({
+            title: 'Login Successful',
+            description: result.message || 'Welcome back!',
+            color: ToastColor.SUCCESS,
+            duration: ToastDuration.SHORT
+          })
+        }
+      }
+    } else {
+      emit('loginError', result.error || 'Invalid credentials')
+      
+      if (props.showToasts) {
+        toast.add({
+          title: 'Login Failed',
+          description: result.error || 'Invalid credentials',
+          color: ToastColor.ERROR,
+          duration: ToastDuration.MEDIUM
+        })
       }
     }
   } catch (err) {
-    // Error handling is done in the store with toast notifications
+    const errorMsg = err instanceof Error ? err.message : 'An unexpected error occurred'
+    emit('loginError', errorMsg)
+    
+    if (props.showToasts) {
+      toast.add({
+        title: 'Error',
+        description: errorMsg,
+        color: ToastColor.ERROR,
+        duration: ToastDuration.MEDIUM
+      })
+    }
   }
 }
 </script>

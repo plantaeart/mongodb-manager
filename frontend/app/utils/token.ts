@@ -2,17 +2,16 @@
  * Centralized token management utilities
  */
 
-const TOKEN_KEY = 'auth_token'
-const REMEMBER_ME_KEY = 'auth_remember_me'
+import { StorageKey } from '~/enums'
 
 export function setToken(token: string, rememberMe: boolean = false): void {
   if (import.meta.client) {
     if (rememberMe) {
-      localStorage.setItem(TOKEN_KEY, token)
-      localStorage.setItem(REMEMBER_ME_KEY, 'true')
+      localStorage.setItem(StorageKey.AUTH_TOKEN, token)
+      localStorage.setItem(StorageKey.AUTH_REMEMBER_ME, 'true')
     } else {
-      sessionStorage.setItem(TOKEN_KEY, token)
-      localStorage.removeItem(REMEMBER_ME_KEY)
+      sessionStorage.setItem(StorageKey.AUTH_TOKEN, token)
+      localStorage.removeItem(StorageKey.AUTH_REMEMBER_ME)
     }
   }
 }
@@ -20,11 +19,11 @@ export function setToken(token: string, rememberMe: boolean = false): void {
 export function getToken(): string | null {
   if (import.meta.client) {
     // Check localStorage first (remember me)
-    const localToken = localStorage.getItem(TOKEN_KEY)
+    const localToken = localStorage.getItem(StorageKey.AUTH_TOKEN)
     if (localToken) return localToken
     
     // Fall back to sessionStorage (current session only)
-    const sessionToken = sessionStorage.getItem(TOKEN_KEY)
+    const sessionToken = sessionStorage.getItem(StorageKey.AUTH_TOKEN)
     if (sessionToken) return sessionToken
   }
   return null
@@ -32,15 +31,15 @@ export function getToken(): string | null {
 
 export function removeToken(): void {
   if (import.meta.client) {
-    localStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(REMEMBER_ME_KEY)
-    sessionStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(StorageKey.AUTH_TOKEN)
+    localStorage.removeItem(StorageKey.AUTH_REMEMBER_ME)
+    sessionStorage.removeItem(StorageKey.AUTH_TOKEN)
   }
 }
 
 export function isRememberMeEnabled(): boolean {
   if (import.meta.client) {
-    return localStorage.getItem(REMEMBER_ME_KEY) === 'true'
+    return localStorage.getItem(StorageKey.AUTH_REMEMBER_ME) === 'true'
   }
   return false
 }
@@ -49,7 +48,7 @@ export function isTokenExpired(token: string): boolean {
   try {
     // JWT format: header.payload.signature
     const parts = token.split('.')
-    if (parts.length !== 3) return true
+    if (parts.length !== 3 || !parts[1]) return true
     
     // Decode payload (base64url)
     const payload = JSON.parse(atob(parts[1]))
@@ -70,7 +69,7 @@ export function isTokenExpired(token: string): boolean {
 export function getTokenExpirationTime(token: string): number | null {
   try {
     const parts = token.split('.')
-    if (parts.length !== 3) return null
+    if (parts.length !== 3 || !parts[1]) return null
     
     const payload = JSON.parse(atob(parts[1]))
     

@@ -1,130 +1,180 @@
 import type { WebSocketMessage, CommandExecuteRequest } from '~/types/terminal'
+import { WebSocketMessageType } from '~/enums'
 
-export const useWebSocket = () => {
-  const config = useRuntimeConfig()
-  const authStore = useAuthStore()
-  
-  const socket = ref<WebSocket | null>(null)
-  const isConnected = ref(false)
-  const messageHandlers = ref<Array<(msg: WebSocketMessage) => void>>([])
-  const reconnectAttempts = ref(0)
-  const maxReconnectAttempts = 5
+/**
+ * WebSocket Service - True Singleton
+ * Manages a single WebSocket connection for the entire application
+ */
+class WebSocketService {
+  private socket: WebSocket | null = null
+  private _isConnected = ref(false)
+  private messageHandlers: Array<(msg: WebSocketMessage) => void> = []
+  private reconnectAttempts = 0
+  private maxReconnectAttempts = 5
+  private wsUrl: string = ''
+  private token: string = ''
+  private isConnecting = false
 
-  const connect = () => {
-    if (!authStore.isAuthenticated || !authStore.token) {
-      console.warn('Cannot connect WebSocket: not authenticated')
+  constructor() {
+    // Service initialized
+  }
+
+  get isConnected() {
+    return readonly(this._isConnected)
+  }
+
+  connect(token: string, wsUrl: string) {
+    if (!token) {
+      console.warn('[WebSocketService] Cannot connect: no token provided')
       return
     }
 
-    if (socket.value?.readyState === WebSocket.OPEN) {
-      console.log('WebSocket already connected')
+    // Prevent multiple simultaneous connection attempts
+    if (this.isConnecting) {
       return
     }
 
-    const wsUrl = `${config.public.wsUrl}/ws/terminal?token=${authStore.token}`
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      return
+    }
+
+    // Close existing connection if any
+    if (this.socket) {
+      this.socket.close()
+      this.socket = null
+    }
+
+    this.token = token
+    this.wsUrl = wsUrl
+    this.isConnecting = true
+
+    const url = `${wsUrl}/ws/terminal?token=${token}`
     
     try {
-      socket.value = new WebSocket(wsUrl)
+      this.socket = new WebSocket(url)
 
-      socket.value.onopen = () => {
-        console.log('WebSocket connected')
-        isConnected.value = true
-        reconnectAttempts.value = 0
+      this.socket.onopen = () => {
+        this._isConnected.value = true
+        this.reconnectAttempts = 0
+        this.isConnecting = false
       }
 
-      socket.value.onmessage = (event) => {
+      this.socket.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data)
-          messageHandlers.value.forEach(handler => handler(message))
+          
+          // Notify all registered handlers
+          this.messageHandlers.forEach(handler => {
+            try {
+              handler(message)
+            } catch (error) {
+              console.error('[WebSocketService] Error in message handler:', error)
+            }
+          })
         } catch (error) {
-          console.error('Failed to parse WebSocket message:', error)
+          console.error('[WebSocketService] Failed to parse WebSocket message:', error)
         }
       }
 
-      socket.value.onclose = () => {
-        console.log('WebSocket disconnected')
-        isConnected.value = false
-        socket.value = null
+      this.socket.onclose = (event) => {
+        this._isConnected.value = false
+        this.socket = null
+        this.isConnecting = false
 
-        // Attempt to reconnect
-        if (reconnectAttempts.value < maxReconnectAttempts && authStore.isAuthenticated) {
-          reconnectAttempts.value++
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.value), 30000)
-          console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts.value})`)
-          setTimeout(connect, delay)
+        // Attempt to reconnect if we have auth token
+        if (this.reconnectAttempts < this.maxReconnectAttempts && this.token) {
+          this.reconnectAttempts++
+          const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000)
+          setTimeout(() => this.connect(this.token, this.wsUrl), delay)
         }
       }
 
-      socket.value.onerror = (error) => {
-        console.error('WebSocket error:', error)
+      this.socket.onerror = (error) => {
+        console.error('[WebSocketService] WebSocket error:', error)
+        this.isConnecting = false
       }
     } catch (error) {
-      console.error('Failed to create WebSocket:', error)
+      console.error('[WebSocketService] Failed to create WebSocket:', error)
+      this.isConnecting = false
     }
   }
 
-  const disconnect = () => {
-    if (socket.value) {
-      socket.value.close()
-      socket.value = null
+  disconnect() {
+    if (this.socket) {
+      this.socket.close()
+      this.socket = null
     }
-    isConnected.value = false
-    reconnectAttempts.value = maxReconnectAttempts // Prevent auto-reconnect
+    
+    this._isConnected.value = false
+    this.reconnectAttempts = this.maxReconnectAttempts // Prevent auto-reconnect
+    this.token = ''
+    this.isConnecting = false
   }
 
-  const sendCommand = (command: string) => {
-    if (!socket.value || socket.value.readyState !== WebSocket.OPEN) {
-      console.error('WebSocket not connected')
+  sendCommand(command: string): boolean {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      console.error('[WebSocketService] Cannot send command: WebSocket not connected')
       return false
     }
 
     const message: CommandExecuteRequest = {
-      type: 'execute',
+      type: WebSocketMessageType.EXECUTE,
       command
     }
 
-    socket.value.send(JSON.stringify(message))
-    return true
+    try {
+      this.socket.send(JSON.stringify(message))
+      return true
+    } catch (error) {
+      console.error('[WebSocketService] Failed to send command:', error)
+      return false
+    }
   }
 
-  const onMessage = (handler: (msg: WebSocketMessage) => void) => {
-    messageHandlers.value.push(handler)
+  onMessage(handler: (msg: WebSocketMessage) => void): () => void {
+    this.messageHandlers.push(handler)
     
     // Return cleanup function
     return () => {
-      const index = messageHandlers.value.indexOf(handler)
+      const index = this.messageHandlers.indexOf(handler)
       if (index > -1) {
-        messageHandlers.value.splice(index, 1)
+        this.messageHandlers.splice(index, 1)
       }
     }
   }
+}
 
-  // Auto-connect when authenticated
+// Create single instance
+const wsService = new WebSocketService()
+
+/**
+ * WebSocket Composable
+ * Sets up authentication-based connection management
+ */
+export const useWebSocket = () => {
+  const config = useRuntimeConfig()
+  const authStore = useAuthStore()
+
+  // Watch auth state and connect/disconnect accordingly
+  // This runs for every component that calls useWebSocket, but affects the same service instance
   watch(() => authStore.isAuthenticated, (authenticated) => {
-    if (authenticated) {
-      connect()
+    if (authenticated && authStore.token) {
+      wsService.connect(authStore.token, config.public.wsUrl)
     } else {
-      disconnect()
+      wsService.disconnect()
     }
-  })
+  }, { immediate: true })
 
-  // Connect on mount if already authenticated
-  onMounted(() => {
-    if (authStore.isAuthenticated) {
-      connect()
-    }
-  })
-
-  // Disconnect on unmount
-  onUnmounted(() => {
-    disconnect()
-  })
-
+  // Return the service methods
   return {
-    isConnected: readonly(isConnected),
-    sendCommand,
-    onMessage,
-    connect,
-    disconnect
+    isConnected: wsService.isConnected,
+    sendCommand: (command: string) => wsService.sendCommand(command),
+    onMessage: (handler: (msg: WebSocketMessage) => void) => wsService.onMessage(handler),
+    connect: () => {
+      if (authStore.token) {
+        wsService.connect(authStore.token, config.public.wsUrl)
+      }
+    },
+    disconnect: () => wsService.disconnect()
   }
 }

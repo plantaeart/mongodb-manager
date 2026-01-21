@@ -1,5 +1,6 @@
 """Authentication API endpoints"""
 
+import os
 from fastapi import APIRouter, HTTPException, Depends
 from app.models.auth import (
     LoginRequest,
@@ -24,6 +25,7 @@ def login(request: LoginRequest):
     
     Returns JWT token on successful authentication.
     If using default password, requires password change before granting access.
+    In development mode (NODE_ENV=development), skip password change requirement.
     """
     username = AuthManager.DEFAULT_USERNAME
     
@@ -31,8 +33,12 @@ def login(request: LoginRequest):
     if not auth_manager.verify_password(request.password, username):
         raise HTTPException(status_code=401, detail="Invalid password")
     
-    # Check if using default password
-    if auth_manager.is_default_password(username):
+    # Check if we're in development mode
+    node_env = os.getenv("NODE_ENV", "production").lower()
+    is_development = node_env == "development"
+    
+    # Check if using default password (skip in development)
+    if auth_manager.is_default_password(username) and not is_development:
         return LoginResponse(
             access_token="",
             username=username,

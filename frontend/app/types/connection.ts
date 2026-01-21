@@ -1,7 +1,9 @@
+import { MongoConnectionStatus } from '~/enums'
+
 export interface Connection {
   name: string
   uri: string
-  status?: 'connected' | 'disconnected'
+  status?: MongoConnectionStatus
   created_at?: string
 }
 

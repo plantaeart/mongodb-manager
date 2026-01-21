@@ -14,37 +14,81 @@
 
     <!-- Show password change modal when needed -->
     <ChangePasswordModal 
-      v-if="showPasswordChange" 
+      v-if="showPasswordChange"
+      :is-loading="authStore.isLoading"
+      :on-change-password="handleChangePassword"
       @success="handlePasswordChangeSuccess"
+      @error="handlePasswordChangeError"
     />
 
     <!-- Show login modal when not authenticated -->
     <LoginModal 
-      v-if="!authStore.isAuthenticated" 
-      @needsPasswordChange="handleNeedsPasswordChange"
+      v-if="!authStore.isAuthenticated"
+      :is-loading="authStore.isLoading"
+      :on-login="handleLogin"
+      @needs-password-change="handleNeedsPasswordChange"
+      @login-success="handleLoginSuccess"
+      @login-error="handleLoginError"
     />
   </div>
 </template>
 
 <script setup lang="ts">
+import { ToastColor, ToastDuration } from '~/enums'
+import type { LoginResult, PasswordChangeResult } from '~/types/auth'
 import TerminalWindow from '~/components/Terminal/TerminalWindow.vue'
 import LoginModal from '~/components/Auth/LoginModal.vue'
 import ChangePasswordModal from '~/components/Auth/ChangePasswordModal.vue'
 
 const authStore = useAuthStore()
 const showPasswordChange = ref(false)
+const toast = useToast()
 
+// Handler functions that bridge components to store
+const handleLogin = async (password: string, rememberMe: boolean): Promise<LoginResult> => {
+  return await authStore.login(password, rememberMe)
+}
+
+const handleChangePassword = async (oldPassword: string, newPassword: string): Promise<PasswordChangeResult> => {
+  return await authStore.changePassword(oldPassword, newPassword)
+}
+
+// Event handlers
 const handleNeedsPasswordChange = () => {
   showPasswordChange.value = true
+}
+
+const handleLoginSuccess = (username: string) => {
+  // Already handled by LoginModal toast
+}
+
+const handleLoginError = (error: string) => {
+  // Already handled by LoginModal toast
 }
 
 const handlePasswordChangeSuccess = () => {
   showPasswordChange.value = false
 }
 
+const handlePasswordChangeError = (error: string) => {
+  // Already handled by ChangePasswordModal toast
+}
+
 // Load token from storage when app mounts
 onMounted(() => {
   authStore.loadTokenFromStorage()
+})
+
+// Watch for session warnings and show toast
+watch(() => authStore.hasSessionWarning, (hasWarning) => {
+  if (hasWarning) {
+    toast.add({
+      title: 'Session Expiring Soon',
+      description: 'Your session will expire in 5 minutes. Please save your work.',
+      color: ToastColor.WARNING,
+      duration: ToastDuration.LONG
+    })
+  }
 })
 </script>
 

@@ -17,7 +17,7 @@
         type="text"
         class="command-input"
         placeholder="Type a command..."
-        :disabled="isExecuting"
+        :disabled="isExecuting || disabled"
         @keydown.enter="handleSubmit"
         @keydown.up.prevent="navigateHistory('up')"
         @keydown.down.prevent="navigateHistory('down')"
@@ -26,9 +26,9 @@
     </div>
 
     <!-- Autocomplete suggestions -->
-    <div v-if="showSuggestions && suggestions.length > 0" class="suggestions-dropdown">
+    <div v-if="showSuggestions && computedSuggestions.length > 0" class="suggestions-dropdown">
       <div
-        v-for="(suggestion, index) in suggestions"
+        v-for="(suggestion, index) in computedSuggestions"
         :key="index"
         class="suggestion-item"
         :class="{ active: index === selectedSuggestionIndex }"
@@ -41,7 +41,26 @@
 </template>
 
 <script setup lang="ts">
-const { executeCommand, isExecuting, favorites } = useTerminal()
+import { TerminalCommand } from '~/enums'
+
+interface Props {
+  isExecuting?: boolean
+  favorites?: string[]
+  suggestions?: string[]
+  disabled?: boolean
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  isExecuting: false,
+  favorites: () => [],
+  suggestions: () => Object.values(TerminalCommand),
+  disabled: false
+})
+
+const emit = defineEmits<{
+  executeCommand: [command: string]
+  toggleFavorite: [command: string]
+}>()
 
 const inputField = ref<HTMLInputElement | null>(null)
 const currentCommand = ref('')
@@ -51,35 +70,19 @@ const showSuggestions = ref(false)
 const selectedSuggestionIndex = ref(0)
 
 // Available commands for autocomplete
-const availableCommands = [
-  'help',
-  'clear',
-  'connect list',
-  'connect add',
-  'connect remove',
-  'connect test',
-  'backup create',
-  'backup list',
-  'backup restore',
-  'backup delete',
-  'db list',
-  'db switch',
-  'collection list',
-  'auth change-password',
-  'auth logout'
-]
+const availableCommands = props.suggestions
 
 // Compute suggestions based on current input
-const suggestions = computed(() => {
+const computedSuggestions = computed(() => {
   if (!currentCommand.value) return []
   
   const input = currentCommand.value.toLowerCase()
-  const matches = availableCommands.filter(cmd => 
+  const matches: string[] = availableCommands.filter(cmd => 
     cmd.toLowerCase().startsWith(input)
   )
   
   // Also include favorites that match
-  const favoriteMatches = favorites.value.filter(fav => 
+  const favoriteMatches = props.favorites.filter(fav => 
     fav.toLowerCase().startsWith(input) && 
     !matches.includes(fav)
   )
@@ -89,12 +92,12 @@ const suggestions = computed(() => {
 
 // Watch command input to show/hide suggestions
 watch(currentCommand, (value) => {
-  showSuggestions.value = value.length > 0 && suggestions.value.length > 0
+  showSuggestions.value = value.length > 0 && computedSuggestions.value.length > 0
   selectedSuggestionIndex.value = 0
 })
 
 const handleSubmit = async () => {
-  if (!currentCommand.value.trim() || isExecuting.value) return
+  if (!currentCommand.value.trim() || props.isExecuting || props.disabled) return
 
   const command = currentCommand.value.trim()
   
@@ -104,8 +107,8 @@ const handleSubmit = async () => {
     localHistory.value = localHistory.value.slice(0, 50)
   }
   
-  // Execute command
-  await executeCommand(command)
+  // Emit command execution
+  emit('executeCommand', command)
   
   // Clear input and reset history index
   currentCommand.value = ''
@@ -119,12 +122,12 @@ const navigateHistory = (direction: 'up' | 'down') => {
   if (direction === 'up') {
     if (historyIndex.value < localHistory.value.length - 1) {
       historyIndex.value++
-      currentCommand.value = localHistory.value[historyIndex.value]
+      currentCommand.value = localHistory.value[historyIndex.value] || ''
     }
   } else {
     if (historyIndex.value > 0) {
       historyIndex.value--
-      currentCommand.value = localHistory.value[historyIndex.value]
+      currentCommand.value = localHistory.value[historyIndex.value] || ''
     } else if (historyIndex.value === 0) {
       historyIndex.value = -1
       currentCommand.value = ''
@@ -133,8 +136,11 @@ const navigateHistory = (direction: 'up' | 'down') => {
 }
 
 const handleTabComplete = () => {
-  if (suggestions.value.length > 0) {
-    applySuggestion(suggestions.value[selectedSuggestionIndex.value])
+  if (computedSuggestions.value.length > 0) {
+    const suggestion = computedSuggestions.value[selectedSuggestionIndex.value]
+    if (suggestion) {
+      applySuggestion(suggestion)
+    }
   }
 }
 

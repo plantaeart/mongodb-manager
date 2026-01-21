@@ -1,21 +1,23 @@
+import { CommandStatus, WebSocketMessageType } from '~/enums'
+
 export interface TerminalEntry {
   id: number
   command: string
   output: string[]
   timestamp: Date
-  status: 'running' | 'success' | 'error'
+  status: CommandStatus
 }
 
 export interface WebSocketMessage {
-  type: 'output' | 'complete' | 'error'
+  type: Exclude<WebSocketMessageType, WebSocketMessageType.EXECUTE>
   line?: string
-  status?: 'success' | 'error'
+  status?: CommandStatus.SUCCESS | CommandStatus.ERROR
   exit_code?: number
   error?: string
   timestamp?: string
 }
 
 export interface CommandExecuteRequest {
-  type: 'execute'
+  type: WebSocketMessageType.EXECUTE
   command: string
 }

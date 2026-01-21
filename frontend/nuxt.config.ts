@@ -7,6 +7,11 @@ export default defineNuxtConfig({
   
   modules: ['@nuxt/ui', '@pinia/nuxt'],
   
+  typescript: {
+    typeCheck: true,
+    strict: true, 
+  },
+
   runtimeConfig: {
     public: {
       apiUrl: process.env.NUXT_PUBLIC_API_URL || 'http://localhost:8000',

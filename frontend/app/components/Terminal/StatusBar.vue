@@ -10,7 +10,7 @@
       <!-- Current user -->
       <div class="status-item">
         <span class="status-label">User:</span>
-        <span class="status-value">{{ authStore.getUsername }}</span>
+        <span class="status-value">{{ username }}</span>
       </div>
     </div>
 
@@ -29,21 +29,32 @@
 </template>
 
 <script setup lang="ts">
-const authStore = useAuthStore()
-const { isConnected } = useWebSocket()
+import { ConnectionStatus, ConnectionStatusClass } from '~/enums'
+
+interface Props {
+  isConnected?: boolean
+  username?: string
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  isConnected: false,
+  username: 'admin'
+})
+
+const emit = defineEmits<{
+  logout: []
+}>()
 
 const wsStatusClass = computed(() => {
-  return isConnected.value ? 'status-connected' : 'status-disconnected'
+  return props.isConnected ? ConnectionStatusClass.CONNECTED : ConnectionStatusClass.DISCONNECTED
 })
 
 const wsStatusText = computed(() => {
-  return isConnected.value ? 'Connected' : 'Disconnected'
+  return props.isConnected ? ConnectionStatus.CONNECTED : ConnectionStatus.DISCONNECTED
 })
 
-const handleLogout = async () => {
-  await authStore.logout()
-  // Reload page to reset state
-  window.location.reload()
+const handleLogout = () => {
+  emit('logout')
 }
 </script>
 
