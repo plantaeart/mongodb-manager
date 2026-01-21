@@ -18,10 +18,11 @@
         class="command-input"
         placeholder="Type a command..."
         :disabled="isExecuting || disabled"
-        @keydown.enter="handleSubmit"
-        @keydown.up.prevent="navigateHistory('up')"
-        @keydown.down.prevent="navigateHistory('down')"
+        @keydown.enter="handleEnterKey"
+        @keydown.up.prevent="handleArrowUp"
+        @keydown.down.prevent="handleArrowDown"
         @keydown.tab.prevent="handleTabComplete"
+        @keydown.esc="dismissSuggestions"
       />
     </div>
 
@@ -68,6 +69,7 @@ const historyIndex = ref(-1)
 const localHistory = ref<string[]>([])
 const showSuggestions = ref(false)
 const selectedSuggestionIndex = ref(0)
+const isNavigatingSuggestions = ref(false)
 
 // Available commands for autocomplete
 const availableCommands = props.suggestions
@@ -94,6 +96,7 @@ const computedSuggestions = computed(() => {
 watch(currentCommand, (value) => {
   showSuggestions.value = value.length > 0 && computedSuggestions.value.length > 0
   selectedSuggestionIndex.value = 0
+  isNavigatingSuggestions.value = false
 })
 
 const handleSubmit = async () => {
@@ -135,6 +138,52 @@ const navigateHistory = (direction: 'up' | 'down') => {
   }
 }
 
+const handleArrowUp = () => {
+  if (showSuggestions.value && computedSuggestions.value.length > 0) {
+    // Navigate suggestions (move selection up with wrapping)
+    isNavigatingSuggestions.value = true
+    selectedSuggestionIndex.value = selectedSuggestionIndex.value > 0 
+      ? selectedSuggestionIndex.value - 1 
+      : computedSuggestions.value.length - 1
+  } else {
+    // Navigate command history (existing behavior)
+    navigateHistory('up')
+  }
+}
+
+const handleArrowDown = () => {
+  if (showSuggestions.value && computedSuggestions.value.length > 0) {
+    // Navigate suggestions (move selection down with wrapping)
+    isNavigatingSuggestions.value = true
+    selectedSuggestionIndex.value = selectedSuggestionIndex.value < computedSuggestions.value.length - 1
+      ? selectedSuggestionIndex.value + 1
+      : 0
+  } else {
+    // Navigate command history (existing behavior)
+    navigateHistory('down')
+  }
+}
+
+const handleEnterKey = () => {
+  // If suggestions visible and user has selected one, apply it
+  if (showSuggestions.value && computedSuggestions.value.length > 0) {
+    const suggestion = computedSuggestions.value[selectedSuggestionIndex.value]
+    if (suggestion) {
+      applySuggestion(suggestion)
+      return // Don't execute, just apply
+    }
+  }
+  
+  // Otherwise, execute the typed command
+  handleSubmit()
+}
+
+const dismissSuggestions = () => {
+  showSuggestions.value = false
+  isNavigatingSuggestions.value = false
+  selectedSuggestionIndex.value = 0
+}
+
 const handleTabComplete = () => {
   if (computedSuggestions.value.length > 0) {
     const suggestion = computedSuggestions.value[selectedSuggestionIndex.value]
@@ -147,6 +196,8 @@ const handleTabComplete = () => {
 const applySuggestion = (suggestion: string) => {
   currentCommand.value = suggestion
   showSuggestions.value = false
+  isNavigatingSuggestions.value = false
+  selectedSuggestionIndex.value = 0
   inputField.value?.focus()
 }
 
