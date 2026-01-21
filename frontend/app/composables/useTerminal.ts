@@ -117,7 +117,7 @@ class TerminalService {
         timestamp: new Date(),
         status: CommandStatus.SUCCESS
       }
-      this._commandHistory.value.unshift(helpEntry)
+      this._commandHistory.value.push(helpEntry)
       return
     }
 
@@ -130,12 +130,12 @@ class TerminalService {
       status: CommandStatus.RUNNING
     }
 
-    // Add to history (at the beginning)
-    this._commandHistory.value.unshift(entry)
+    // Add to history (at the end)
+    this._commandHistory.value.push(entry)
 
-    // Limit history to 100 entries
+    // Limit history to 100 entries (keep most recent)
     if (this._commandHistory.value.length > 100) {
-      this._commandHistory.value = this._commandHistory.value.slice(0, 100)
+      this._commandHistory.value = this._commandHistory.value.slice(-100)
     }
 
     // Send command via WebSocket
@@ -212,21 +212,21 @@ class TerminalService {
    */
   private handleWebSocketMessage(message: WebSocketMessage) {
     if (message.type === WebSocketMessageType.OUTPUT && message.line) {
-      // Add output line to current command
-      const currentEntry = this._commandHistory.value[0]
+      // Add output line to current command (most recent = last in array)
+      const currentEntry = this._commandHistory.value.at(-1)
       if (currentEntry && currentEntry.status === CommandStatus.RUNNING) {
         currentEntry.output.push(message.line)
       }
     } else if (message.type === WebSocketMessageType.COMPLETE) {
       // Mark command as complete
-      const currentEntry = this._commandHistory.value[0]
+      const currentEntry = this._commandHistory.value.at(-1)
       if (currentEntry && currentEntry.status === CommandStatus.RUNNING) {
         currentEntry.status = message.status === CommandStatus.ERROR ? CommandStatus.ERROR : CommandStatus.SUCCESS
         this._isExecuting.value = false
       }
     } else if (message.type === WebSocketMessageType.ERROR) {
       // Handle error
-      const currentEntry = this._commandHistory.value[0]
+      const currentEntry = this._commandHistory.value.at(-1)
       if (currentEntry && currentEntry.status === CommandStatus.RUNNING) {
         currentEntry.output.push(`Error: ${message.error || 'Unknown error'}`)
         currentEntry.status = CommandStatus.ERROR
