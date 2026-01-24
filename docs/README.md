@@ -60,6 +60,14 @@ Welcome to the MongoDB Manager documentation. This directory contains comprehens
   - Pinia store (Auth)
   - Lifecycle management
 
+#### Feature Guides
+
+- **[04.1 - MongoDB Discovery System](04.1-mongodb-discovery.md)**
+  - Automated instance detection
+  - Network and Docker scanning
+  - Configuration options
+  - Performance optimization
+
 ## Quick Navigation
 
 ### I want to...
@@ -81,6 +89,9 @@ Welcome to the MongoDB Manager documentation. This directory contains comprehens
 
 **Add new MongoDB operations**
 → Review [04 - Business Logic](04-business-logic.md)
+
+**Understand MongoDB discovery**
+→ See [04.1 - MongoDB Discovery System](04.1-mongodb-discovery.md)
 
 **Deploy to production**
 → Follow [05 - Deployment Guide](05-deployment.md)
