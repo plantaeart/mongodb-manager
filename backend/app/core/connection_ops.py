@@ -59,7 +59,9 @@ class ConnectionManager:
             "name": name,
             "uri": uri,
             "description": description,
-            "added_at": get_current_time().isoformat()
+            "added_at": get_current_time().isoformat(),
+            "backup_paths": [],
+            "active_backup_path": None
         }
         
         config["connections"].append(connection)
@@ -160,3 +162,158 @@ class ConnectionManager:
                 "message": message
             })
         return results
+    
+    def add_backup_path(self, connection_name: str, path: str) -> bool:
+        """Add a backup path to a connection
+        
+        Args:
+            connection_name: Name of the connection
+            path: Backup folder path to add
+            
+        Returns:
+            True if added successfully, False if connection not found or path already exists
+        """
+        config = self._load_config()
+        
+        for conn in config["connections"]:
+            if conn["name"] == connection_name:
+                # Initialize backup_paths if not present
+                if "backup_paths" not in conn:
+                    conn["backup_paths"] = []
+                
+                # Check if path already exists
+                if path in conn["backup_paths"]:
+                    return False
+                
+                conn["backup_paths"].append(path)
+                self._save_config(config)
+                return True
+        
+        return False
+    
+    def remove_backup_path(self, connection_name: str, path: str) -> bool:
+        """Remove a backup path from a connection
+        
+        Args:
+            connection_name: Name of the connection
+            path: Backup folder path to remove
+            
+        Returns:
+            True if removed successfully, False if connection or path not found
+        """
+        config = self._load_config()
+        
+        for conn in config["connections"]:
+            if conn["name"] == connection_name:
+                if "backup_paths" not in conn:
+                    return False
+                
+                if path not in conn["backup_paths"]:
+                    return False
+                
+                conn["backup_paths"].remove(path)
+                
+                # If this was the active path, clear it
+                if conn.get("active_backup_path") == path:
+                    conn["active_backup_path"] = None
+                
+                self._save_config(config)
+                return True
+        
+        return False
+    
+    def set_active_backup_path(self, connection_name: str, path: str) -> bool:
+        """Set the active backup path for a connection
+        
+        Args:
+            connection_name: Name of the connection
+            path: Backup folder path to set as active
+            
+        Returns:
+            True if set successfully, False if connection not found or path not in backup_paths
+        """
+        config = self._load_config()
+        
+        for conn in config["connections"]:
+            if conn["name"] == connection_name:
+                # Initialize fields if not present
+                if "backup_paths" not in conn:
+                    conn["backup_paths"] = []
+                
+                # Verify path is in backup_paths
+                if path not in conn["backup_paths"]:
+                    return False
+                
+                conn["active_backup_path"] = path
+                self._save_config(config)
+                return True
+        
+        return False
+    
+    def get_backup_paths(self, connection_name: str) -> list[str]:
+        """Get all backup paths for a connection
+        
+        Args:
+            connection_name: Name of the connection
+            
+        Returns:
+            List of backup folder paths
+        """
+        conn = self.get_connection(connection_name)
+        if not conn:
+            return []
+        
+        return conn.get("backup_paths", [])
+    
+    def get_active_backup_path(self, connection_name: str) -> str | None:
+        """Get the active backup path for a connection
+        
+        Args:
+            connection_name: Name of the connection
+            
+        Returns:
+            Active backup path or None if not set
+        """
+        conn = self.get_connection(connection_name)
+        if not conn:
+            return None
+        
+        return conn.get("active_backup_path")
+    
+    def update_backup_path(self, connection_name: str, old_path: str, new_path: str) -> bool:
+        """Update a backup path in a connection
+        
+        Args:
+            connection_name: Name of the connection
+            old_path: Existing backup folder path
+            new_path: New backup folder path
+            
+        Returns:
+            True if updated successfully, False if connection or old_path not found
+        """
+        config = self._load_config()
+        
+        for conn in config["connections"]:
+            if conn["name"] == connection_name:
+                if "backup_paths" not in conn:
+                    return False
+                
+                if old_path not in conn["backup_paths"]:
+                    return False
+                
+                # Check if new_path already exists
+                if new_path in conn["backup_paths"]:
+                    return False
+                
+                # Replace old path with new path
+                idx = conn["backup_paths"].index(old_path)
+                conn["backup_paths"][idx] = new_path
+                
+                # Update active path if it was the old path
+                if conn.get("active_backup_path") == old_path:
+                    conn["active_backup_path"] = new_path
+                
+                self._save_config(config)
+                return True
+        
+        return False

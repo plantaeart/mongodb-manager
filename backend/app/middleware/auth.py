@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import os
 
 # JWT Configuration
-SECRET_KEY = os.getenv("JWT_SECRET", "change-me-in-production-please-use-strong-secret")
+SECRET_KEY = os.getenv("NUXT_JWT_SECRET", "change-me-in-production-please-use-strong-secret")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24
 

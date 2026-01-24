@@ -1,11 +1,22 @@
 """UI components for interactive prompts and display"""
 
+import sys
 import questionary
 from rich.console import Console
 from rich.table import Table
 
+from .utils import show_tip, TipKey
 
-console = Console()
+
+console = Console(
+    file=sys.stdout,
+    force_terminal=False,
+    force_interactive=False,
+    no_color=True,
+    width=120,
+    soft_wrap=False,
+    highlight=False
+)
 
 
 def select_connection(connections: list[dict]) -> dict | None:
@@ -19,7 +30,7 @@ def select_connection(connections: list[dict]) -> dict | None:
     """
     if not connections:
         console.print("[red]No connections configured[/red]")
-        console.print("Tip: Use 'mongodb-manager connect add' to add a connection")
+        show_tip(TipKey.NO_CONNECTIONS_ADD, console)
         return None
     
     choices = [
@@ -159,3 +170,81 @@ def confirm_action(message: str) -> bool:
         True if confirmed, False otherwise
     """
     return questionary.confirm(message, default=False).ask()
+
+
+def display_discovery_config_table(settings) -> None:
+    """Display discovery configuration in Rich table
+    
+    Args:
+        settings: DiscoverySettings instance
+    """
+    from .config import DiscoverySettings  # Import here to avoid circular dependency
+    
+    table = Table(title="MongoDB Discovery Configuration")
+    
+    table.add_column("Setting", style="cyan", no_wrap=True)
+    table.add_column("Value", style="yellow")
+    
+    # Get display dict
+    display_data = settings.to_display_dict()
+    
+    # Add rows for non-list values
+    for key, value in display_data.items():
+        if isinstance(value, list):
+            # Handle lists specially - show first item with key, rest without
+            if value:
+                # Show count if more than 3 items
+                if len(value) > 3:
+                    table.add_row(key, f"{value[0]}")
+                    for item in value[1:3]:
+                        table.add_row("", str(item))
+                    table.add_row("", f"... ({len(value) - 3} more)")
+                else:
+                    table.add_row(key, str(value[0]))
+                    for item in value[1:]:
+                        table.add_row("", str(item))
+            else:
+                table.add_row(key, "None")
+        else:
+            table.add_row(key, str(value))
+    
+    console.print(table)
+
+
+def display_discovered_mongodb_table(instances: list) -> None:
+    """Display discovered MongoDB instances in Rich table
+    
+    Args:
+        instances: List of MongoDBInstance objects
+    """
+    table = Table(title="Discovered MongoDB Instances")
+    
+    table.add_column("#", style="dim", width=4)
+    table.add_column("Name", style="bold cyan", min_width=30, no_wrap=True)
+    table.add_column("Host", style="cyan", min_width=15)
+    table.add_column("Port", style="magenta", width=7)
+    table.add_column("Version", style="green", width=10)
+    table.add_column("Auth Required", style="yellow", width=13)
+    table.add_column("Location", style="dim", width=10)
+    
+    for idx, instance in enumerate(instances, 1):
+        # Use the new get_short_name() method which returns container name or host:port
+        name = instance.get_short_name()
+        
+        table.add_row(
+            str(idx),
+            name,
+            instance.host,
+            str(instance.port),
+            instance.version or "Unknown",
+            "Yes" if instance.requires_auth else "No",
+            instance.get_location_type().capitalize()
+        )
+    
+    console.print(table)
+    
+    # Summary
+    if instances:
+        console.print(f"\n[green]Found {len(instances)} MongoDB instance(s)[/green]")
+    else:
+        console.print("\n[yellow]No MongoDB instances found[/yellow]")

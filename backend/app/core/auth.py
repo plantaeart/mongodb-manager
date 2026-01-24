@@ -24,7 +24,7 @@ class AuthManager:
     """Manages authentication and session handling using MongoDB"""
     
     DEFAULT_USERNAME = "admin"
-    DEFAULT_PASSWORD = os.getenv("DEFAULT_ADMIN_PASSWORD", "admin123")
+    DEFAULT_PASSWORD = os.getenv("NUXT_ADMIN_PASSWORD", "admin123")
     SESSION_DURATION_HOURS = 24
     
     def __init__(self, session_dir: Path | None = None):

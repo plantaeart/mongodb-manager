@@ -16,6 +16,14 @@ from .config import (
     ensure_directory_exists,
     ConfigManager,
 )
+from .tips import (
+    TipKey,
+    TipCategory,
+    show_tip,
+    get_tip_message,
+    list_all_tips,
+    TIPS_REGISTRY,
+)
 
 __all__ = [
     # Timezone utilities
@@ -32,4 +40,11 @@ __all__ = [
     'get_session_directory',
     'ensure_directory_exists',
     'ConfigManager',
+    # Tip utilities
+    'TipKey',
+    'TipCategory',
+    'show_tip',
+    'get_tip_message',
+    'list_all_tips',
+    'TIPS_REGISTRY',
 ]

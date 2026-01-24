@@ -6,6 +6,7 @@ Follows Single Responsibility Principle - only handles configuration concerns.
 
 import os
 from pathlib import Path
+from urllib.parse import quote_plus
 from dotenv import load_dotenv
 
 # Load environment variables from .env file (local development)
@@ -77,17 +78,27 @@ def ensure_directory_exists(directory: Path) -> Path:
 def get_internal_db_uri() -> str:
     """Get MongoDB URI for internal app data storage (sessions)
     
+    Auto-generates URI from environment components following NUXT_ prefix convention.
+    Properly URL-encodes username and password to handle special characters.
+    
     Returns:
         str: MongoDB connection URI for internal database
         
     Example:
         >>> get_internal_db_uri()
-        'mongodb://manager_admin:changeme123@manager-mongodb:27017/manager_app?authSource=admin'
+        'mongodb://mongodb_manager_admin:password@manager-mongodb:27017/manager_app?authSource=admin'
     """
-    return get_env_var(
-        'MANAGER_DB_URI',
-        'mongodb://manager_admin:changeme123@manager-mongodb:27017/manager_app?authSource=admin'
-    )
+    username = get_env_var('NUXT_MONGODB_USERNAME', 'mongodb_manager_admin')
+    password = get_env_var('NUXT_MONGODB_PASSWORD', 'changeme123')
+    host = get_env_var('NUXT_MONGODB_HOST', 'manager-mongodb')
+    port = get_env_var('NUXT_MONGODB_PORT', '27017')
+    database = get_env_var('NUXT_MONGODB_DATABASE', 'manager_app')
+    
+    # URL-encode username and password to handle special characters
+    encoded_username = quote_plus(username)
+    encoded_password = quote_plus(password)
+    
+    return f"mongodb://{encoded_username}:{encoded_password}@{host}:{port}/{database}?authSource=admin"
 
 
 def get_internal_db_client():

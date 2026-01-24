@@ -104,6 +104,16 @@ watch(currentCommand, (value) => {
   isNavigatingSuggestions.value = false
 })
 
+// Watch isExecuting to refocus input when command completes
+watch(() => props.isExecuting, (newValue, oldValue) => {
+  // When execution completes (true → false), refocus input
+  if (oldValue === true && newValue === false) {
+    nextTick(() => {
+      inputField.value?.focus()
+    })
+  }
+})
+
 const handleSubmit = async () => {
   if (!currentCommand.value.trim() || props.isExecuting || props.disabled) return
 

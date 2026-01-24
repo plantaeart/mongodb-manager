@@ -132,12 +132,28 @@ healthcheck:
 # Examples:
 ./scripts/docker.sh dev up -d           # Start dev
 ./scripts/docker.sh prod logs backend   # View prod logs
-./scripts/docker.sh dev down --volumes  # Stop and remove volumes
+./scripts/docker.sh dev down --volumes  # Stop and remove volumes (interactive)
 ```
 
 **Environments**: `dev` | `prod`
 
 **Commands**: `up`, `down`, `logs`, `restart`, `ps`, `exec`
+
+### Bypassing Interactive Prompts
+
+Some commands require confirmation (like `down --volumes`). To bypass prompts in automated scripts:
+
+```bash
+# Use echo to pipe confirmation
+echo "yes" | ./scripts/docker.sh dev down --volumes
+
+# Or use docker-compose directly
+docker-compose -f docker/docker-compose.dev.yml --env-file .env.dev down -v
+
+# Examples:
+echo "yes" | ./scripts/docker.sh dev reset        # Reset dev environment
+echo "yes" | ./scripts/docker.sh prod down --volumes  # Remove prod volumes
+```
 
 ## First-Time Setup
 

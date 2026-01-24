@@ -15,12 +15,9 @@ class BackupManager:
         """Initialize backup manager
         
         Args:
-            backup_root: Root backup directory (must end with _mongodb_manager)
+            backup_root: Root backup directory
         """
         self.backup_root = Path(backup_root)
-        
-        if not str(self.backup_root).endswith("_mongodb_manager"):
-            raise ValueError("Backup path must end with '_mongodb_manager'")
     
     def init_backup_folder(self) -> Path:
         """Create root backup folder

@@ -1,10 +1,23 @@
 """FastAPI application - Main entry point for web API"""
 
 import os
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import auth
 from app.websocket import terminal
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
+
+# Reduce noise from libraries
+logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
 # Create FastAPI app
 app = FastAPI(

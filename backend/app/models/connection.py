@@ -9,12 +9,16 @@ class ConnectionCreate(BaseModel):
     name: str = Field(..., min_length=1)
     uri: str = Field(..., min_length=1)
     description: str | None = None
+    backup_paths: list[str] = []
+    active_backup_path: str | None = None
 
 
 class ConnectionUpdate(BaseModel):
     """Update connection"""
     uri: str | None = None
     description: str | None = None
+    backup_paths: list[str] | None = None
+    active_backup_path: str | None = None
 
 
 class ConnectionResponse(BaseModel):
@@ -25,6 +29,8 @@ class ConnectionResponse(BaseModel):
     created_at: datetime
     last_tested: datetime | None = None
     status: str | None = None
+    backup_paths: list[str] = []
+    active_backup_path: str | None = None
 
 
 class ConnectionTestResponse(BaseModel):

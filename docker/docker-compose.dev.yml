@@ -7,8 +7,8 @@ services:
     container_name: manager-mongodb-dev
     restart: unless-stopped
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=${MANAGER_DB_USERNAME:-manager_admin}
-      - MONGO_INITDB_ROOT_PASSWORD=${MANAGER_DB_PASSWORD:-changeme123}
+      - MONGO_INITDB_ROOT_USERNAME=${NUXT_MONGODB_USERNAME:-mongodb_manager_admin}
+      - MONGO_INITDB_ROOT_PASSWORD=${NUXT_MONGODB_PASSWORD:-changeme123}
       - TZ=Europe/Paris
     volumes:
       - manager-mongodb-data-dev:/data/db
@@ -40,6 +40,8 @@ services:
       - mongodb-backups-dev:/backups_mongodb_manager
       # Config persistence (connections.json)
       - mongodb-manager-data-dev:/data/.mongodb-manager
+      # Docker socket (read-only) for container name discovery
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       # Exclude virtual environment and cache from mount
       - /app/.venv
       - /app/__pycache__
@@ -51,12 +53,15 @@ services:
       - PYTHONUNBUFFERED=1
       - WATCHFILES_FORCE_POLLING=true
       - NODE_ENV=${NODE_ENV:-development}
-      # Internal MongoDB connection (for sessions and users)
-      - MANAGER_DB_URI=mongodb://${MANAGER_DB_USERNAME:-manager_admin}:${MANAGER_DB_PASSWORD:-changeme123}@manager-mongodb:27017/manager_app?authSource=admin
-      # JWT Secret
-      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
-      # Default admin password (first time only)
-      - DEFAULT_ADMIN_PASSWORD=${DEFAULT_ADMIN_PASSWORD:-admin123}
+      # MongoDB connection components (auto-generated URI in backend)
+      - NUXT_MONGODB_USERNAME=${NUXT_MONGODB_USERNAME:-mongodb_manager_admin}
+      - NUXT_MONGODB_PASSWORD=${NUXT_MONGODB_PASSWORD:-changeme123}
+      - NUXT_MONGODB_HOST=${NUXT_MONGODB_HOST:-manager-mongodb}
+      - NUXT_MONGODB_PORT=${NUXT_MONGODB_PORT:-27017}
+      - NUXT_MONGODB_DATABASE=${NUXT_MONGODB_DATABASE:-manager_app}
+      # Application authentication
+      - NUXT_JWT_SECRET=${NUXT_JWT_SECRET:-dev-secret-change-in-production}
+      - NUXT_ADMIN_PASSWORD=${NUXT_ADMIN_PASSWORD:-admin123}
       # CORS Origins (allow frontend access)
       - CORS_ORIGINS=${CORS_ORIGINS}
     command: uvicorn app.main_api:app --host 0.0.0.0 --port 8000 --reload
