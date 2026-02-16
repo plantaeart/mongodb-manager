@@ -98,39 +98,42 @@ The terminal forms system consists of four main layers:
 
 ### Frontend Configuration (`terminalForms.ts`)
 
-Forms are defined in a centralized configuration file:
+**Backend is the single source of truth** for all form definitions. The frontend only maps commands to API endpoints:
 
 ```typescript
-import type { FormConfig } from '~/types/terminal'
+/**
+ * Command to API Path Registry
+ * 
+ * Maps terminal commands to their form API endpoints.
+ */
+export const COMMAND_TO_API_PATH: Record<string, string> = {
+  // Connection Management Commands
+  'connect add': 'connect/add',
+  'connect remove': 'connect/remove',
+  'connect list': 'connect/list',
+  'connect test': 'connect/test',
+}
 
-export const TERMINAL_FORMS: Record<string, FormConfig> = {
-  connect_add: {
-    id: 'connect_add',
-    title: 'Add MongoDB Connection',
-    modes: {
-      simple: {
-        fields: ['name', 'uri', 'description']
-      },
-      advanced: {
-        fields: ['name', 'host', 'port', 'username', 'password', 'auth_source', 'database', 'description']
-      }
-    },
-    defaultMode: 'simple'
-  },
-  
-  connect_remove: {
-    id: 'connect_remove',
-    title: 'Remove MongoDB Connection(s)',
-    fields: ['connections']
-  }
+/**
+ * Get API path for a given command
+ */
+export function getApiPathForCommand(command: string): string | undefined {
+  return COMMAND_TO_API_PATH[command]
+}
+
+/**
+ * Check if a command has a form
+ */
+export function hasForm(command: string): boolean {
+  return command in COMMAND_TO_API_PATH
 }
 ```
 
-**Helper Functions:**
-- `getFormConfig(formId)` - Get form configuration
-- `getFormFields(formId, mode?)` - Get field IDs for a form/mode
-- `isMultiModeForm(formId)` - Check if form supports multiple modes
-- `getFormModes(formId)` - Get available modes for a form
+**Key Points:**
+- ✅ No form field definitions in frontend
+- ✅ No duplicate validation rules
+- ✅ Backend API returns complete form schemas
+- ✅ Frontend only handles command→API path mapping
 
 ### Backend Definition (`form_definitions.py`)
 
@@ -192,8 +195,22 @@ FormField(
 - `placeholder` - Placeholder text
 - `validation` - Pattern, min/max length
 - `default` - Default value
+- `tooltip` - Optional tooltip text (displayed as info icon)
 
 **Frontend Component:** `TerminalTextField.vue`
+
+**Example with Tooltip:**
+```python
+FormField(
+    id="uri",
+    label="Connection URI",
+    type="text",
+    required=True,
+    placeholder="mongodb://localhost:27017",
+    help_text="Full MongoDB connection string",
+    tooltip="Docker: Use host.docker.internal for cross-network connections"
+)
+```
 
 ### Password Field (`password`)
 
@@ -213,6 +230,7 @@ FormField(
 **Props:**
 - Same as text field
 - Renders as masked input
+- `tooltip` - Optional tooltip text
 
 **Frontend Component:** `TerminalPasswordField.vue`
 
@@ -482,6 +500,63 @@ Total: 2 connection(s)
 ❌ CLI text output (use rich console formatting instead)
 ❌ Simple messages (use `readonly` instead)
 ❌ Single values (use appropriate input field types)
+
+## Field Tooltips
+
+All field types support **optional tooltips** to provide contextual help without cluttering the UI.
+
+### Backend Definition
+
+Add `tooltip` to any `FormField`:
+
+```python
+FormField(
+    id="host",
+    label="Host",
+    type="text",
+    required=True,
+    placeholder="localhost",
+    help_text="MongoDB server hostname or IP",
+    tooltip="Docker: Use container name (same network) or host.docker.internal"
+)
+```
+
+### Frontend Display
+
+- **Info icon** (ℹ️) appears next to field label
+- **Tooltip shows on hover** above the icon
+- **Smart positioning**: 
+  - Centered when space allows
+  - Left-aligned when near screen edges
+  - Right-aligned when on right side
+- **Pure CSS**: No JavaScript, lightweight
+- **Responsive**: Adapts on mobile screens
+
+### Tooltip Guidelines
+
+**Length**: Keep tooltips concise (40-70 characters)
+**Content**: Focus on context-specific tips (e.g., Docker networking, special cases)
+**Purpose**: Supplement `help_text`, don't duplicate it
+
+**Good Example:**
+```python
+tooltip="Docker: Use host.docker.internal for cross-network connections"
+```
+
+**Bad Example:**
+```python
+tooltip="This is the port field where you enter the port number for MongoDB"
+```
+
+### Supported Field Types
+
+All field types support tooltips:
+- ✅ `text`
+- ✅ `password`
+- ✅ `number`
+- ✅ `checkbox-list`
+- ✅ `select` (when implemented)
+- ✅ `textarea` (when implemented)
 
 ## Creating Custom Field Components
 
@@ -1284,5 +1359,5 @@ CONNECTION_FORM = FormSchema(
 
 ---
 
-**Last Updated:** 2024-02-16
-**Version:** 1.0.0
+**Last Updated:** 2026-02-17
+**Version:** 1.1.4
