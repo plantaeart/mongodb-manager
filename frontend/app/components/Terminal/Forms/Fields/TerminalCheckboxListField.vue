@@ -1,9 +1,12 @@
 <template>
   <div class="terminal-checkbox-list-field" :class="{ 'error': hasError }">
-    <label class="field-label">
-      {{ field.label }}
-      <span v-if="field.required" class="required">*</span>
-    </label>
+    <div class="field-label-row">
+      <label class="field-label">
+        {{ field.label }}
+        <span v-if="field.required" class="required">*</span>
+      </label>
+      <FieldTooltip :text="field.tooltip" />
+    </div>
     
     <!-- Bulk selection actions -->
     <div v-if="options.length > 0" class="bulk-actions">
@@ -73,6 +76,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import type { FormField } from '~/types/terminal'
+import FieldTooltip from '../FieldTooltip.vue'
 
 interface Props {
   field: FormField
@@ -188,6 +192,12 @@ defineExpose({ validate })
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.field-label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .field-label {

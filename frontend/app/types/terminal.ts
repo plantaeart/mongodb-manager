@@ -49,6 +49,7 @@ export interface FormField {
   default?: any
   validation?: ValidationRule
   help_text?: string
+  tooltip?: string  // Tooltip text to display on info icon hover
   // Type-specific
   rows?: number
   min?: number

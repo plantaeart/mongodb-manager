@@ -1,5 +1,6 @@
 import type { TerminalEntry, WebSocketMessage, FormRequestMessage, FormSubmitRequest, FormCancelRequest } from '~/types/terminal'
 import { CommandStatus, TerminalCommand, WebSocketMessageType, StorageKey } from '~/enums'
+import { getApiPathForCommand } from '~/config/terminalForms'
 
 /**
  * TerminalService - True Singleton
@@ -181,17 +182,7 @@ class TerminalService {
    * Check if a command requires a form and return its path
    */
   private getFormCommandPath(command: string): string | null {
-    const formCommands: Record<string, string> = {
-      'connect add': 'connect/add',
-      'connect remove': 'connect/remove',
-      'connect list': 'connect/list',
-      'connect test': 'connect/test',
-      // Add more form commands here as needed
-      // 'backup create': 'backup/create',
-      // 'mongodb discover': 'mongodb/discover',
-    }
-    
-    return formCommands[command] || null
+    return getApiPathForCommand(command) || null
   }
 
   /**

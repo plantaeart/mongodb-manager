@@ -1,9 +1,12 @@
 <template>
   <div class="terminal-field" :class="{ 'error': hasError, 'valid': isValid && !hasError }">
-    <label :for="field.id" class="field-label">
-      {{ field.label }}
-      <span v-if="field.required" class="required">*</span>
-    </label>
+    <div class="field-label-row">
+      <label :for="field.id" class="field-label">
+        {{ field.label }}
+        <span v-if="field.required" class="required">*</span>
+      </label>
+      <FieldTooltip :text="field.tooltip" />
+    </div>
     
     <input
       :id="field.id"
@@ -25,6 +28,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import type { FormField } from '~/types/terminal'
+import FieldTooltip from '../FieldTooltip.vue'
 
 interface Props {
   field: FormField
@@ -108,6 +112,12 @@ if (props.field.default && !internalValue.value) {
 .terminal-field {
   display: flex;
   flex-direction: column;
+  gap: 6px;
+}
+
+.field-label-row {
+  display: flex;
+  align-items: center;
   gap: 6px;
 }
 

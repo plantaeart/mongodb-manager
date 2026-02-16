@@ -30,6 +30,7 @@ class FormField(BaseModel):
     default: Any = None
     validation: Optional[ValidationRule] = None
     help_text: Optional[str] = None
+    tooltip: Optional[str] = None  # Tooltip text for info icon
     
     # Type-specific fields
     rows: Optional[int] = None  # textarea
@@ -105,7 +106,8 @@ CONNECT_ADD_FORM = FormSchema(
                 pattern=r"^mongodb://.*",
                 message="Must start with mongodb://"
             ),
-            help_text="Format: mongodb://[username:password@]host:port[/database]"
+            help_text="Format: mongodb://[username:password@]host:port[/database]",
+            tooltip="Docker: Use host.docker.internal for cross-network connections"
         ),
         
         # ADVANCED MODE ONLY: Host
@@ -116,7 +118,8 @@ CONNECT_ADD_FORM = FormSchema(
             required=False,
             default="localhost",
             placeholder="localhost or IP address",
-            help_text="MongoDB server hostname or IP"
+            help_text="MongoDB server hostname or IP",
+            tooltip="Docker: Use container name (same network) or host.docker.internal"
         ),
         
         # ADVANCED MODE ONLY: Port
@@ -128,7 +131,8 @@ CONNECT_ADD_FORM = FormSchema(
             default=27017,
             min=1,
             max=65535,
-            help_text="MongoDB server port (default: 27017)"
+            help_text="MongoDB server port (default: 27017)",
+            tooltip="Docker: Use exposed host port (e.g., 27019) for cross-network access"
         ),
         
         # ADVANCED MODE ONLY: Username
@@ -159,7 +163,8 @@ CONNECT_ADD_FORM = FormSchema(
             required=False,
             default="admin",
             placeholder="admin",
-            help_text="Database where user credentials are stored"
+            help_text="Database where user credentials are stored",
+            tooltip="Usually 'admin' - database where the user was created"
         ),
         
         # ADVANCED MODE ONLY: Database
