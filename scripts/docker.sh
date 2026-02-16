@@ -1,6 +1,6 @@
 #!/bin/bash
 # MongoDB Manager - Docker Compose Helper Script
-# Usage: ./scripts/docker.sh [dev|prod] [up|down|build|build-nocache|logs|restart|reset|ps|exec]
+# Usage: ./scripts/docker.sh [dev|prod] [up|down|restart|build|logs|ps|exec|reset]
 
 set -e
 
@@ -17,7 +17,7 @@ ACTION=${2:-up}
 # Validate environment
 if [[ "$ENV" != "dev" && "$ENV" != "prod" ]]; then
     echo -e "${RED}Error: Environment must be 'dev' or 'prod'${NC}"
-    echo "Usage: $0 [dev|prod] [up|down|build|logs|restart]"
+    echo "Usage: $0 [dev|prod] [up|down|restart|build|logs|ps|exec|reset]"
     exit 1
 fi
 
@@ -113,9 +113,46 @@ case "$ACTION" in
         docker-compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" logs -f "${@:3}"
         ;;
     restart)
-        echo -e "${YELLOW}Restarting services...${NC}"
-        docker-compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" restart "$@"
-        echo -e "${GREEN}Services restarted!${NC}"
+        # Check for --cache or --no-cache flags
+        USE_CACHE=""
+        REBUILD=false
+        
+        for arg in "${@:3}"; do
+            if [[ "$arg" == "--cache" ]]; then
+                REBUILD=true
+                USE_CACHE="--cache"
+            elif [[ "$arg" == "--no-cache" ]]; then
+                REBUILD=true
+                USE_CACHE="--no-cache"
+            fi
+        done
+        
+        if [[ "$REBUILD" == true ]]; then
+            if [[ "$USE_CACHE" == "--cache" ]]; then
+                echo -e "${YELLOW}Restarting services (rebuild WITH cache)...${NC}"
+                echo -e "${YELLOW}Stopping services...${NC}"
+                docker-compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" down
+                echo -e "${YELLOW}Rebuilding images with cache...${NC}"
+                docker-compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build
+                echo -e "${GREEN}Starting services...${NC}"
+                docker-compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
+                echo -e "${GREEN}Services restarted with rebuild (cache used)!${NC}"
+            else
+                echo -e "${YELLOW}Restarting services (rebuild WITHOUT cache - clean build)...${NC}"
+                echo -e "${YELLOW}Stopping services...${NC}"
+                docker-compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" down
+                echo -e "${YELLOW}Rebuilding images without cache...${NC}"
+                docker-compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build --no-cache
+                echo -e "${GREEN}Starting services...${NC}"
+                docker-compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
+                echo -e "${GREEN}Services restarted with clean rebuild!${NC}"
+            fi
+        else
+            echo -e "${YELLOW}Restarting services (no rebuild)...${NC}"
+            docker-compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" restart
+            echo -e "${GREEN}Services restarted!${NC}"
+        fi
+        docker-compose -f "$COMPOSE_FILE" ps
         ;;
     ps)
         docker-compose -f "$COMPOSE_FILE" ps
@@ -130,7 +167,18 @@ case "$ACTION" in
         ;;
     *)
         echo -e "${RED}Error: Unknown action '$ACTION'${NC}"
-        echo "Available actions: up, down [--volumes], reset, build, build-nocache, logs, restart, ps, exec"
+        echo "Available actions:"
+        echo "  up                  - Start services"
+        echo "  down [--volumes]    - Stop services (optionally remove volumes)"
+        echo "  restart             - Restart services (no rebuild)"
+        echo "  restart --cache     - Restart with rebuild (uses cache)"
+        echo "  restart --no-cache  - Restart with clean rebuild (no cache)"
+        echo "  reset               - Remove all data and volumes"
+        echo "  build               - Build images"
+        echo "  build-nocache       - Build images without cache"
+        echo "  logs                - Show logs"
+        echo "  ps                  - Show running containers"
+        echo "  exec                - Execute command in container"
         exit 1
         ;;
 esac
