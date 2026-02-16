@@ -9,6 +9,7 @@ import sys
 import warnings
 import logging
 import asyncio
+import json
 from contextlib import redirect_stderr
 from io import StringIO
 
@@ -153,18 +154,101 @@ def connect_list():
 
 
 @connect_app.command("test")
+def _test_connections_direct(conn_mgr, connection_names: list[str], skip_confirm: bool = False, json_output: bool = False):
+    """Test multiple connections in direct mode (used by form submission)
+    
+    Args:
+        conn_mgr: ConnectionManager instance
+        connection_names: List of connection names to test
+        skip_confirm: Skip confirmation prompt
+        json_output: Output results as JSON instead of formatted text
+    """
+    if not connection_names:
+        if json_output:
+            print(json.dumps({"error": "No connections selected", "results": []}))
+        else:
+            console.print("[yellow]No connections selected[/yellow]")
+        return
+    
+    if not json_output:
+        console.print(f"\n[bold]Testing {len(connection_names)} connection(s)...[/bold]\n")
+    
+    results = []
+    for name in connection_names:
+        try:
+            success, message = conn_mgr.test_connection(name)
+            results.append({
+                "name": name,
+                "success": success,
+                "message": message
+            })
+            
+            if not json_output:
+                if success:
+                    console.print(f"[green]✓[/green] {name}: {message}")
+                else:
+                    console.print(f"[red]✗[/red] {name}: {message}")
+        except Exception as e:
+            results.append({
+                "name": name,
+                "success": False,
+                "message": str(e)
+            })
+            if not json_output:
+                console.print(f"[red]✗[/red] {name}: {str(e)}")
+    
+    # Output results
+    if json_output:
+        # Output as JSON for programmatic parsing
+        success_count = sum(1 for r in results if r["success"])
+        failure_count = len(results) - success_count
+        print(json.dumps({
+            "results": results,
+            "summary": {
+                "total": len(results),
+                "success": success_count,
+                "failure": failure_count
+            }
+        }))
+    else:
+        # Summary for human-readable output
+        success_count = sum(1 for r in results if r["success"])
+        failure_count = len(results) - success_count
+        console.print(f"\n[bold]Summary:[/bold] {success_count} successful, {failure_count} failed\n")
+
+
+@connect_app.command("test")
 def connect_test(
-    name: Annotated[str | None, typer.Option("--name", "-n", help="Connection name")] = None,
+    name: Annotated[str | None, typer.Option("--name", "-n", help="Connection name (single)")] = None,
+    names: Annotated[str | None, typer.Option("--names", help="Connection names (comma-separated for multiple)")] = None,
     all_connections: Annotated[bool, typer.Option("--all", help="Test all connections")] = False,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip confirmation prompt")] = False,
+    json_output: Annotated[bool, typer.Option("--json", help="Output results as JSON")] = False,
 ):
-    """Test MongoDB connection(s)"""
+    """Test MongoDB connection(s)
+    
+    Modes:
+        1. Direct (single): connect test --name <connection-name>
+        2. Direct (multiple): connect test --names <name1,name2,name3> --yes
+        3. Direct (all): connect test --all
+        4. Interactive: connect test (shows selection menu - native terminal only)
+    
+    Use --yes to skip confirmation when testing multiple connections.
+    Use --json to get structured JSON output (useful for WebSocket terminal).
+    """
     require_auth()
     conn_mgr = ConnectionManager()
     
     if all_connections:
+        # Test all connections
         results = conn_mgr.test_all_connections()
         display_connection_tests(results)
+    elif names:
+        # Direct mode: test multiple specific connections (from form)
+        connection_list = [n.strip() for n in names.split(',')]
+        _test_connections_direct(conn_mgr, connection_list, skip_confirm=yes, json_output=json_output)
     elif name:
+        # Direct mode: test single connection
         success, message = conn_mgr.test_connection(name)
         if success:
             console.print(f"[green]OK[/green] {message}")
@@ -172,7 +256,7 @@ def connect_test(
             console.print(f"[red]ERROR[/red] {message}")
             raise typer.Exit(1)
     else:
-        # Interactive selection
+        # Interactive selection (questionary - native terminal only)
         connections = conn_mgr.list_connections()
         selected = select_connection(connections)
         if not selected:

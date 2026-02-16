@@ -218,6 +218,40 @@ export const TERMINAL_FORMS: Record<string, FormConfiguration> = {
         action: 'cancel'
       }
     ]
+  },
+
+  /**
+   * Connection Test Form
+   * 
+   * Interactive form for testing one or multiple MongoDB connections.
+   * Displays connection list as checkboxes for multi-selection.
+   */
+  connect_test: {
+    title: 'Test MongoDB Connection(s)',
+    description: 'Select connection(s) to test connectivity',
+    fields: [
+      {
+        id: 'connections',
+        label: 'Select connections to test',
+        type: 'checkbox-list',
+        required: true,
+        help_text: 'Select one or more connections to test',
+        // options will be populated dynamically from backend
+        options: []
+      }
+    ],
+    actions: [
+      {
+        label: 'Test Selected',
+        style: 'primary',
+        action: 'submit'
+      },
+      {
+        label: 'Cancel',
+        style: 'secondary',
+        action: 'cancel'
+      }
+    ]
   }
 }
 

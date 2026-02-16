@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from typing import Dict, Any
 import io
 import sys
+import json
 import logging
 from contextlib import redirect_stdout, redirect_stderr
 
@@ -199,6 +200,101 @@ async def execute_command(
             error=combined_errors if combined_errors else None,
             exit_code=0 if failed_count == 0 else 1
         )
+    
+    # Special handling for 'connect test' with multiple connections
+    if request.command.strip() == "connect test" and "connections" in request.params:
+        # connections is an array of connection names to test
+        connections_to_test = request.params.get("connections", [])
+        logger.info(f"[CONNECT TEST] Received request with connections: {connections_to_test}")
+        
+        if not isinstance(connections_to_test, list):
+            connections_to_test = [connections_to_test]
+        
+        if not connections_to_test:
+            logger.warning("[CONNECT TEST] No connections selected")
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error="No connections selected",
+                exit_code=1
+            )
+        
+        # Build command with comma-separated names and JSON output flag
+        names_param = ",".join(connections_to_test)
+        cmd_parts = ["connect", "test", "--names", names_param, "--yes", "--json"]
+        
+        logger.info(f"[CONNECT TEST] Testing {len(connections_to_test)} connection(s)")
+        logger.debug(f"[CONNECT TEST] CLI command: {cmd_parts}")
+        
+        # Capture output
+        stdout_capture = io.StringIO()
+        stderr_capture = io.StringIO()
+        exit_code = 0
+        
+        try:
+            with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
+                try:
+                    cli_app(cmd_parts, standalone_mode=False)
+                except SystemExit as e:
+                    exit_code = e.code if e.code is not None else 0
+                except Exception as e:
+                    exit_code = 1
+                    stderr_capture.write(f"Error: {str(e)}\n")
+            
+            output = stdout_capture.getvalue()
+            error = stderr_capture.getvalue()
+            
+            logger.info(f"[CONNECT TEST] Complete with exit code: {exit_code}")
+            logger.debug(f"[CONNECT TEST] Raw output: {output}")
+            
+            # Parse JSON output and format for display
+            try:
+                result_data = json.loads(output)
+                results = result_data.get("results", [])
+                summary = result_data.get("summary", {})
+                
+                # Format output with colors/icons for terminal display
+                formatted_lines = []
+                formatted_lines.append(f"Testing {summary.get('total', 0)} connection(s):")
+                formatted_lines.append("")  # Empty line for spacing
+                
+                for result in results:
+                    name = result.get("name", "unknown")
+                    success = result.get("success", False)
+                    message = result.get("message", "")
+                    
+                    if success:
+                        formatted_lines.append(f"✓ {name}")
+                        formatted_lines.append(f"  Status: Connected successfully")
+                        formatted_lines.append(f"  Details: {message}")
+                    else:
+                        formatted_lines.append(f"✗ {name}")
+                        formatted_lines.append(f"  Status: Connection failed")
+                        formatted_lines.append(f"  Error: {message}")
+                    formatted_lines.append("")  # Empty line between results
+                
+                formatted_lines.append(f"Summary: {summary.get('success', 0)} successful, {summary.get('failure', 0)} failed")
+                
+                formatted_output = "\n".join(formatted_lines)
+                
+                return CommandExecuteResponse(
+                    success=(exit_code == 0),
+                    output=formatted_output,
+                    error=error if error else None,
+                    exit_code=exit_code
+                )
+            except json.JSONDecodeError as e:
+                logger.error(f"[CONNECT TEST] Failed to parse JSON output: {e}")
+                # Fallback to raw output
+                return CommandExecuteResponse(
+                    success=(exit_code == 0),
+                    output=output,
+                    error=error if error else None,
+                    exit_code=exit_code
+                )
+        finally:
+            stdout_capture.close()
+            stderr_capture.close()
     
     # Build CLI arguments from command and params
     cmd_parts = request.command.strip().split()

@@ -226,3 +226,24 @@ CONNECT_LIST_FORM = FormSchema(
         FormAction(label="Close", style="secondary", action="cancel")
     ]
 )
+
+# Connection Test Form
+# Note: Options are populated dynamically from ConnectionManager.list_connections()
+CONNECT_TEST_FORM = FormSchema(
+    title="Test MongoDB Connection(s)",
+    description="Select connection(s) to test connectivity",
+    fields=[
+        FormField(
+            id="connections",
+            label="Select connections to test",
+            type="checkbox-list",
+            required=True,
+            help_text="Select one or more connections to test",
+            options=[]  # Populated dynamically
+        )
+    ],
+    actions=[
+        FormAction(label="Test Selected", style="primary", action="submit"),
+        FormAction(label="Cancel", style="secondary", action="cancel")
+    ]
+)

@@ -185,6 +185,7 @@ class TerminalService {
       'connect add': 'connect/add',
       'connect remove': 'connect/remove',
       'connect list': 'connect/list',
+      'connect test': 'connect/test',
       // Add more form commands here as needed
       // 'backup create': 'backup/create',
       // 'mongodb discover': 'mongodb/discover',
