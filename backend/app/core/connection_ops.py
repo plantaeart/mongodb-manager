@@ -1,6 +1,7 @@
 """MongoDB connection management"""
 
 import json
+import os
 from pathlib import Path
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, OperationFailure
@@ -13,7 +14,13 @@ class ConnectionManager:
     
     def __init__(self, config_path: Path | None = None):
         if config_path is None:
-            config_path = Path.home() / ".mongodb-manager" / "connections.json"
+            # Check for environment variable first (Docker container)
+            env_path = os.getenv('MONGODB_MANAGER_CONFIG_PATH')
+            if env_path:
+                config_path = Path(env_path)
+            else:
+                # Fallback to home directory (local development)
+                config_path = Path.home() / ".mongodb-manager" / "connections.json"
         
         self.config_path = Path(config_path)
         self._ensure_config_exists()

@@ -5,12 +5,14 @@ from pydantic import BaseModel
 from typing import Dict, Any
 import io
 import sys
+import logging
 from contextlib import redirect_stdout, redirect_stderr
 
 from app.core.cli import app as cli_app
 from app.middleware.auth import get_current_user
 from app.core.utils.uri_builder import build_mongodb_uri
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/commands", tags=["commands"])
 
 
@@ -110,6 +112,93 @@ async def execute_command(
                 error=f"Invalid connection parameters: {str(e)}",
                 exit_code=1
             )
+    
+    # Special handling for 'connect remove' with multiple connections
+    if request.command.strip() == "connect remove" and "connections" in request.params:
+        # connections is an array of connection names to remove
+        connections_to_remove = request.params.get("connections", [])
+        logger.info(f"[CONNECT REMOVE] Received request with connections: {connections_to_remove}")
+        
+        if not isinstance(connections_to_remove, list):
+            connections_to_remove = [connections_to_remove]
+        
+        if not connections_to_remove:
+            logger.warning("[CONNECT REMOVE] No connections selected")
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error="No connections selected",
+                exit_code=1
+            )
+        
+        # Remove connections one by one and collect results
+        all_output = []
+        all_errors = []
+        failed_count = 0
+        
+        logger.info(f"[CONNECT REMOVE] Processing {len(connections_to_remove)} connection(s)")
+        
+        for conn_name in connections_to_remove:
+            # Build CLI arguments for single removal with --yes to skip confirmation
+            single_cmd_parts = ["connect", "remove", "--name", str(conn_name), "--yes"]
+            logger.info(f"[CONNECT REMOVE] Removing connection: {conn_name}")
+            logger.debug(f"[CONNECT REMOVE] CLI command: {single_cmd_parts}")
+            
+            # Capture output for this removal
+            single_stdout = io.StringIO()
+            single_stderr = io.StringIO()
+            single_exit_code = 0
+            
+            try:
+                with redirect_stdout(single_stdout), redirect_stderr(single_stderr):
+                    try:
+                        cli_app(single_cmd_parts, standalone_mode=False)
+                    except SystemExit as e:
+                        single_exit_code = e.code if e.code is not None else 0
+                        logger.debug(f"[CONNECT REMOVE] CLI exited with code: {single_exit_code}")
+                    except Exception as e:
+                        single_exit_code = 1
+                        logger.error(f"[CONNECT REMOVE] Exception during removal: {str(e)}", exc_info=True)
+                        single_stderr.write(f"Error: {str(e)}\n")
+                
+                stdout_val = single_stdout.getvalue()
+                stderr_val = single_stderr.getvalue()
+                logger.debug(f"[CONNECT REMOVE] stdout: {stdout_val}")
+                logger.debug(f"[CONNECT REMOVE] stderr: {stderr_val}")
+                
+                if single_exit_code != 0:
+                    failed_count += 1
+                    all_errors.append(stderr_val)
+                    logger.warning(f"[CONNECT REMOVE] Failed to remove {conn_name}")
+                else:
+                    all_output.append(stdout_val)
+                    logger.info(f"[CONNECT REMOVE] Successfully removed {conn_name}")
+            
+            finally:
+                single_stdout.close()
+                single_stderr.close()
+        
+        # Build combined response
+        success_count = len(connections_to_remove) - failed_count
+        combined_output = "\n".join(all_output)
+        combined_errors = "\n".join(all_errors)
+        
+        # Add summary
+        if success_count > 0:
+            combined_output += f"\n✓ Successfully removed {success_count} connection(s)"
+        if failed_count > 0:
+            combined_errors += f"\n✗ Failed to remove {failed_count} connection(s)"
+        
+        logger.info(f"[CONNECT REMOVE] Complete: {success_count} success, {failed_count} failed")
+        logger.debug(f"[CONNECT REMOVE] Combined output: {combined_output}")
+        logger.debug(f"[CONNECT REMOVE] Combined errors: {combined_errors}")
+        
+        return CommandExecuteResponse(
+            success=(failed_count == 0),
+            output=combined_output,
+            error=combined_errors if combined_errors else None,
+            exit_code=0 if failed_count == 0 else 1
+        )
     
     # Build CLI arguments from command and params
     cmd_parts = request.command.strip().split()

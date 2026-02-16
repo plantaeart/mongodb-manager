@@ -36,6 +36,24 @@ Welcome to the MongoDB Manager documentation. This directory contains comprehens
    - Docker setup
    - Security checklist
 
+6. **[06 - Version Management](06-version-management.md)**
+   - Semantic versioning
+   - Version bump commands (npm)
+   - Frontend and backend versioning
+   - Git tags and changelog
+
+7. **[07 - Terminal Forms System](07-terminal-forms.md)**
+   - Interactive form-based CLI commands
+   - Form architecture and data flow
+   - Field types and validation
+   - Backend integration and styling guidelines
+
+8. **[08 - CLI Dual-Mode Pattern](08-cli-dual-mode-pattern.md)**
+   - Direct mode vs Interactive mode
+   - Synchronous CLI architecture
+   - WebSocket terminal limitations
+   - Best practices and rules
+
 ### Specialized Topics
 
 #### Backend Deep Dives
@@ -93,8 +111,17 @@ Welcome to the MongoDB Manager documentation. This directory contains comprehens
 **Understand MongoDB discovery**
 → See [04.1 - MongoDB Discovery System](04.1-mongodb-discovery.md)
 
+**Create interactive forms for CLI**
+→ Read [07 - Terminal Forms System](07-terminal-forms.md)
+
+**Implement a new CLI command**
+→ Read [08 - CLI Dual-Mode Pattern](08-cli-dual-mode-pattern.md)
+
 **Deploy to production**
 → Follow [05 - Deployment Guide](05-deployment.md)
+
+**Bump version after changes**
+→ See [06 - Version Management](06-version-management.md)
 
 ## Document Structure
 
@@ -158,4 +185,4 @@ When adding new documentation:
 
 ---
 
-**Last Updated**: January 2024
+**Last Updated**: February 2026

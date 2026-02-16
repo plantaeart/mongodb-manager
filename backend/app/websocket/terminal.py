@@ -107,25 +107,54 @@ class WebSocketOutputStream:
             self._closed = True
     
     def flush(self):
-        """Flush any remaining buffer"""
-        if self._buffer and not self._closed and not self._writing:
-            try:
-                self._writing = True
-                if self._loop:
-                    asyncio.run_coroutine_threadsafe(
-                        self._send_line(self._buffer), 
+        """Flush any remaining buffer to WebSocket
+        
+        This ensures any buffered output that doesn't end with newline
+        gets sent to the client before command completes.
+        """
+        if not self._buffer or self._closed or self._writing:
+            return
+        
+        try:
+            self._writing = True
+            
+            # Get event loop
+            if self._loop is None:
+                try:
+                    self._loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    return
+            
+            # Send remaining buffer content and WAIT for completion
+            if self._buffer:
+                try:
+                    future = asyncio.run_coroutine_threadsafe(
+                        self._send_line(self._buffer),
                         self._loop
                     )
-                self._buffer = ""
-            finally:
-                self._writing = False
+                    # Wait up to 1 second for send to complete
+                    future.result(timeout=1.0)
+                except Exception:
+                    pass
+                finally:
+                    self._buffer = ""
+        
+        finally:
+            self._writing = False
     
     def isatty(self):
         """Not a TTY"""
         return False
     
     def close(self):
-        """Mark stream as closed"""
+        """Close the stream and flush remaining output"""
+        if self._closed:
+            return
+        
+        # Flush any remaining content before closing
+        self.flush()
+        
+        # Mark as closed
         self._closed = True
 
 
@@ -231,27 +260,30 @@ async def execute_command_and_stream(websocket: WebSocket, command: str):
             highlight=False
         )
         
-        # Replace global console
+        # Replace global console AND patch existing console references
         import app.core.ui as ui_module
+        import app.core.cli as cli_module
+        
         original_console = ui_module.console
+        
+        # Replace console in ui module
         ui_module.console = websocket_console
+        
+        # CRITICAL: Also replace in cli module (it imports console directly)
+        cli_module.console = websocket_console
         
         try:
             with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
-                try:
-                    # CRITICAL FIX: Don't use thread - run CLI directly in this event loop
-                    # The issue was that threading created a NEW event loop (via anyio.run)
-                    # which couldn't communicate with our WebSocket event loop's Futures
-                    logger.info(f"[DEBUG] Executing command: {cmd_parts}")
-                    
-                    # Invoke CLI directly - Typer will handle async properly
-                    # Context vars are already set (lines 200-201)
-                    cli_app(cmd_parts, standalone_mode=False)
-                    
-                    logger.info(f"[DEBUG] Command completed")
-                finally:
-                    ui_module.console = original_console
+                # CRITICAL FIX: Don't use thread - run CLI directly in this event loop
+                # The issue was that threading created a NEW event loop (via anyio.run)
+                # which couldn't communicate with our WebSocket event loop's Futures
+                logger.info(f"[DEBUG] Executing command: {cmd_parts}")
                 
+                # Invoke CLI directly - Typer will handle async properly
+                # Context vars are already set (lines 200-201)
+                cli_app(cmd_parts, standalone_mode=False)
+                
+                logger.info(f"[DEBUG] Command completed")
         except SystemExit as e:
             exit_code = e.code if e.code is not None else 0
         except Exception as e:
@@ -261,10 +293,14 @@ async def execute_command_and_stream(websocket: WebSocket, command: str):
             except:
                 pass
         
-        # Flush buffers
+        # Flush buffers BEFORE restoring console
         stdout_capture.flush()
         stderr_capture.flush()
         await asyncio.sleep(0.05)
+        
+        # Restore console after flush (both modules)
+        ui_module.console = original_console
+        cli_module.console = original_console
         
         # Send completion
         await websocket.send_json({

@@ -8,6 +8,7 @@ import questionary
 import sys
 import warnings
 import logging
+import asyncio
 from contextlib import redirect_stderr
 from io import StringIO
 
@@ -47,6 +48,7 @@ from .connection_ops import ConnectionManager
 from .backup_ops import BackupManager
 from .auth import AuthManager
 from .utils import show_tip, TipKey
+from .utils.uri_builder import mask_password_in_uri
 from .ui import (
     select_connection,
     select_backup,
@@ -187,27 +189,163 @@ def connect_test(
 @connect_app.command("remove")
 def connect_remove(
     name: Annotated[str | None, typer.Option("--name", "-n", help="Connection name")] = None,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip confirmation prompt")] = False,
 ):
-    """Remove a MongoDB connection"""
+    """Remove a MongoDB connection
+    
+    Modes:
+        1. Direct: connect remove --name <connection-name> [--yes]
+        2. Interactive: connect remove (shows selection menu)
+    
+    Use --yes to skip confirmation (useful for scripting/API calls).
+    """
     require_auth()
     conn_mgr = ConnectionManager()
     
-    if name is None:
-        # Interactive selection
-        connections = conn_mgr.list_connections()
-        selected = select_connection(connections)
-        if not selected:
-            return
-        name = selected["name"]
+    # Get all connections first
+    connections = conn_mgr.list_connections()
     
-    if not confirm_action(f"Remove connection '{name}'?"):
+    if not connections:
+        console.print("[yellow]No connections configured[/yellow]")
+        show_tip(TipKey.NO_CONNECTIONS_ADD, console)
+        return
+    
+    # MODE 1: Direct removal with --name option
+    if name is not None:
+        _remove_connection_direct(conn_mgr, connections, name, skip_confirm=yes)
+        return
+    
+    # MODE 2: Interactive removal wizard
+    _show_remove_connection_wizard(conn_mgr, connections)
+
+
+def _remove_connection_direct(conn_mgr: ConnectionManager, connections: list[dict], name: str, skip_confirm: bool = False) -> None:
+    """Direct removal with optional confirmation
+    
+    Args:
+        conn_mgr: ConnectionManager instance
+        connections: List of all connections
+        name: Name of the connection to remove
+        skip_confirm: If True, skip confirmation prompt (for API/scripting)
+    """
+    # Verify connection exists
+    conn = conn_mgr.get_connection(name)
+    if not conn:
+        console.print(f"[red]✗[/red] Connection '{name}' not found")
+        console.print()
+        console.print("[yellow]Available connections:[/yellow]")
+        display_connections_table(connections)
+        return
+    
+    # Show what will be deleted (unless skipping confirmation)
+    if not skip_confirm:
+        console.print(f"\n[yellow]Connection to remove:[/yellow]")
+        console.print(f"  Name: {conn['name']}")
+        console.print(f"  URI: {mask_password_in_uri(conn['uri'])}")
+        console.print(f"  Description: {conn.get('description', 'N/A')}")
+        console.print()
+    
+    # Confirm (unless --yes flag used)
+    if not skip_confirm:
+        if not confirm_action(f"Remove connection '{name}'? This cannot be undone."):
+            console.print("[yellow]Cancelled[/yellow]")
+            return
+    
+    # Remove
+    if conn_mgr.remove_connection(name):
+        console.print(f"[green]✓[/green] Connection '{name}' removed successfully")
+        
+        # Show remaining connections count
+        remaining = len(connections) - 1
+        if remaining > 0:
+            console.print(f"[dim]You have {remaining} connection(s) remaining[/dim]")
+        else:
+            console.print("[dim]No connections remaining[/dim]")
+            show_tip(TipKey.NO_CONNECTIONS_ADD, console)
+    else:
+        console.print(f"[red]✗[/red] Failed to remove connection '{name}'")
+
+
+def _show_remove_connection_wizard(conn_mgr: ConnectionManager, connections: list[dict]) -> None:
+    """Interactive wizard for removing connection(s)
+    
+    Uses questionary for terminal selection (single connection at a time)
+    
+    Args:
+        conn_mgr: ConnectionManager instance
+        connections: List of all connections
+    """
+    # Terminal mode: Use questionary (single selection only)
+    _show_remove_form_terminal(conn_mgr, connections)
+
+
+def _show_remove_form_terminal(conn_mgr: ConnectionManager, connections: list[dict]) -> None:
+    """Show removal form in terminal (single selection with questionary)
+    
+    Args:
+        conn_mgr: ConnectionManager instance
+        connections: List of all connections
+    """
+    console.print("\n[bold red]Remove MongoDB Connection[/bold red]")
+    console.print("[yellow]Warning: This action cannot be undone[/yellow]")
+    console.print()
+    
+    # Display connections table first
+    display_connections_table(connections)
+    console.print()
+    
+    # Selection menu with formatted choices
+    choices = []
+    for conn in connections:
+        uri_display = mask_password_in_uri(conn["uri"])
+        desc = conn.get("description", "")
+        if desc:
+            choices.append(f"{conn['name']} - {desc}")
+        else:
+            # Show masked URI if no description
+            host_part = uri_display.split("@")[-1].split("/")[0] if "@" in uri_display else uri_display.split("://")[-1].split("/")[0]
+            choices.append(f"{conn['name']} - {host_part}")
+    
+    choices.append("Cancel")
+    
+    selected = questionary.select(
+        "Select connection to remove:",
+        choices=choices
+    ).ask()
+    
+    if not selected or selected == "Cancel":
         console.print("[yellow]Cancelled[/yellow]")
         return
     
-    if conn_mgr.remove_connection(name):
-        console.print(f"[green]OK[/green] Connection '{name}' removed")
+    # Find selected connection
+    idx = choices.index(selected)
+    connection = connections[idx]
+    
+    # Double confirmation for safety
+    console.print()
+    console.print("[yellow]You are about to remove:[/yellow]")
+    console.print(f"  Name: {connection['name']}")
+    console.print(f"  URI: {mask_password_in_uri(connection['uri'])}")
+    console.print(f"  Description: {connection.get('description', 'N/A')}")
+    console.print()
+    
+    if not confirm_action(f"Are you sure you want to remove '{connection['name']}'? This cannot be undone."):
+        console.print("[yellow]Cancelled[/yellow]")
+        return
+    
+    # Remove connection
+    if conn_mgr.remove_connection(connection['name']):
+        console.print(f"\n[green]✓[/green] Connection '{connection['name']}' removed successfully")
+        
+        # Show remaining connections count
+        remaining = len(connections) - 1
+        if remaining > 0:
+            console.print(f"[dim]You have {remaining} connection(s) remaining[/dim]")
+        else:
+            console.print("[dim]No connections remaining[/dim]")
+            show_tip(TipKey.NO_CONNECTIONS_ADD, console)
     else:
-        console.print(f"[red]ERROR[/red] Connection '{name}' not found")
+        console.print(f"\n[red]✗[/red] Failed to remove connection '{connection['name']}'")
 
 
 def _show_add_connection_wizard(conn_mgr: ConnectionManager) -> None:

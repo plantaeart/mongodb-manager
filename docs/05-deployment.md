@@ -128,16 +128,57 @@ healthcheck:
 **Usage**:
 ```bash
 ./scripts/docker.sh <env> <command> [options]
-
-# Examples:
-./scripts/docker.sh dev up -d           # Start dev
-./scripts/docker.sh prod logs backend   # View prod logs
-./scripts/docker.sh dev down --volumes  # Stop and remove volumes (interactive)
 ```
 
 **Environments**: `dev` | `prod`
 
-**Commands**: `up`, `down`, `logs`, `restart`, `ps`, `exec`
+**Available Commands**:
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `up` | Start services | `./scripts/docker.sh dev up -d` |
+| `down` | Stop services | `./scripts/docker.sh dev down` |
+| `down --volumes` | Stop and remove volumes (data will be deleted) | `./scripts/docker.sh dev down --volumes` |
+| `restart` | Restart services (no rebuild) | `./scripts/docker.sh dev restart` |
+| `restart --cache` | Restart with rebuild (uses cache) | `./scripts/docker.sh dev restart --cache` |
+| `restart --no-cache` | Restart with clean rebuild (no cache) | `./scripts/docker.sh dev restart --no-cache` |
+| `build` | Build images | `./scripts/docker.sh dev build` |
+| `build-nocache` | Build images without cache | `./scripts/docker.sh dev build-nocache` |
+| `logs` | Show logs (follow mode) | `./scripts/docker.sh dev logs frontend` |
+| `ps` | Show running containers | `./scripts/docker.sh dev ps` |
+| `exec` | Execute command in container | `./scripts/docker.sh dev exec backend bash` |
+| `reset` | Remove all data and volumes | `./scripts/docker.sh dev reset` |
+
+### Common Scenarios
+
+#### Quick Restart (No Code Changes)
+```bash
+# Just restart services without rebuilding
+./scripts/docker.sh dev restart
+```
+
+#### Restart After Code Changes
+```bash
+# Restart with rebuild (uses cache for faster build)
+./scripts/docker.sh dev restart --cache
+```
+
+#### Clean Rebuild (Dependency Changes)
+```bash
+# Restart with clean rebuild (no cache)
+./scripts/docker.sh dev restart --no-cache
+
+# Use this when:
+# - package.json dependencies changed
+# - requirements.txt dependencies changed
+# - Dockerfile modified
+```
+
+#### After Version Bump
+```bash
+# Restart with clean rebuild to ensure latest changes
+./scripts/docker.sh dev restart --no-cache
+```
 
 ### Bypassing Interactive Prompts
 

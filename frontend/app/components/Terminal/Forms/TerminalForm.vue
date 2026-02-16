@@ -70,6 +70,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import TerminalTextField from './Fields/TerminalTextField.vue'
 import TerminalPasswordField from './Fields/TerminalPasswordField.vue'
 import TerminalNumberField from './Fields/TerminalNumberField.vue'
+import TerminalCheckboxListField from './Fields/TerminalCheckboxListField.vue'
 import TerminalFormActions from './TerminalFormActions.vue'
 import type { FormRequestMessage, FormField } from '~/types/terminal'
 import { CommandStatus } from '~/enums'
@@ -126,6 +127,8 @@ const getFieldComponent = (field: FormField) => {
       return TerminalPasswordField
     case 'number':
       return TerminalNumberField
+    case 'checkbox-list':
+      return TerminalCheckboxListField
     case 'textarea':
       // TODO: Create TerminalTextAreaField when needed
       return TerminalTextField
@@ -142,15 +145,6 @@ const FORM_TIMEOUT = 300 * 1000 // 5 minutes in ms
 const WARNING_TIME = 240 * 1000 // 4 minutes in ms
 let timeoutWarningTimer: NodeJS.Timeout | null = null
 
-// Debug: Log form data on mount and changes
-watch(() => props.formData, (data) => {
-  console.log('[TerminalForm] Form data received:', data)
-  console.log('[TerminalForm] Actions:', data.actions)
-  console.log('[TerminalForm] Fields:', data.fields)
-  console.log('[TerminalForm] isReadonly:', isReadonly.value)
-  console.log('[TerminalForm] status:', props.status)
-}, { immediate: true })
-
 // Initialize field values with defaults
 watch(() => props.formData, (formData) => {
   formData.fields.forEach(field => {
@@ -165,9 +159,15 @@ const canSubmit = computed(() => {
   if (!isConnectionForm.value) {
     // Non-connection form: require all required fields
     const requiredFields = props.formData.fields.filter(f => f.required)
-    const allRequiredFilled = requiredFields.every(
-      f => fieldValues.value[f.id] !== undefined && fieldValues.value[f.id] !== ''
-    )
+    const allRequiredFilled = requiredFields.every(f => {
+      const value = fieldValues.value[f.id]
+      // For checkbox-list fields (arrays), check if at least one item is selected
+      if (f.type === 'checkbox-list' && Array.isArray(value)) {
+        return value.length > 0
+      }
+      // For other fields, check if value exists and is not empty
+      return value !== undefined && value !== ''
+    })
     const hasErrors = Object.keys(fieldErrors.value).length > 0
     return allRequiredFilled && !hasErrors && !isSubmitting.value
   }
@@ -288,9 +288,8 @@ onMounted(() => {
   // Set timeout warning
   if (!isReadonly.value) {
     timeoutWarningTimer = setTimeout(() => {
-      console.warn('[TerminalForm] Form will timeout in 1 minute')
-      // You could also show a toast notification here if you have a toast system
-      // For now, we'll just log to console as a dev feature
+      // Form will timeout in 1 minute
+      // You could show a toast notification here if you have a toast system
     }, WARNING_TIME)
   }
 })

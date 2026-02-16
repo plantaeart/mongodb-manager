@@ -183,6 +183,7 @@ class TerminalService {
   private getFormCommandPath(command: string): string | null {
     const formCommands: Record<string, string> = {
       'connect add': 'connect/add',
+      'connect remove': 'connect/remove',
       // Add more form commands here as needed
       // 'backup create': 'backup/create',
       // 'mongodb discover': 'mongodb/discover',

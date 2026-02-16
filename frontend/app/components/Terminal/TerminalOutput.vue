@@ -11,8 +11,8 @@
       class="terminal-entry"
       :class="{ 'entry-error': entry.status === CommandStatus.ERROR }"
     >
-      <!-- Command prompt (only show if not a form entry) -->
-      <div v-if="!entry.form && entry.command" class="command-line">
+      <!-- Command prompt -->
+      <div v-if="entry.command" class="command-line">
         <span class="prompt-user">admin</span>
         <span class="prompt-separator">@</span>
         <span class="prompt-host">mongodb-manager</span>

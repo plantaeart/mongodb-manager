@@ -24,7 +24,7 @@ class FormField(BaseModel):
     """Form field definition"""
     id: str
     label: str
-    type: Literal['text', 'textarea', 'number', 'select', 'checkbox', 'date', 'readonly', 'password']
+    type: Literal['text', 'textarea', 'number', 'select', 'checkbox', 'checkbox-list', 'date', 'readonly', 'password']
     required: bool = False
     placeholder: Optional[str] = None
     default: Any = None
@@ -36,7 +36,7 @@ class FormField(BaseModel):
     min: Optional[int | float] = None  # number, date
     max: Optional[int | float] = None  # number, date
     step: Optional[int | float] = None  # number
-    options: Optional[List[SelectOption]] = None  # select
+    options: Optional[List[SelectOption]] = None  # select, checkbox-list
     content: Optional[str] = None  # readonly
 
 
@@ -182,6 +182,28 @@ CONNECT_ADD_FORM = FormSchema(
     ],
     actions=[
         FormAction(label="Add Connection", style="primary", action="submit"),
+        FormAction(label="Cancel", style="secondary", action="cancel")
+    ]
+)
+
+
+# Connection Remove Form (Multi-select with checkbox list)
+# Note: Options are populated dynamically from ConnectionManager.list_connections()
+CONNECT_REMOVE_FORM = FormSchema(
+    title="Remove MongoDB Connection(s)",
+    description="Select one or more connections to remove. This action cannot be undone.",
+    fields=[
+        FormField(
+            id="connections",
+            label="Connections to Remove",
+            type="checkbox-list",
+            required=True,
+            help_text="Select at least one connection to remove",
+            options=[]  # Populated dynamically in CLI
+        )
+    ],
+    actions=[
+        FormAction(label="Remove Selected", style="danger", action="submit"),
         FormAction(label="Cancel", style="secondary", action="cancel")
     ]
 )

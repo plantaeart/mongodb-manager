@@ -38,7 +38,7 @@ export interface SelectOption {
   metadata?: Record<string, any>
 }
 
-export type FieldType = 'text' | 'textarea' | 'number' | 'select' | 'checkbox' | 'date' | 'readonly' | 'password'
+export type FieldType = 'text' | 'textarea' | 'number' | 'select' | 'checkbox' | 'checkbox-list' | 'date' | 'readonly' | 'password'
 
 export interface FormField {
   id: string
