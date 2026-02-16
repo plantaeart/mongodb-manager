@@ -324,7 +324,7 @@ FormField(
 
 ### Readonly Field (`readonly`)
 
-Display-only text field.
+Display-only text field for showing formatted plain text information.
 
 ```python
 FormField(
@@ -336,9 +336,152 @@ FormField(
 ```
 
 **Props:**
-- `content` - Text to display
+- `content` - Plain text to display (supports multi-line with `\n`)
 
-**Frontend Component:** `TerminalReadonlyField.vue` (to be implemented)
+**Frontend Component:** `TerminalReadonlyField.vue`
+
+**Use Cases:**
+- Display simple text messages
+- Show plain text reports
+- Present unformatted information
+
+**Example: Simple Message**
+```python
+FormField(
+    id="message",
+    label="",
+    type="readonly",
+    content="No connections configured.\n\nUse 'connect add' to create your first connection."
+)
+```
+
+### List Field (`list`)
+
+**IMPORTANT:** Use this field type to display structured data as formatted panels in form mode. This is NOT for CLI output - it's for rendering rich UI components within terminal forms.
+
+Display structured data as interactive panels with icons, labels, and organized information.
+
+```python
+FormField(
+    id="connections_list",
+    label="Connections",
+    type="list",
+    items=[
+        {
+            "name": "prod-db",
+            "uri": "mongodb://****@prod:27017",
+            "description": "Production database",
+            "added_at": "2024-01-15T10:30:00Z"
+        },
+        {
+            "name": "dev-db",
+            "uri": "mongodb://localhost:27017",
+            "description": "Development environment",
+            "added_at": "2024-01-16T14:20:00Z"
+        }
+    ]
+)
+```
+
+**Props:**
+- `items` - Array of objects to display as panels
+- Each item can have any properties (name, uri, description, etc.)
+- Frontend component renders items as styled panels
+
+**Frontend Component:** `TerminalListField.vue`
+
+**Use Cases:**
+- **Display connection lists** (`connect list` command) - Shows connections as panels
+- **Show database lists** - Display available databases
+- **List backups** - Show backup history with metadata
+- **Display any structured data** in form mode
+
+**Rendering:**
+- Each item is displayed as a bordered panel/card
+- Panel header shows the item name with icon
+- Panel body shows all properties as labeled rows
+- Automatic formatting with icons (🔗 for URI, 📝 for description, 📅 for dates)
+- Responsive design with hover effects
+- Total count displayed at bottom
+
+**Example: Connection List Form (Complete)**
+```python
+# Backend - Populate items dynamically
+CONNECT_LIST_FORM = FormSchema(
+    title="MongoDB Connections",
+    description="Configured MongoDB connections",
+    fields=[
+        FormField(
+            id="connections_list",
+            label="",
+            type="list",
+            items=[]  # Populated dynamically from ConnectionManager
+        )
+    ],
+    actions=[
+        FormAction(label="Close", style="secondary", action="cancel")
+    ]
+)
+
+# Backend route handler - Populate with data
+@router.get("/forms/connect/list")
+async def get_connect_list_form():
+    conn_mgr = ConnectionManager()
+    connections = conn_mgr.list_connections()
+    
+    form_dict = CONNECT_LIST_FORM.dict()
+    
+    # Build items from connections
+    items = []
+    for conn in connections:
+        items.append({
+            "name": conn["name"],
+            "uri": mask_password_in_uri(conn["uri"]),
+            "description": conn.get("description", ""),
+            "added_at": conn.get("added_at", "")
+        })
+    
+    # Populate field items
+    form_dict["fields"][0]["items"] = items
+    
+    return form_dict
+```
+
+**Frontend Display:**
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 📌 prod-db                                                                   │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ 🔗 URI: mongodb://****@prod:27017                                            │
+│ 📝 Description: Production database                                          │
+│ 📅 Added: 01/15/2024, 10:30:00 AM                                            │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 📌 dev-db                                                                    │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ 🔗 URI: mongodb://localhost:27017                                            │
+│ 📝 Description: Development environment                                      │
+│ 📅 Added: 01/16/2024, 02:20:00 PM                                            │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+Total: 2 connection(s)
+```
+
+**Key Differences from `readonly`:**
+- `readonly` - Plain text display (use for messages, unformatted text)
+- `list` - Structured data panels (use for displaying collections of objects in form mode)
+
+**When to use `list` field type:**
+✅ Displaying arrays of structured objects (connections, databases, backups, etc.)
+✅ Need formatted panels with icons and labels
+✅ Want interactive hover effects and modern UI
+✅ Showing data in **form mode** within the terminal
+
+**When NOT to use `list` field type:**
+❌ CLI text output (use rich console formatting instead)
+❌ Simple messages (use `readonly` instead)
+❌ Single values (use appropriate input field types)
 
 ## Creating Custom Field Components
 

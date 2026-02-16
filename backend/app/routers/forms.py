@@ -1,7 +1,7 @@
 """HTTP API endpoints for form management"""
 
 from fastapi import APIRouter, HTTPException, Depends
-from app.core.form_definitions import CONNECT_ADD_FORM, CONNECT_REMOVE_FORM
+from app.core.form_definitions import CONNECT_ADD_FORM, CONNECT_REMOVE_FORM, CONNECT_LIST_FORM
 from app.middleware.auth import get_current_user
 
 router = APIRouter(prefix="/api/forms", tags=["forms"])
@@ -10,6 +10,7 @@ router = APIRouter(prefix="/api/forms", tags=["forms"])
 FORM_REGISTRY = {
     "connect/add": CONNECT_ADD_FORM,
     "connect/remove": CONNECT_REMOVE_FORM,
+    "connect/list": CONNECT_LIST_FORM,
     # Add more form commands here as needed
     # "backup/create": BACKUP_CREATE_FORM,
     # "mongodb/discover": MONGODB_DISCOVER_FORM,
@@ -87,6 +88,35 @@ async def get_form_schema(
         for field in form_dict.get("fields", []):
             if field["id"] == "connections":
                 field["options"] = options
+                break
+        
+        return form_dict
+    
+    # Special handling for connect/list: populate connection items
+    if command_path == "connect/list":
+        from app.core.connection_ops import ConnectionManager
+        from app.core.utils.uri_builder import mask_password_in_uri
+        
+        conn_mgr = ConnectionManager()
+        connections = conn_mgr.list_connections()
+        
+        # Create a copy of the form schema
+        form_dict = form_schema.dict(exclude_none=True)
+        
+        # Build items array with connection data
+        items = []
+        for conn in connections:
+            items.append({
+                "name": conn["name"],
+                "uri": mask_password_in_uri(conn["uri"]),
+                "description": conn.get("description", ""),
+                "added_at": conn.get("added_at", "")
+            })
+        
+        # Update the list field with items
+        for field in form_dict.get("fields", []):
+            if field["id"] == "connections_list":
+                field["items"] = items
                 break
         
         return form_dict

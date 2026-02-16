@@ -38,7 +38,7 @@ export interface SelectOption {
   metadata?: Record<string, any>
 }
 
-export type FieldType = 'text' | 'textarea' | 'number' | 'select' | 'checkbox' | 'checkbox-list' | 'date' | 'readonly' | 'password'
+export type FieldType = 'text' | 'textarea' | 'number' | 'select' | 'checkbox' | 'checkbox-list' | 'date' | 'readonly' | 'password' | 'list'
 
 export interface FormField {
   id: string
@@ -56,6 +56,7 @@ export interface FormField {
   step?: number
   options?: SelectOption[]
   content?: string
+  items?: any[]  // For 'list' type - array of items to display
 }
 
 export interface FormAction {

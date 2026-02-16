@@ -190,6 +190,34 @@ export const TERMINAL_FORMS: Record<string, FormConfiguration> = {
         action: 'cancel'
       }
     ]
+  },
+
+  /**
+   * Connection List Form
+   * 
+   * Read-only display of all MongoDB connections.
+   * Shows connection details in formatted panels.
+   */
+  connect_list: {
+    title: 'MongoDB Connections',
+    description: 'Configured MongoDB connections',
+    fields: [
+      {
+        id: 'connections_list',
+        label: '',
+        type: 'list',
+        required: false,
+        // items will be populated dynamically from backend
+        items: []
+      }
+    ],
+    actions: [
+      {
+        label: 'Close',
+        style: 'secondary',
+        action: 'cancel'
+      }
+    ]
   }
 }
 

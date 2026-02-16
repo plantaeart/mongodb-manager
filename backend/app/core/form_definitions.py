@@ -24,7 +24,7 @@ class FormField(BaseModel):
     """Form field definition"""
     id: str
     label: str
-    type: Literal['text', 'textarea', 'number', 'select', 'checkbox', 'checkbox-list', 'date', 'readonly', 'password']
+    type: Literal['text', 'textarea', 'number', 'select', 'checkbox', 'checkbox-list', 'date', 'readonly', 'password', 'list']
     required: bool = False
     placeholder: Optional[str] = None
     default: Any = None
@@ -38,6 +38,7 @@ class FormField(BaseModel):
     step: Optional[int | float] = None  # number
     options: Optional[List[SelectOption]] = None  # select, checkbox-list
     content: Optional[str] = None  # readonly
+    items: Optional[List[Dict[str, Any]]] = None  # list
 
 
 class FormAction(BaseModel):
@@ -205,5 +206,23 @@ CONNECT_REMOVE_FORM = FormSchema(
     actions=[
         FormAction(label="Remove Selected", style="danger", action="submit"),
         FormAction(label="Cancel", style="secondary", action="cancel")
+    ]
+)
+
+# Connection List Form (Read-only display)
+# Note: Content is populated dynamically from ConnectionManager.list_connections()
+CONNECT_LIST_FORM = FormSchema(
+    title="MongoDB Connections",
+    description="Configured MongoDB connections",
+    fields=[
+        FormField(
+            id="connections_list",
+            label="",
+            type="list",
+            items=[]  # Populated dynamically with connection objects
+        )
+    ],
+    actions=[
+        FormAction(label="Close", style="secondary", action="cancel")
     ]
 )

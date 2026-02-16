@@ -71,6 +71,8 @@ import TerminalTextField from './Fields/TerminalTextField.vue'
 import TerminalPasswordField from './Fields/TerminalPasswordField.vue'
 import TerminalNumberField from './Fields/TerminalNumberField.vue'
 import TerminalCheckboxListField from './Fields/TerminalCheckboxListField.vue'
+import TerminalReadonlyField from './Fields/TerminalReadonlyField.vue'
+import TerminalListField from './Fields/TerminalListField.vue'
 import TerminalFormActions from './TerminalFormActions.vue'
 import type { FormRequestMessage, FormField } from '~/types/terminal'
 import { CommandStatus } from '~/enums'
@@ -96,6 +98,11 @@ const isAdvancedMode = ref(false)
 const isReadonly = computed(() => 
   props.readonly || props.status === CommandStatus.SUCCESS || props.status === CommandStatus.ERROR
 )
+
+// Detect if this is a read-only form (all fields are readonly)
+const isReadOnlyForm = computed(() => {
+  return props.formData.fields.every(f => f.type === 'readonly')
+})
 
 // Detect if this is the connection add form
 const isConnectionForm = computed(() => {
@@ -129,6 +136,10 @@ const getFieldComponent = (field: FormField) => {
       return TerminalNumberField
     case 'checkbox-list':
       return TerminalCheckboxListField
+    case 'readonly':
+      return TerminalReadonlyField
+    case 'list':
+      return TerminalListField
     case 'textarea':
       // TODO: Create TerminalTextAreaField when needed
       return TerminalTextField
@@ -156,6 +167,11 @@ watch(() => props.formData, (formData) => {
 
 // Mode-aware validation
 const canSubmit = computed(() => {
+  // Read-only forms cannot be submitted
+  if (isReadOnlyForm.value) {
+    return false
+  }
+  
   if (!isConnectionForm.value) {
     // Non-connection form: require all required fields
     const requiredFields = props.formData.fields.filter(f => f.required)

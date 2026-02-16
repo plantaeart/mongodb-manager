@@ -184,6 +184,7 @@ class TerminalService {
     const formCommands: Record<string, string> = {
       'connect add': 'connect/add',
       'connect remove': 'connect/remove',
+      'connect list': 'connect/list',
       // Add more form commands here as needed
       // 'backup create': 'backup/create',
       // 'mongodb discover': 'mongodb/discover',
