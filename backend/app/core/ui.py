@@ -86,22 +86,18 @@ def display_connections_table(connections: list[dict]):
     Args:
         connections: List of connection dictionaries
     """
+    from app.core.utils.uri_builder import mask_password_in_uri
+    
     table = Table(title="MongoDB Connections")
     
-    table.add_column("Name", style="cyan", no_wrap=True)
-    table.add_column("URI", style="yellow")
-    table.add_column("Description", style="green")
-    table.add_column("Added", style="dim")
+    table.add_column("Name", style="cyan", no_wrap=True, width=15)
+    table.add_column("URI", style="yellow", no_wrap=False, width=50)  # Wider, with wrapping
+    table.add_column("Description", style="green", no_wrap=False, width=20)
+    table.add_column("Added", style="dim", no_wrap=True, width=20)
     
     for conn in connections:
-        # Hide password in URI
-        uri = conn["uri"]
-        if "@" in uri and "://" in uri:
-            protocol = uri.split("://")[0]
-            rest = uri.split("@")[1]
-            uri_display = f"{protocol}://***@{rest}"
-        else:
-            uri_display = uri
+        # Mask password in URI using utility function
+        uri_display = mask_password_in_uri(conn["uri"])
         
         table.add_row(
             conn["name"],

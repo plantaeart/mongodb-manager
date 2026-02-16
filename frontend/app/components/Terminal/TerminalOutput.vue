@@ -11,8 +11,8 @@
       class="terminal-entry"
       :class="{ 'entry-error': entry.status === CommandStatus.ERROR }"
     >
-      <!-- Command prompt -->
-      <div class="command-line">
+      <!-- Command prompt (only show if not a form entry) -->
+      <div v-if="!entry.form && entry.command" class="command-line">
         <span class="prompt-user">admin</span>
         <span class="prompt-separator">@</span>
         <span class="prompt-host">mongodb-manager</span>
@@ -21,7 +21,18 @@
         <span class="command-text">{{ entry.command }}</span>
       </div>
 
-      <!-- Output lines -->
+      <!-- Form rendering -->
+      <TerminalForm
+        v-if="entry.form && entry.form.type === WebSocketMessageType.FORM_REQUEST"
+        :form-data="entry.form"
+        :form-id="entry.form.form_id"
+        :readonly="entry.status !== CommandStatus.RUNNING"
+        :status="entry.status"
+        @submit="handleFormSubmit(entry.form.form_id, $event)"
+        @cancel="handleFormCancel(entry.form.form_id)"
+      />
+
+      <!-- Output lines (show after form submitted or for non-form commands) -->
       <div v-if="entry.output.length > 0" class="output-lines">
         <div
           v-for="(line, index) in entry.output"
@@ -39,7 +50,7 @@
       </div>
 
       <!-- Status indicator -->
-      <div v-if="entry.status === CommandStatus.RUNNING" class="status-indicator">
+      <div v-if="entry.status === CommandStatus.RUNNING && !entry.form" class="status-indicator">
         <span class="spinner"></span>
         <span class="text-gb-blue">Running...</span>
       </div>
@@ -48,8 +59,9 @@
 </template>
 
 <script setup lang="ts">
-import { CommandStatus, OutputLinePattern } from '~/enums'
+import { CommandStatus, OutputLinePattern, WebSocketMessageType } from '~/enums'
 import type { TerminalEntry } from '~/types/terminal'
+import TerminalForm from './Forms/TerminalForm.vue'
 
 interface Props {
   history: TerminalEntry[]
@@ -61,6 +73,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const outputContainer = ref<HTMLElement | null>(null)
+const { submitForm, cancelForm } = useTerminal()
 
 // Auto-scroll to bottom when new output arrives
 watch(
@@ -92,6 +105,15 @@ const isWarningLine = (line: string): boolean => {
 
 const isInfoLine = (line: string): boolean => {
   return new RegExp(OutputLinePattern.INFO, 'i').test(line)
+}
+
+// Form handlers
+const handleFormSubmit = (formId: string | number, data: Record<string, any>) => {
+  submitForm(String(formId), data)
+}
+
+const handleFormCancel = (formId: string | number) => {
+  cancelForm(String(formId))
 }
 </script>
 

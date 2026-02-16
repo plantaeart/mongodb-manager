@@ -16,8 +16,8 @@
         v-model="currentCommand"
         type="text"
         class="command-input"
-        placeholder="Type a command..."
-        :disabled="isExecuting || disabled"
+        :placeholder="hasActiveForm ? 'Waiting for form input...' : 'Type a command...'"
+        :disabled="isExecuting || disabled || hasActiveForm"
         @keydown.enter="handleEnterKey"
         @keydown.up.prevent="handleArrowUp"
         @keydown.down.prevent="handleArrowDown"
@@ -49,13 +49,15 @@ interface Props {
   favorites?: string[]
   suggestions?: string[]
   disabled?: boolean
+  hasActiveForm?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   isExecuting: false,
   favorites: () => [],
   suggestions: () => Object.values(TerminalCommand),
-  disabled: false
+  disabled: false,
+  hasActiveForm: false
 })
 
 const emit = defineEmits<{

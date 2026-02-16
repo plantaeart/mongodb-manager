@@ -1,4 +1,12 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import { readFileSync } from 'fs'
+import { resolve } from 'path'
+
+// Read version from package.json
+const packageJson = JSON.parse(
+  readFileSync(resolve(__dirname, 'package.json'), 'utf-8')
+)
+
 export default defineNuxtConfig({
   compatibilityDate: '2024-04-03',
   devtools: { enabled: true },
@@ -15,7 +23,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiUrl: process.env.NUXT_PUBLIC_API_URL || 'http://localhost:8000',
-      wsUrl: process.env.NUXT_PUBLIC_WS_URL || 'ws://localhost:8000'
+      wsUrl: process.env.NUXT_PUBLIC_WS_URL || 'ws://localhost:8000',
+      appVersion: packageJson.version
     }
   },
   

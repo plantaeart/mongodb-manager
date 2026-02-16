@@ -3,7 +3,8 @@
     <div class="login-modal">
       <div class="login-header">
         <h1 class="text-2xl font-bold text-gb-green mb-2">MongoDB Manager</h1>
-        <p class="text-gb-fg-dim text-sm">Enter your password to continue</p>
+        <p class="text-gb-fg-dim text-sm mb-1">Enter your password to continue</p>
+        <p class="text-gb-fg-dim text-xs version-text">{{ versionString }}</p>
       </div>
 
       <form @submit.prevent="handleLogin" class="login-form">
@@ -75,6 +76,7 @@ const emit = defineEmits<{
   loginError: [error: string]
 }>()
 
+const { versionString } = useVersion()
 const password = ref('')
 const rememberMe = ref(false)
 const needsPasswordChange = ref(false)
@@ -168,6 +170,11 @@ const handleLogin = async () => {
 .login-header {
   text-align: center;
   margin-bottom: 2rem;
+}
+
+.version-text {
+  opacity: 0.7;
+  font-family: 'JetBrains Mono', monospace;
 }
 
 .login-form {

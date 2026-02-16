@@ -1,11 +1,12 @@
 import { CommandStatus, WebSocketMessageType } from '~/enums'
 
 export interface TerminalEntry {
-  id: number
+  id: number | string
   command: string
   output: string[]
   timestamp: Date
   status: CommandStatus
+  form?: FormRequestMessage | FormStepperMessage | null
 }
 
 export interface WebSocketMessage {
@@ -20,4 +21,81 @@ export interface WebSocketMessage {
 export interface CommandExecuteRequest {
   type: WebSocketMessageType.EXECUTE
   command: string
+}
+
+// Form Types
+export interface ValidationRule {
+  pattern?: string
+  message: string
+  min?: number
+  max?: number
+}
+
+export interface SelectOption {
+  value: string
+  label: string
+  description?: string
+  metadata?: Record<string, any>
+}
+
+export type FieldType = 'text' | 'textarea' | 'number' | 'select' | 'checkbox' | 'date' | 'readonly' | 'password'
+
+export interface FormField {
+  id: string
+  label: string
+  type: FieldType
+  required: boolean
+  placeholder?: string
+  default?: any
+  validation?: ValidationRule
+  help_text?: string
+  // Type-specific
+  rows?: number
+  min?: number
+  max?: number
+  step?: number
+  options?: SelectOption[]
+  content?: string
+}
+
+export interface FormAction {
+  label: string
+  style: 'primary' | 'secondary' | 'danger'
+  action: string
+}
+
+export interface FormRequestMessage {
+  type: 'form_request'
+  form_id: string
+  title: string
+  description?: string
+  fields: FormField[]
+  actions: FormAction[]
+}
+
+export interface FormStep {
+  id: string
+  title: string
+  description?: string
+  fields: FormField[]
+}
+
+export interface FormStepperMessage {
+  type: 'form_stepper'
+  form_id: string
+  title: string
+  description?: string
+  steps: FormStep[]
+  actions: Record<string, FormAction>
+}
+
+export interface FormSubmitRequest {
+  type: 'form_submit'
+  form_id: string
+  data: Record<string, any>
+}
+
+export interface FormCancelRequest {
+  type: 'form_cancel'
+  form_id: string
 }

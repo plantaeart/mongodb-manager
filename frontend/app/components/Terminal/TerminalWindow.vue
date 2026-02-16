@@ -8,7 +8,7 @@
           <span class="control minimize"></span>
           <span class="control maximize"></span>
         </div>
-        <h1 class="terminal-title">MongoDB Manager</h1>
+        <h1 class="terminal-title">MongoDB Manager <span class="version-badge">{{ versionString }}</span></h1>
       </div>
       <div class="header-right">
         <button 
@@ -31,6 +31,7 @@
         />
         <CommandInput 
           :is-executing="isExecuting"
+          :has-active-form="hasActiveForm"
           :favorites="favorites"
           :suggestions="availableCommands"
           @execute-command="handleExecuteCommand"
@@ -68,8 +69,9 @@ import StatusBar from './StatusBar.vue'
 import VisualPanel from '../Panel/VisualPanel.vue'
 
 // Access services at orchestrator level
-const { commandHistory, isExecuting, favorites, executeCommand } = useTerminal()
+const { commandHistory, isExecuting, hasActiveForm, favorites, executeCommand } = useTerminal()
 const { isConnected } = useWebSocket()
+const { versionString } = useVersion()
 const authStore = useAuthStore()
 
 const showPanel = ref(false)
@@ -79,10 +81,36 @@ const wsConnected = computed(() => isConnected.value)
 const currentUser = computed(() => authStore.getUsername)
 // Deep copy to remove readonly constraints from nested arrays
 const terminalHistory = computed(() => 
-  commandHistory.value.map(entry => ({
-    ...entry,
-    output: [...entry.output]
-  }))
+  commandHistory.value.map(entry => {
+    const newEntry: any = {
+      ...entry,
+      output: [...entry.output]
+    }
+    
+    // Deep copy form to remove readonly constraints
+    if (entry.form) {
+      if (entry.form.type === 'form_request') {
+        newEntry.form = {
+          ...entry.form,
+          fields: [...entry.form.fields],
+          actions: [...entry.form.actions]
+        }
+      } else if (entry.form.type === 'form_stepper') {
+        newEntry.form = {
+          ...entry.form,
+          steps: entry.form.steps.map(step => ({
+            ...step,
+            fields: [...step.fields]
+          })),
+          actions: typeof entry.form.actions === 'object' && !Array.isArray(entry.form.actions)
+            ? { ...entry.form.actions }
+            : entry.form.actions
+        }
+      }
+    }
+    
+    return newEntry
+  })
 )
 
 // Available commands for autocomplete
@@ -180,6 +208,19 @@ const togglePanel = () => {
   color: var(--gb-fg);
   font-family: 'JetBrains Mono', monospace;
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.version-badge {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--gb-fg-dim);
+  background: var(--gb-bg-hard);
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  border: 1px solid var(--gb-gray);
 }
 
 .header-right {

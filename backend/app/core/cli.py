@@ -107,20 +107,30 @@ def connect_add(
     uri: Annotated[str | None, typer.Option("--uri", "-u", help="MongoDB connection URI")] = None,
     description: Annotated[str, typer.Option("--description", "-d", help="Description")] = "",
 ):
-    """Add a new MongoDB connection (interactive mode if no options provided)"""
+    """Add a new MongoDB connection
+    
+    Usage:
+        # Via HTTP API with form (frontend handles this)
+        connect add --name my-db --uri mongodb://localhost:27017 --description "My DB"
+        
+        # Via terminal (interactive wizard for non-WebSocket terminals)
+        connect add
+    """
     require_auth()
     conn_mgr = ConnectionManager()
     
-    # Direct mode: if name and uri provided, add immediately (backward compatibility)
+    # Direct mode: if name and uri provided, add immediately
+    # This is used when called via HTTP API with form data
     if name and uri:
         if conn_mgr.add_connection(name, uri, description):
-            console.print(f"[green]OK[/green] Connection '{name}' added successfully")
+            console.print(f"[green]✓[/green] Connection '{name}' added successfully")
         else:
-            console.print(f"[red]ERROR[/red] Connection '{name}' already exists")
+            console.print(f"[red]✗[/red] Connection '{name}' already exists")
             raise typer.Exit(1)
         return
     
-    # Interactive mode: show wizard
+    # Interactive mode: show wizard (for non-WebSocket terminal use)
+    # Note: WebSocket terminal will use HTTP API + forms instead
     _show_add_connection_wizard(conn_mgr)
 
 

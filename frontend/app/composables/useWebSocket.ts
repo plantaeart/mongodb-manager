@@ -131,6 +131,21 @@ class WebSocketService {
     }
   }
 
+  send(message: any): boolean {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      console.error('[WebSocketService] Cannot send message: WebSocket not connected')
+      return false
+    }
+
+    try {
+      this.socket.send(JSON.stringify(message))
+      return true
+    } catch (error) {
+      console.error('[WebSocketService] Failed to send message:', error)
+      return false
+    }
+  }
+
   onMessage(handler: (msg: WebSocketMessage) => void): () => void {
     this.messageHandlers.push(handler)
     
@@ -169,6 +184,7 @@ export const useWebSocket = () => {
   return {
     isConnected: wsService.isConnected,
     sendCommand: (command: string) => wsService.sendCommand(command),
+    send: (message: any) => wsService.send(message),
     onMessage: (handler: (msg: WebSocketMessage) => void) => wsService.onMessage(handler),
     connect: () => {
       if (authStore.token) {

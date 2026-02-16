@@ -6,13 +6,32 @@ import asyncio
 import json
 import sys
 import logging
+from contextvars import ContextVar
 from contextlib import redirect_stdout, redirect_stderr
 
 from app.middleware.auth import verify_token
 from app.core.cli import app as cli_app
+from app.websocket.forms import FormManager
 
 router = APIRouter()
 logger = logging.getLogger("mongodb_manager.websocket")
+
+# Global form manager instance
+form_manager = FormManager()
+
+# Context variables for WebSocket and form manager access in CLI commands
+_websocket_context: ContextVar[WebSocket | None] = ContextVar('websocket_context', default=None)
+_form_manager_context: ContextVar[FormManager | None] = ContextVar('form_manager_context', default=None)
+
+
+def get_websocket_context() -> WebSocket | None:
+    """Get current WebSocket from context (if in WebSocket command execution)"""
+    return _websocket_context.get()
+
+
+def get_form_manager() -> FormManager | None:
+    """Get FormManager from context (if in WebSocket command execution)"""
+    return _form_manager_context.get()
 
 
 class WebSocketOutputStream:
@@ -135,10 +154,27 @@ async def terminal_websocket(
             data = await websocket.receive_text()
             message = json.loads(data)
             
-            if message.get("type") == "execute":
+            message_type = message.get("type")
+            logger.info(f"[DEBUG] Received WebSocket message: type={message_type}")
+            
+            if message_type == "execute":
                 command = message.get("command", "")
+                logger.info(f"[DEBUG] Execute command: {command}")
                 if command:
                     await execute_command_and_stream(websocket, command)
+            
+            elif message_type == "form_submit":
+                form_id = message.get("form_id")
+                form_data = message.get("data")
+                logger.info(f"[DEBUG] Form submit: form_id={form_id}")
+                if form_id and form_data is not None:
+                    form_manager.handle_form_submit(form_id, form_data)
+            
+            elif message_type == "form_cancel":
+                form_id = message.get("form_id")
+                logger.info(f"[DEBUG] Form cancel: form_id={form_id}")
+                if form_id:
+                    form_manager.handle_form_cancel(form_id)
             
     except WebSocketDisconnect:
         pass
@@ -160,6 +196,10 @@ async def execute_command_and_stream(websocket: WebSocket, command: str):
         websocket: WebSocket connection
         command: Command string to execute
     """
+    # Set context variables for this command execution
+    _websocket_context.set(websocket)
+    _form_manager_context.set(form_manager)
+    
     try:
         # Parse command
         cmd_parts = command.strip().split()
@@ -199,7 +239,16 @@ async def execute_command_and_stream(websocket: WebSocket, command: str):
         try:
             with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
                 try:
+                    # CRITICAL FIX: Don't use thread - run CLI directly in this event loop
+                    # The issue was that threading created a NEW event loop (via anyio.run)
+                    # which couldn't communicate with our WebSocket event loop's Futures
+                    logger.info(f"[DEBUG] Executing command: {cmd_parts}")
+                    
+                    # Invoke CLI directly - Typer will handle async properly
+                    # Context vars are already set (lines 200-201)
                     cli_app(cmd_parts, standalone_mode=False)
+                    
+                    logger.info(f"[DEBUG] Command completed")
                 finally:
                     ui_module.console = original_console
                 
@@ -231,3 +280,7 @@ async def execute_command_and_stream(websocket: WebSocket, command: str):
             "message": str(e),
             "exit_code": 1
         })
+    finally:
+        # Clear context variables
+        _websocket_context.set(None)
+        _form_manager_context.set(None)
