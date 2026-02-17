@@ -2,11 +2,13 @@
 
 import os
 import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import auth
 from app.websocket import terminal
 from app.routers import forms, commands
+from app.core.database import init_database, close_database
 
 # Configure logging
 logging.basicConfig(
@@ -20,11 +22,32 @@ logging.basicConfig(
 # Reduce noise from libraries
 logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
+# Lifespan context manager for startup/shutdown
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handle application startup and shutdown"""
+    # Startup
+    print("🚀 Starting MongoDB Manager API...")
+    try:
+        init_database()
+        print("✅ Database initialized successfully")
+    except Exception as e:
+        print(f"❌ Failed to initialize database: {e}")
+        raise
+    
+    yield
+    
+    # Shutdown
+    print("🛑 Shutting down MongoDB Manager API...")
+    close_database()
+    print("✅ Shutdown complete")
+
 # Create FastAPI app
 app = FastAPI(
     title="MongoDB Manager API",
     description="Web API for MongoDB backup and restore management",
-    version="2.0.0"
+    version="2.0.0",
+    lifespan=lifespan
 )
 
 # Get CORS origins from environment variable

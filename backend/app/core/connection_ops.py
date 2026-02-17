@@ -1,44 +1,25 @@
 """MongoDB connection management"""
 
-import json
-import os
-from pathlib import Path
+from typing import Optional
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, OperationFailure
 
-from .utils import get_current_time
+from app.repositories.connection_repository import ConnectionRepository, get_connection_repository
 
 
 class ConnectionManager:
-    """Manages MongoDB connections configuration"""
+    """Manages MongoDB connections configuration
     
-    def __init__(self, config_path: Path | None = None):
-        if config_path is None:
-            # Check for environment variable first (Docker container)
-            env_path = os.getenv('MONGODB_MANAGER_CONFIG_PATH')
-            if env_path:
-                config_path = Path(env_path)
-            else:
-                # Fallback to home directory (local development)
-                config_path = Path.home() / ".mongodb-manager" / "connections.json"
+    This class now uses MongoDB storage via ConnectionRepository instead of JSON files.
+    """
+    
+    def __init__(self, repository: Optional[ConnectionRepository] = None):
+        """Initialize connection manager
         
-        self.config_path = Path(config_path)
-        self._ensure_config_exists()
-    
-    def _ensure_config_exists(self):
-        """Create config file if it doesn't exist"""
-        self.config_path.parent.mkdir(parents=True, exist_ok=True)
-        
-        if not self.config_path.exists():
-            self.config_path.write_text(json.dumps({"connections": []}, indent=2))
-    
-    def _load_config(self) -> dict:
-        """Load connections from config file"""
-        return json.loads(self.config_path.read_text())
-    
-    def _save_config(self, config: dict):
-        """Save connections to config file"""
-        self.config_path.write_text(json.dumps(config, indent=2))
+        Args:
+            repository: ConnectionRepository instance (defaults to global instance)
+        """
+        self.repository = repository or get_connection_repository()
     
     def add_connection(
         self, 
@@ -56,24 +37,7 @@ class ConnectionManager:
         Returns:
             True if added successfully, False if name already exists
         """
-        config = self._load_config()
-        
-        # Check if connection name already exists
-        if any(conn["name"] == name for conn in config["connections"]):
-            return False
-        
-        connection = {
-            "name": name,
-            "uri": uri,
-            "description": description,
-            "added_at": get_current_time().isoformat(),
-            "backup_paths": [],
-            "active_backup_path": None
-        }
-        
-        config["connections"].append(connection)
-        self._save_config(config)
-        return True
+        return self.repository.add_connection(name, uri, description)
     
     def remove_connection(self, name: str) -> bool:
         """Remove a connection
@@ -84,18 +48,7 @@ class ConnectionManager:
         Returns:
             True if removed, False if not found
         """
-        config = self._load_config()
-        original_count = len(config["connections"])
-        
-        config["connections"] = [
-            conn for conn in config["connections"] 
-            if conn["name"] != name
-        ]
-        
-        if len(config["connections"]) < original_count:
-            self._save_config(config)
-            return True
-        return False
+        return self.repository.remove_connection(name)
     
     def update_connection(
         self, 
@@ -115,34 +68,7 @@ class ConnectionManager:
         Returns:
             True if updated successfully, False if not found or new_name already exists
         """
-        config = self._load_config()
-        
-        # Find the connection to update
-        connection = None
-        for conn in config["connections"]:
-            if conn["name"] == name:
-                connection = conn
-                break
-        
-        if not connection:
-            return False
-        
-        # If renaming, check that new name doesn't already exist
-        if new_name and new_name != name:
-            if any(conn["name"] == new_name for conn in config["connections"]):
-                return False
-            connection["name"] = new_name
-        
-        # Update URI if provided
-        if uri is not None:
-            connection["uri"] = uri
-        
-        # Update description if provided
-        if description is not None:
-            connection["description"] = description
-        
-        self._save_config(config)
-        return True
+        return self.repository.update_connection(name, new_name, uri, description)
     
     def list_connections(self) -> list[dict]:
         """List all configured connections
@@ -150,8 +76,7 @@ class ConnectionManager:
         Returns:
             List of connection dictionaries
         """
-        config = self._load_config()
-        return config["connections"]
+        return self.repository.list_connections()
     
     def get_connection(self, name: str) -> dict | None:
         """Get a specific connection by name
@@ -162,12 +87,7 @@ class ConnectionManager:
         Returns:
             Connection dict if found, None otherwise
         """
-        config = self._load_config()
-        
-        for conn in config["connections"]:
-            if conn["name"] == name:
-                return conn
-        return None
+        return self.repository.get_connection(name)
     
     def test_connection(self, name: str) -> tuple[bool, str]:
         """Test if a connection works
@@ -227,23 +147,7 @@ class ConnectionManager:
         Returns:
             True if added successfully, False if connection not found or path already exists
         """
-        config = self._load_config()
-        
-        for conn in config["connections"]:
-            if conn["name"] == connection_name:
-                # Initialize backup_paths if not present
-                if "backup_paths" not in conn:
-                    conn["backup_paths"] = []
-                
-                # Check if path already exists
-                if path in conn["backup_paths"]:
-                    return False
-                
-                conn["backup_paths"].append(path)
-                self._save_config(config)
-                return True
-        
-        return False
+        return self.repository.add_backup_path(connection_name, path)
     
     def remove_backup_path(self, connection_name: str, path: str) -> bool:
         """Remove a backup path from a connection
@@ -255,26 +159,7 @@ class ConnectionManager:
         Returns:
             True if removed successfully, False if connection or path not found
         """
-        config = self._load_config()
-        
-        for conn in config["connections"]:
-            if conn["name"] == connection_name:
-                if "backup_paths" not in conn:
-                    return False
-                
-                if path not in conn["backup_paths"]:
-                    return False
-                
-                conn["backup_paths"].remove(path)
-                
-                # If this was the active path, clear it
-                if conn.get("active_backup_path") == path:
-                    conn["active_backup_path"] = None
-                
-                self._save_config(config)
-                return True
-        
-        return False
+        return self.repository.remove_backup_path(connection_name, path)
     
     def set_active_backup_path(self, connection_name: str, path: str) -> bool:
         """Set the active backup path for a connection
@@ -286,88 +171,22 @@ class ConnectionManager:
         Returns:
             True if set successfully, False if connection not found or path not in backup_paths
         """
-        config = self._load_config()
-        
-        for conn in config["connections"]:
-            if conn["name"] == connection_name:
-                # Initialize fields if not present
-                if "backup_paths" not in conn:
-                    conn["backup_paths"] = []
-                
-                # Verify path is in backup_paths
-                if path not in conn["backup_paths"]:
-                    return False
-                
-                conn["active_backup_path"] = path
-                self._save_config(config)
-                return True
-        
-        return False
+        return self.repository.set_active_backup_path(connection_name, path)
     
-    def get_backup_paths(self, connection_name: str) -> list[str]:
-        """Get all backup paths for a connection
+    def update_backup_path(
+        self, 
+        connection_name: str, 
+        old_path: str, 
+        new_path: str
+    ) -> bool:
+        """Update a backup path
         
         Args:
             connection_name: Name of the connection
-            
-        Returns:
-            List of backup folder paths
-        """
-        conn = self.get_connection(connection_name)
-        if not conn:
-            return []
-        
-        return conn.get("backup_paths", [])
-    
-    def get_active_backup_path(self, connection_name: str) -> str | None:
-        """Get the active backup path for a connection
-        
-        Args:
-            connection_name: Name of the connection
-            
-        Returns:
-            Active backup path or None if not set
-        """
-        conn = self.get_connection(connection_name)
-        if not conn:
-            return None
-        
-        return conn.get("active_backup_path")
-    
-    def update_backup_path(self, connection_name: str, old_path: str, new_path: str) -> bool:
-        """Update a backup path in a connection
-        
-        Args:
-            connection_name: Name of the connection
-            old_path: Existing backup folder path
+            old_path: Current backup folder path
             new_path: New backup folder path
             
         Returns:
             True if updated successfully, False if connection or old_path not found
         """
-        config = self._load_config()
-        
-        for conn in config["connections"]:
-            if conn["name"] == connection_name:
-                if "backup_paths" not in conn:
-                    return False
-                
-                if old_path not in conn["backup_paths"]:
-                    return False
-                
-                # Check if new_path already exists
-                if new_path in conn["backup_paths"]:
-                    return False
-                
-                # Replace old path with new path
-                idx = conn["backup_paths"].index(old_path)
-                conn["backup_paths"][idx] = new_path
-                
-                # Update active path if it was the old path
-                if conn.get("active_backup_path") == old_path:
-                    conn["active_backup_path"] = new_path
-                
-                self._save_config(config)
-                return True
-        
-        return False
+        return self.repository.update_backup_path(connection_name, old_path, new_path)
