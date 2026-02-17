@@ -15,3 +15,15 @@ export interface ConnectionCreate {
 export interface ConnectionUpdate {
   uri?: string
 }
+
+export interface ConnectionDetails {
+  name: string
+  uri: string
+  description?: string
+  host?: string
+  port?: number
+  username?: string
+  password?: string
+  database?: string
+  auth_source?: string
+}

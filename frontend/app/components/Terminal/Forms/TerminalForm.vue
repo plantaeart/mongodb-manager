@@ -1,5 +1,17 @@
 <template>
-  <div class="terminal-form" :class="{ 'readonly': isReadonly }">
+  <!-- Stepper Form (for multi-step forms like connect update) -->
+  <TerminalFormStepper
+    v-if="stepperConfig"
+    :config="stepperConfig"
+    :readonly="readonly"
+    :status="status"
+    :submit-button-text="getSubmitButtonText()"
+    @submit="handleStepperSubmit"
+    @cancel="handleCancel"
+  />
+  
+  <!-- Regular Form (single-step forms) -->
+  <div v-else class="terminal-form" :class="{ 'readonly': isReadonly }">
     <!-- Header -->
     <div class="form-header">
       <h3>{{ formData.title }}</h3>
@@ -74,8 +86,11 @@ import TerminalCheckboxListField from './Fields/TerminalCheckboxListField.vue'
 import TerminalReadonlyField from './Fields/TerminalReadonlyField.vue'
 import TerminalListField from './Fields/TerminalListField.vue'
 import TerminalFormActions from './TerminalFormActions.vue'
+import TerminalFormStepper from './TerminalFormStepper.vue'
 import type { FormRequestMessage, FormField } from '~/types/terminal'
 import { CommandStatus } from '~/enums'
+import { getStepperConfig } from '~/config/stepperRegistry'
+import { getCommandFromFormTitle } from '~/config/terminalForms'
 
 interface Props {
   formData: FormRequestMessage
@@ -90,6 +105,23 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
+// Detect if this is a stepper form and get its config
+const stepperConfig = computed(() => {
+  // Check if this is Step 1 of a stepper form
+  if (props.formData.title.includes('Step 1')) {
+    // Extract command from form title or formId
+    const command = getCommandFromFormTitle(props.formData.title)
+    if (command) {
+      const config = getStepperConfig(command, props.formId)
+      if (config && config.steps[0]) {
+        // Initialize Step 1 with the provided formData
+        config.steps[0].formData = props.formData
+        return config
+      }
+    }
+  }
+  return null
+})
 // State - MUST be declared before watch statements that reference them
 const fieldValues = ref<Record<string, any>>({})
 const fieldErrors = ref<Record<string, string>>({})
@@ -274,8 +306,26 @@ const handleSubmit = async (action: string) => {
   emit('submit', submitData)
 }
 
+const handleStepperSubmit = (data: Record<string, any>) => {
+  // Stepper already prepared the data, just emit it
+  emit('submit', data)
+}
+
 const handleCancel = () => {
   emit('cancel')
+}
+
+// Get submit button text based on command
+const getSubmitButtonText = (): string => {
+  if (!stepperConfig.value) return 'Submit'
+  
+  const command = stepperConfig.value.command
+  if (command === 'connect update') {
+    return 'Update Connection'
+  }
+  
+  // Add more command-specific labels here
+  return 'Submit'
 }
 
 // Keyboard shortcuts

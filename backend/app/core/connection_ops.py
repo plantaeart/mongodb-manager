@@ -97,6 +97,53 @@ class ConnectionManager:
             return True
         return False
     
+    def update_connection(
+        self, 
+        name: str, 
+        new_name: str | None = None,
+        uri: str | None = None, 
+        description: str | None = None
+    ) -> bool:
+        """Update an existing MongoDB connection
+        
+        Args:
+            name: Current name of the connection
+            new_name: New name (if renaming), None to keep current
+            uri: New MongoDB connection URI, None to keep current
+            description: New description, None to keep current
+            
+        Returns:
+            True if updated successfully, False if not found or new_name already exists
+        """
+        config = self._load_config()
+        
+        # Find the connection to update
+        connection = None
+        for conn in config["connections"]:
+            if conn["name"] == name:
+                connection = conn
+                break
+        
+        if not connection:
+            return False
+        
+        # If renaming, check that new name doesn't already exist
+        if new_name and new_name != name:
+            if any(conn["name"] == new_name for conn in config["connections"]):
+                return False
+            connection["name"] = new_name
+        
+        # Update URI if provided
+        if uri is not None:
+            connection["uri"] = uri
+        
+        # Update description if provided
+        if description is not None:
+            connection["description"] = description
+        
+        self._save_config(config)
+        return True
+    
     def list_connections(self) -> list[dict]:
         """List all configured connections
         

@@ -252,3 +252,145 @@ CONNECT_TEST_FORM = FormSchema(
         FormAction(label="Cancel", style="secondary", action="cancel")
     ]
 )
+
+
+# Connection Update Form - Step 1: Select Connection
+# Note: Options are populated dynamically from ConnectionManager.list_connections()
+CONNECT_UPDATE_SELECT_FORM = FormSchema(
+    title="Update MongoDB Connection - Step 1",
+    description="Select the connection you want to update",
+    fields=[
+        FormField(
+            id="connection_name",
+            label="Select Connection",
+            type="checkbox-list",
+            required=True,
+            help_text="Choose one connection to update",
+            options=[]  # Populated dynamically
+        )
+    ],
+    actions=[
+        FormAction(label="Next", style="primary", action="submit"),
+        FormAction(label="Cancel", style="secondary", action="cancel")
+    ]
+)
+
+
+# Connection Update Form - Step 2: Update Details
+# Note: Form fields are pre-populated with existing connection data
+CONNECT_UPDATE_DETAILS_FORM = FormSchema(
+    title="Update MongoDB Connection - Step 2",
+    description="Modify connection details",
+    fields=[
+        
+        # Connection Name (can be changed to rename)
+        FormField(
+            id="name",
+            label="Connection Name",
+            type="text",
+            required=True,
+            placeholder="my-mongodb",
+            validation=ValidationRule(
+                pattern=r"^[a-zA-Z0-9_-]+$",
+                message="Only letters, numbers, - and _ allowed"
+            ),
+            help_text="Unique name for this connection"
+        ),
+        
+        # SIMPLE MODE ONLY: MongoDB URI
+        FormField(
+            id="uri",
+            label="MongoDB URI",
+            type="text",
+            required=True,
+            default="mongodb://localhost:27017",
+            placeholder="mongodb://host:port",
+            validation=ValidationRule(
+                pattern=r"^mongodb://.*",
+                message="Must start with mongodb://"
+            ),
+            help_text="Format: mongodb://[username:password@]host:port[/database]",
+            tooltip="Docker: Use host.docker.internal for cross-network connections"
+        ),
+        
+        # ADVANCED MODE ONLY: Host
+        FormField(
+            id="host",
+            label="Host",
+            type="text",
+            required=False,
+            default="localhost",
+            placeholder="localhost or IP address",
+            help_text="MongoDB server hostname or IP",
+            tooltip="Docker: Use container name (same network) or host.docker.internal"
+        ),
+        
+        # ADVANCED MODE ONLY: Port
+        FormField(
+            id="port",
+            label="Port",
+            type="number",
+            required=False,
+            default=27017,
+            min=1,
+            max=65535,
+            help_text="MongoDB server port (default: 27017)",
+            tooltip="Docker: Use exposed host port (e.g., 27019) for cross-network access"
+        ),
+        
+        # ADVANCED MODE ONLY: Username
+        FormField(
+            id="username",
+            label="Username (optional)",
+            type="text",
+            required=False,
+            placeholder="admin",
+            help_text="Leave empty for no authentication"
+        ),
+        
+        # ADVANCED MODE ONLY: Password
+        FormField(
+            id="password",
+            label="Password (optional)",
+            type="password",
+            required=False,
+            placeholder="••••••••",
+            help_text="Required if username is provided"
+        ),
+        
+        # ADVANCED MODE ONLY: Auth Source
+        FormField(
+            id="auth_source",
+            label="Authentication Database",
+            type="text",
+            required=False,
+            default="admin",
+            placeholder="admin",
+            help_text="Database where user credentials are stored",
+            tooltip="Usually 'admin' - database where the user was created"
+        ),
+        
+        # ADVANCED MODE ONLY: Database
+        FormField(
+            id="database",
+            label="Database (optional)",
+            type="text",
+            required=False,
+            placeholder="mydb",
+            help_text="Default database to connect to"
+        ),
+        
+        # Description
+        FormField(
+            id="description",
+            label="Description (optional)",
+            type="text",
+            required=False,
+            placeholder="Production database"
+        )
+    ],
+    actions=[
+        FormAction(label="Update Connection", style="primary", action="submit"),
+        FormAction(label="Cancel", style="secondary", action="cancel")
+    ]
+)

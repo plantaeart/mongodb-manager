@@ -1,7 +1,14 @@
 """HTTP API endpoints for form management"""
 
 from fastapi import APIRouter, HTTPException, Depends
-from app.core.form_definitions import CONNECT_ADD_FORM, CONNECT_REMOVE_FORM, CONNECT_LIST_FORM, CONNECT_TEST_FORM
+from app.core.form_definitions import (
+    CONNECT_ADD_FORM, 
+    CONNECT_REMOVE_FORM, 
+    CONNECT_LIST_FORM, 
+    CONNECT_TEST_FORM,
+    CONNECT_UPDATE_SELECT_FORM,
+    CONNECT_UPDATE_DETAILS_FORM
+)
 from app.middleware.auth import get_current_user
 
 router = APIRouter(prefix="/api/forms", tags=["forms"])
@@ -12,6 +19,8 @@ FORM_REGISTRY = {
     "connect/remove": CONNECT_REMOVE_FORM,
     "connect/list": CONNECT_LIST_FORM,
     "connect/test": CONNECT_TEST_FORM,
+    "connect/update/select": CONNECT_UPDATE_SELECT_FORM,
+    "connect/update/details": CONNECT_UPDATE_DETAILS_FORM,
     # Add more form commands here as needed
     # "backup/create": BACKUP_CREATE_FORM,
     # "mongodb/discover": MONGODB_DISCOVER_FORM,
@@ -156,5 +165,105 @@ async def get_form_schema(
         
         return form_dict
     
+    # Special handling for connect/update/select: populate connection options for Step 1
+    if command_path == "connect/update/select":
+        from app.core.connection_ops import ConnectionManager
+        from app.core.utils.uri_builder import mask_password_in_uri
+        
+        conn_mgr = ConnectionManager()
+        connections = conn_mgr.list_connections()
+        
+        form_dict = form_schema.dict(exclude_none=True)
+        
+        # Build connection options for selector
+        options = []
+        for conn in connections:
+            uri_display = mask_password_in_uri(conn["uri"])
+            desc = conn.get("description", "")
+            
+            options.append({
+                "value": conn["name"],
+                "label": conn["name"],
+                "description": desc or uri_display,
+                "metadata": {
+                    "uri": uri_display,
+                    "description": desc
+                }
+            })
+        
+        # Populate connection selector options
+        for field in form_dict.get("fields", []):
+            if field["id"] == "connection_name":
+                field["options"] = options
+                break
+        
+        return form_dict
+    
+    # Special handling for connect/update/details: Step 2 form (no dynamic data needed here)
+    if command_path == "connect/update/details":
+        # This form will be pre-populated by frontend when connection is selected
+        return form_schema.dict(exclude_none=True)
+    
     # Convert Pydantic model to dict for JSON response
     return form_schema.dict(exclude_none=True)
+
+
+@router.get("/connection-details/{connection_name}")
+async def get_connection_details(
+    connection_name: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get connection details for pre-populating update form (Step 2)
+    
+    Args:
+        connection_name: Name of the connection to fetch
+        
+    Returns:
+        Connection details with parsed URI components
+        
+    Raises:
+        404: If connection not found
+    """
+    from app.core.connection_ops import ConnectionManager
+    from urllib.parse import urlparse, parse_qs
+    import re
+    
+    conn_mgr = ConnectionManager()
+    connection = conn_mgr.get_connection(connection_name)
+    
+    if not connection:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Connection '{connection_name}' not found"
+        )
+    
+    # Parse URI to extract components for Advanced mode
+    uri = connection.get("uri", "")
+    parsed = urlparse(uri)
+    
+    # Extract username and password
+    username = parsed.username or ""
+    password = parsed.password or ""
+    
+    # Extract host and port
+    host = parsed.hostname or "localhost"
+    port = parsed.port or 27017
+    
+    # Extract database from path
+    database = parsed.path.lstrip("/") if parsed.path else ""
+    
+    # Extract auth_source from query params
+    query_params = parse_qs(parsed.query)
+    auth_source = query_params.get("authSource", ["admin"])[0]
+    
+    return {
+        "name": connection.get("name", ""),
+        "uri": uri,
+        "description": connection.get("description", ""),
+        "host": host,
+        "port": port,
+        "username": username,
+        "password": password,
+        "database": database,
+        "auth_source": auth_source
+    }

@@ -109,6 +109,7 @@ The terminal forms system consists of four main layers:
 export const COMMAND_TO_API_PATH: Record<string, string> = {
   // Connection Management Commands
   'connect add': 'connect/add',
+  'connect update': 'connect/update',
   'connect remove': 'connect/remove',
   'connect list': 'connect/list',
   'connect test': 'connect/test',
@@ -129,11 +130,41 @@ export function hasForm(command: string): boolean {
 }
 ```
 
+### Terminal Command Enum (`terminal.ts`)
+
+For autocomplete and type safety, all commands are also defined in the `TerminalCommand` enum:
+
+```typescript
+/**
+ * Terminal command strings
+ * All available commands in the terminal interface
+ */
+export enum TerminalCommand {
+  // Built-in commands
+  HELP = 'help',
+  CLEAR = 'clear',
+  
+  // Connection management
+  CONNECT_LIST = 'connect list',
+  CONNECT_ADD = 'connect add',
+  CONNECT_UPDATE = 'connect update',
+  CONNECT_REMOVE = 'connect remove',
+  CONNECT_TEST = 'connect test',
+  
+  // Other commands...
+}
+```
+
+**When adding a new command:**
+1. Add command mapping to `COMMAND_TO_API_PATH` in `terminalForms.ts`
+2. Add enum entry to `TerminalCommand` in `terminal.ts`
+
 **Key Points:**
 - ✅ No form field definitions in frontend
 - ✅ No duplicate validation rules
 - ✅ Backend API returns complete form schemas
 - ✅ Frontend only handles command→API path mapping
+- ✅ Enum provides autocomplete suggestions in terminal
 
 ### Backend Definition (`form_definitions.py`)
 

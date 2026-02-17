@@ -12,6 +12,7 @@ export enum TerminalCommand {
   CONNECT_ADD = 'connect add',
   CONNECT_REMOVE = 'connect remove',
   CONNECT_TEST = 'connect test',
+  CONNECT_UPDATE = 'connect update',
   
   // Backup operations
   BACKUP_CREATE = 'backup create',

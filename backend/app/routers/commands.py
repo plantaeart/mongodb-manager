@@ -296,6 +296,94 @@ async def execute_command(
             stdout_capture.close()
             stderr_capture.close()
     
+    # Special handling for 'connect update' with connection selection and update data
+    if request.command.strip() == "connect update":
+        logger.info(f"[CONNECT UPDATE] Received request with params: {request.params}")
+        
+        # Get the selected connection name (from checkbox-list)
+        connection_name = request.params.get("connection_name")
+        if isinstance(connection_name, list):
+            connection_name = connection_name[0] if connection_name else None
+        
+        if not connection_name:
+            logger.warning("[CONNECT UPDATE] No connection selected")
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error="No connection selected",
+                exit_code=1
+            )
+        
+        # Check if this is advanced mode (has host/port instead of uri)
+        if "_mode" in request.params and request.params["_mode"] == "advanced":
+            # Advanced mode: build URI from components
+            try:
+                uri = build_mongodb_uri(
+                    host=request.params.get("host", "localhost"),
+                    port=int(request.params.get("port", 27017)),
+                    username=request.params.get("username") or None,
+                    password=request.params.get("password") or None,
+                    database=request.params.get("database") or None,
+                    auth_source=request.params.get("auth_source", "admin")
+                )
+                
+                # Update URI in params
+                request.params["uri"] = uri
+            except ValueError as e:
+                logger.error(f"[CONNECT UPDATE] Invalid connection parameters: {e}")
+                return CommandExecuteResponse(
+                    success=False,
+                    output="",
+                    error=f"Invalid connection parameters: {str(e)}",
+                    exit_code=1
+                )
+        
+        # Update the connection
+        from app.core.connection_ops import ConnectionManager
+        
+        conn_mgr = ConnectionManager()
+        
+        # Get the new values
+        new_name = request.params.get("name")
+        new_uri = request.params.get("uri")
+        new_description = request.params.get("description")
+        
+        # Perform update
+        success = conn_mgr.update_connection(
+            name=connection_name,
+            new_name=new_name if new_name != connection_name else None,
+            uri=new_uri,
+            description=new_description
+        )
+        
+        if not success:
+            error_msg = f"Failed to update connection '{connection_name}'"
+            # Check if it's due to duplicate name
+            if new_name and new_name != connection_name:
+                existing = conn_mgr.get_connection(new_name)
+                if existing:
+                    error_msg = f"Connection name '{new_name}' already exists"
+            
+            logger.error(f"[CONNECT UPDATE] {error_msg}")
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error=error_msg,
+                exit_code=1
+            )
+        
+        # Success message
+        display_name = new_name if new_name else connection_name
+        output_msg = f"✓ Connection '{display_name}' updated successfully"
+        logger.info(f"[CONNECT UPDATE] {output_msg}")
+        
+        return CommandExecuteResponse(
+            success=True,
+            output=output_msg,
+            error=None,
+            exit_code=0
+        )
+    
     # Build CLI arguments from command and params
     cmd_parts = request.command.strip().split()
     

@@ -25,6 +25,7 @@ export const COMMAND_TO_API_PATH: Record<string, string> = {
   'connect remove': 'connect/remove',
   'connect list': 'connect/list',
   'connect test': 'connect/test',
+  'connect update': 'connect/update/select',  // Step 1 of stepper
   
   // Add more command mappings here as needed
   // 'backup create': 'backup/create',
@@ -49,4 +50,34 @@ export function getApiPathForCommand(command: string): string | undefined {
  */
 export function hasForm(command: string): boolean {
   return command in COMMAND_TO_API_PATH
+}
+
+/**
+ * Extract command from form title
+ * 
+ * @param title - Form title (e.g., "Select Connection - Step 1 of 2")
+ * @returns Command string (e.g., "connect update") or null
+ */
+export function getCommandFromFormTitle(title: string): string | null {
+  // Check if title contains "Step 1"
+  if (!title.includes('Step 1')) {
+    return null
+  }
+  
+  // Try to match title patterns to commands
+  const titleLower = title.toLowerCase()
+  
+  // Match "Update MongoDB Connection - Step 1" or similar
+  if (titleLower.includes('update') && titleLower.includes('connection')) {
+    return 'connect update'
+  }
+  
+  // Match "Select MongoDB Connection - Step 1" (alternative pattern)
+  if (titleLower.includes('connection') && titleLower.includes('select')) {
+    return 'connect update'
+  }
+  
+  // Add more title patterns here as needed
+  
+  return null
 }

@@ -15,6 +15,7 @@ class ConnectionCreate(BaseModel):
 
 class ConnectionUpdate(BaseModel):
     """Update connection"""
+    name: str | None = None  # For renaming connection
     uri: str | None = None
     description: str | None = None
     backup_paths: list[str] | None = None
