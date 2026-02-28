@@ -16,19 +16,23 @@ A CLI tool for managing MongoDB backups and restores using mongodump/mongorestor
 
 MongoDB Manager uses a dual-database architecture:
 
-### Internal MongoDB (Session Storage)
-- **Purpose**: Stores user authentication sessions
+### Internal MongoDB (Application Data Storage)
+- **Purpose**: Stores application data (connections, sessions, user auth)
 - **Database**: `manager_app`
-- **Collection**: `sessions`
+- **Collections**: 
+  - `connections` - MongoDB connection configurations
+  - `sessions` - User authentication sessions
+  - `users` - User accounts and password hashes
 - **Features**: 
   - Automatic session expiration via TTL index
   - Isolated Docker network (no external access)
-  - Replaces file-based session storage for better security
+  - Unique index on connection names
+  - All data persisted in MongoDB (no file-based storage)
 
 ### External MongoDB (Backup Target)
 - **Purpose**: Your production/VPS MongoDB instances
 - **Operations**: Backup and restore operations using mongodump/mongorestore
-- **Connections**: Stored in `connections.json` file
+- **Connections**: Stored in internal MongoDB `connections` collection
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -122,8 +126,7 @@ Your new password is now active. No restart needed!
 
 2. Add persistent volumes:
    - `/backups_mongodb_manager` → Backup storage
-   - `/data/.mongodb-manager` → Connections config
-   - MongoDB data managed internally
+   - MongoDB data managed internally (connections stored in database)
 
 3. Deploy and login with default credentials (`admin` / `admin123`)
 4. System will force password change
@@ -402,8 +405,7 @@ db.sessions.count()
 
 2. Configure volumes:
    - `/backups_mongodb_manager` → mongodb-backups (backup storage)
-   - `/data/.mongodb-manager` → mongodb-manager-data (connections config)
-   - MongoDB data volume is managed internally
+   - MongoDB data volume is managed internally (connections stored in database)
 
 3. Deploy and login with default credentials (`admin` / `admin123`)
 
@@ -413,20 +415,25 @@ db.sessions.count()
 
 ### Connections
 
-Connections are stored in `~/.mongodb-manager/connections.json` (or `/data/.mongodb-manager/connections.json` in Docker):
+Connections are stored in the internal MongoDB database (`manager_app.connections` collection):
 
 ```json
 {
-  "connections": [
-    {
-      "name": "prod",
-      "uri": "mongodb://admin:password@prod-server:27017",
-      "description": "Production Database",
-      "added_at": "2026-01-19T21:55:00"
-    }
-  ]
+  "_id": ObjectId("..."),
+  "name": "prod",
+  "uri": "mongodb://admin:password@prod-server:27017",
+  "description": "Production Database",
+  "created_by": "admin",
+  "added_at": ISODate("2026-01-19T21:55:00Z"),
+  "updated_at": ISODate("2026-01-19T21:55:00Z")
 }
 ```
+
+**Features:**
+- Stored in MongoDB (no file-based storage)
+- Unique index on `name` field
+- Indexed on `created_by` and `added_at` for fast queries
+- Supports multi-user isolation (ready for future)
 
 ### Authentication Configuration
 

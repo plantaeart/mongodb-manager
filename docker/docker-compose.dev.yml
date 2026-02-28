@@ -38,8 +38,6 @@ services:
       - ../backend:/app
       # Backup storage
       - mongodb-backups-dev:/backups_mongodb_manager
-      # Config persistence (connections.json)
-      - mongodb-manager-data-dev:/data/.mongodb-manager
       # Docker socket (read-only) for container name discovery
       - /var/run/docker.sock:/var/run/docker.sock:ro
       # Exclude virtual environment and cache from mount
@@ -64,8 +62,6 @@ services:
       - NUXT_ADMIN_PASSWORD=${NUXT_ADMIN_PASSWORD:-admin123}
       # CORS Origins (allow frontend access)
       - CORS_ORIGINS=${CORS_ORIGINS}
-      # Config persistence path (mounted to volume)
-      - MONGODB_MANAGER_CONFIG_PATH=/data/.mongodb-manager/connections.json
     command: uvicorn app.main_api:app --host 0.0.0.0 --port 8000 --reload
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -110,8 +106,6 @@ services:
 
 volumes:
   mongodb-backups-dev:
-    driver: local
-  mongodb-manager-data-dev:
     driver: local
   manager-mongodb-data-dev:
     driver: local

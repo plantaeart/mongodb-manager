@@ -37,7 +37,8 @@
               :key="field.id"
               :is="getFieldComponent(field)"
               :field="field"
-              v-model="step.data[field.id]"
+              :model-value="step.data[field.id]"
+              @update:model-value="handleFieldValueUpdate(field.id, $event, index)"
               :disabled="isSubmitting"
               :readonly="isReadonly"
               @blur="handleFieldBlur(field.id, index)"
@@ -113,15 +114,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, useTemplateRef } from 'vue'
-import TerminalCustomStepper from './TerminalCustomStepper.vue'
+import { ref, computed, watch, triggerRef } from 'vue'
 import TerminalTextField from './Fields/TerminalTextField.vue'
 import TerminalPasswordField from './Fields/TerminalPasswordField.vue'
 import TerminalNumberField from './Fields/TerminalNumberField.vue'
 import TerminalCheckboxListField from './Fields/TerminalCheckboxListField.vue'
-import type { FormField } from '~/types/terminal'
+import TerminalCustomStepper from './TerminalCustomStepper.vue'
 import type { StepperFormConfig, StepContext } from '~/types/stepper'
-import { canProceedFromStep, isStepValid, getAllStepData } from '~/types/stepper'
+import { isStepValid, canProceedFromStep, getAllStepData } from '~/types/stepper'
+import type { FormField } from '~/types/terminal'
 import { CommandStatus } from '~/enums'
 import { useAuthStore } from '~/stores/auth'
 
@@ -149,6 +150,8 @@ const baseUrl = runtimeConfig.public.apiUrl
 const stepper = useTemplateRef('stepper')
 const currentStepIndex = ref(0)
 const isSubmitting = ref(false)
+// Use a ref wrapper for steps to enable deep reactivity control
+const stepsRef = ref(props.config.steps)
 
 const isReadonly = computed(() => 
   props.readonly || props.status === CommandStatus.SUCCESS || props.status === CommandStatus.ERROR
@@ -156,34 +159,58 @@ const isReadonly = computed(() =>
 
 // Get fields for a specific step
 const stepFields = (stepIndex: number) => {
-  const step = props.config.steps[stepIndex]
+  const step = stepsRef.value[stepIndex]
   return step?.formData?.fields ?? []
 }
 
 // Stepper steps configuration for UI
 const stepperSteps = computed(() => 
-  props.config.steps.map((step, index) => ({
-    title: step.config.title,
-    description: step.config.description,
-    icon: step.config.icon,
-    disabled: step.config.disabled ?? !canProceedFromStep(index - 1, props.config.steps)
-  }))
+  stepsRef.value.map((step, index) => {
+    // Step 0 is always enabled
+    if (index === 0) {
+      return {
+        title: step.config.title,
+        description: step.config.description,
+        icon: step.config.icon,
+        disabled: step.config.disabled ?? false
+      }
+    }
+    
+    // All other steps are disabled if ANY previous step is invalid
+    const previousStepsValidation = stepsRef.value.slice(0, index).map((s, i) => ({
+      step: i,
+      id: s.id,
+      valid: isStepValid(s, stepsRef.value)
+    }))
+    
+    const allPreviousValid = previousStepsValidation.every(v => v.valid)
+    // If config.disabled is explicitly true, keep it disabled
+    // Otherwise, disable if any previous step is invalid
+    const isDisabled = step.config.disabled === true ? true : !allPreviousValid
+    
+    return {
+      title: step.config.title,
+      description: step.config.description,
+      icon: step.config.icon,
+      disabled: isDisabled
+    }
+  })
 )
 
 // Navigation helpers
 const hasPrevious = computed(() => currentStepIndex.value > 0)
-const hasNext = computed(() => currentStepIndex.value < props.config.steps.length - 1)
+const hasNext = computed(() => currentStepIndex.value < stepsRef.value.length - 1)
 
 // Can proceed to next step
-const canProceed = computed(() => 
-  canProceedFromStep(currentStepIndex.value, props.config.steps) && !isSubmitting.value
-)
+const canProceed = computed(() => {
+  return canProceedFromStep(currentStepIndex.value, stepsRef.value) && !isSubmitting.value
+})
 
 // Can submit (last step valid)
 const canSubmit = computed(() => {
-  const lastStepIndex = props.config.steps.length - 1
-  const lastStep = props.config.steps[lastStepIndex]
-  return lastStep && isStepValid(lastStep, props.config.steps) && !isSubmitting.value
+  const lastStepIndex = stepsRef.value.length - 1
+  const lastStep = stepsRef.value[lastStepIndex]
+  return lastStep && isStepValid(lastStep, stepsRef.value) && !isSubmitting.value
 })
 
 // Get appropriate component for field type
@@ -206,7 +233,7 @@ const createStepContext = (): StepContext => {
   
   return {
     currentStepIndex: currentStepIndex.value,
-    totalSteps: props.config.steps.length,
+    totalSteps: stepsRef.value.length,
     token: authStore.token || '',
     baseUrl,
     goToStep: (index: number) => stepper.value?.goToStep(index),
@@ -217,17 +244,36 @@ const createStepContext = (): StepContext => {
 
 // Update step data
 const updateStepData = (stepIndex: number, data: Record<string, any>) => {
-  const step = props.config.steps[stepIndex]
+  const step = stepsRef.value[stepIndex]
   if (step) {
     step.data = { ...step.data, ...data }
+    // Trigger reactivity update for deep changes
+    triggerRef(stepsRef)
   }
 }
 
 // Update step errors
 const updateStepErrors = (stepIndex: number, errors: Record<string, string>) => {
-  const step = props.config.steps[stepIndex]
+  const step = stepsRef.value[stepIndex]
   if (step) {
     step.errors = errors
+    // Trigger reactivity update for deep changes
+    triggerRef(stepsRef)
+  }
+}
+
+// Handle field value updates with proper reactivity
+const handleFieldValueUpdate = (fieldId: string, value: any, stepIndex: number) => {
+  const step = stepsRef.value[stepIndex]
+  if (step) {
+    // Use Vue's reactivity system properly
+    step.data = {
+      ...step.data,
+      [fieldId]: value
+    }
+    
+    // CRITICAL: Trigger reactivity for computed properties to re-evaluate
+    triggerRef(stepsRef)
   }
 }
 
@@ -237,16 +283,20 @@ const handleFieldBlur = (fieldId: string, stepIndex: number) => {
 }
 
 const handleFieldValid = (fieldId: string, stepIndex: number) => {
-  const step = props.config.steps[stepIndex]
+  const step = stepsRef.value[stepIndex]
   if (step) {
     delete step.errors[fieldId]
+    // Trigger reactivity update
+    triggerRef(stepsRef)
   }
 }
 
 const handleFieldInvalid = (fieldId: string, error: string, stepIndex: number) => {
-  const step = props.config.steps[stepIndex]
+  const step = stepsRef.value[stepIndex]
   if (step) {
     step.errors[fieldId] = error
+    // Trigger reactivity update
+    triggerRef(stepsRef)
   }
 }
 
@@ -255,7 +305,7 @@ const handleNext = async () => {
   if (!canProceed.value) return
   
   const nextIndex = currentStepIndex.value + 1
-  const nextStep = props.config.steps[nextIndex]
+  const nextStep = stepsRef.value[nextIndex]
   
   // Load next step data if needed
   if (nextStep && nextStep.loadData && !nextStep.formData) {
@@ -286,7 +336,7 @@ const handleSubmit = async () => {
   
   try {
     // Get all data from all steps
-    const allData = getAllStepData(props.config.steps)
+    const allData = getAllStepData(stepsRef.value)
     
     // Call custom submit handler if provided
     if (props.config.onSubmit) {
@@ -311,12 +361,12 @@ const handleCancel = () => {
 const handleStepChange = async (newStepIndex: number) => {
   currentStepIndex.value = newStepIndex
   
-  const step = props.config.steps[newStepIndex]
+  const step = stepsRef.value[newStepIndex]
   
   // Load step data if needed
   if (step && step.loadData && !step.formData && !step.isLoading) {
     // Check if can proceed to this step
-    if (newStepIndex > 0 && !canProceedFromStep(newStepIndex - 1, props.config.steps)) {
+    if (newStepIndex > 0 && !canProceedFromStep(newStepIndex - 1, stepsRef.value)) {
       // Go back to previous step
       stepper.value?.goToStep(newStepIndex - 1)
       return
@@ -328,14 +378,31 @@ const handleStepChange = async (newStepIndex: number) => {
 
 // Load data for a specific step
 const loadStepData = async (stepIndex: number) => {
-  const step = props.config.steps[stepIndex]
+  const step = stepsRef.value[stepIndex]
   if (!step || !step.loadData) return
   
   step.isLoading = true
+  triggerRef(stepsRef)
   
   try {
     const context = createStepContext()
-    await step.loadData(props.config.steps, context)
+    await step.loadData(stepsRef.value, context)
+    
+    // Initialize fields after loading formData
+    if (step.formData) {
+      step.formData.fields?.forEach(field => {
+        if (step.data[field.id] === undefined) {
+          // Initialize with default value if provided
+          if (field.default !== undefined) {
+            step.data[field.id] = field.default
+          }
+          // Initialize checkbox-list fields with empty array for reactivity
+          else if (field.type === 'checkbox-list') {
+            step.data[field.id] = []
+          }
+        }
+      })
+    }
   } catch (error: any) {
     console.error(`Failed to load step ${stepIndex}:`, error)
     // Go back to previous step on error
@@ -344,21 +411,39 @@ const loadStepData = async (stepIndex: number) => {
     }
   } finally {
     step.isLoading = false
+    triggerRef(stepsRef)
   }
 }
 
-// Initialize first step with form data
+// Sync stepsRef with props changes
+watch(() => props.config.steps, (newSteps) => {
+  stepsRef.value = newSteps
+}, { immediate: true })
+
+// Initialize all steps with form data
 watch(() => props.config, (config) => {
   if (config.steps.length > 0) {
-    const firstStep = config.steps[0]
-    if (firstStep && firstStep.formData) {
-      // Initialize default values
-      firstStep.formData.fields?.forEach(field => {
-        if (field.default !== undefined && firstStep.data[field.id] === undefined) {
-          firstStep.data[field.id] = field.default
-        }
-      })
-    }
+    // Initialize all steps that have formData
+    config.steps.forEach(step => {
+      if (step && step.formData) {
+        // Initialize default values
+        step.formData.fields?.forEach(field => {
+          if (step.data[field.id] === undefined) {
+            // Initialize with default value if provided
+            if (field.default !== undefined) {
+              step.data[field.id] = field.default
+            }
+            // Initialize checkbox-list fields with empty array for reactivity
+            else if (field.type === 'checkbox-list') {
+              step.data[field.id] = []
+            }
+          }
+        })
+      }
+    })
+    
+    // Trigger reactivity after initialization to ensure validation runs
+    triggerRef(stepsRef)
   }
 }, { immediate: true, deep: true })
 </script>

@@ -74,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import type { FormField } from '~/types/terminal'
 import FieldTooltip from '../FieldTooltip.vue'
 
@@ -182,6 +182,17 @@ const formatDate = (dateString: string): string => {
     return dateString
   }
 }
+
+// Call validation on mount if required (to set initial invalid state)
+onMounted(() => {
+  if (props.field.required && selectedValues.value.length === 0) {
+    const errorMsg = `Please select at least one ${props.field.label.toLowerCase()}`
+    // Emit invalid state without showing error message (not touched yet)
+    emit('invalid', errorMsg)
+  } else if (selectedValues.value.length > 0) {
+    emit('valid')
+  }
+})
 
 // Expose validate method for parent
 defineExpose({ validate })

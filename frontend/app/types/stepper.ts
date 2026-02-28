@@ -117,13 +117,20 @@ export function getAllStepData(steps: StepDefinition[]): Record<string, any> {
  * Helper to check if a step is valid
  */
 export function isStepValid(step: StepDefinition, allSteps: StepDefinition[]): boolean {
-  // If custom validation exists, use it
+  // ALWAYS call custom validation if it exists
   if (step.validate) {
-    return step.validate(step.data, allSteps)
+    const customValid = step.validate(step.data, allSteps)
+    
+    // If custom validation fails, return false immediately
+    if (!customValid) {
+      return false
+    }
   }
   
-  // Default validation: no errors
-  return Object.keys(step.errors).length === 0
+  // Then check for field-level validation errors
+  const hasErrors = Object.keys(step.errors).length > 0
+  
+  return !hasErrors
 }
 
 /**
@@ -131,7 +138,10 @@ export function isStepValid(step: StepDefinition, allSteps: StepDefinition[]): b
  */
 export function canProceedFromStep(stepIndex: number, steps: StepDefinition[]): boolean {
   const step = steps[stepIndex]
-  if (!step) return false
+  
+  if (!step) {
+    return false
+  }
   
   return isStepValid(step, steps) && !step.isLoading
 }

@@ -42,8 +42,6 @@ services:
     volumes:
       # Backup storage (production data)
       - mongodb-backups-prod:/backups_mongodb_manager
-      # Config persistence (connections.json)
-      - mongodb-manager-data-prod:/data/.mongodb-manager
       # Docker socket (read-only) for container name discovery
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
@@ -128,8 +126,6 @@ services:
 
 volumes:
   mongodb-backups-prod:
-    driver: local
-  mongodb-manager-data-prod:
     driver: local
   manager-mongodb-data-prod:
     driver: local

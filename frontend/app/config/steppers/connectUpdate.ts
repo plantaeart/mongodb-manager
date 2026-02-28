@@ -23,6 +23,7 @@ export function createConnectUpdateStepper(formId: string): StepperFormConfig {
     validate: (data, allSteps) => {
       // Validate that exactly one connection is selected
       const connectionName = data.connection_name
+      
       const hasSelection = Array.isArray(connectionName) 
         ? connectionName.length === 1 
         : !!connectionName
