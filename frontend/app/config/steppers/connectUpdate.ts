@@ -7,10 +7,7 @@
 import type { StepDefinition, StepperFormConfig } from '~/types/stepper'
 import type { ConnectionDetails } from '~/types/connection'
 import { createStep } from '~/types/stepper'
-import { createLogger } from '~/services/logger'
 import { buildMongoUri } from '~/utils/formHelpers'
-
-const logger = createLogger('ConnectUpdateStepper')
 
 /**
  * Create stepper configuration for 'connect update' command
@@ -26,8 +23,6 @@ export function createConnectUpdateStepper(formId: string): StepperFormConfig {
     ),
     component: 'CommandsConnectUpdateSelectConnection',  // Use custom component
     loadData: async (allSteps, context) => {
-      logger.info('Loading Step 1 data...')
-      
       // Fetch form schema for Step 1 (connection list)
       const formSchema = await $fetch(`${context.baseUrl}/api/forms/connect/update/select`, {
         headers: {
@@ -35,14 +30,10 @@ export function createConnectUpdateStepper(formId: string): StepperFormConfig {
         }
       })
       
-      logger.success('Step 1 form schema fetched')
-      logger.object('Form schema', formSchema)
-      
       // Update step formData
       const currentStep = allSteps[0]
       if (currentStep) {
         currentStep.formData = formSchema as any
-        logger.success('Step 1 formData updated')
       }
     },
     validate: (data, allSteps) => {
@@ -70,8 +61,6 @@ export function createConnectUpdateStepper(formId: string): StepperFormConfig {
     ),
     component: 'CommandsConnectUpdateUpdateDetails',  // Use custom component for mode toggle
     loadData: async (allSteps, context) => {
-      logger.info('Loading Step 2 data...')
-      
       // Get selected connection from Step 1
       const step1Data = allSteps[0]?.data
       let connectionName = step1Data?.connection_name
@@ -79,51 +68,29 @@ export function createConnectUpdateStepper(formId: string): StepperFormConfig {
         connectionName = connectionName[0]
       }
 
-      logger.debug(`Selected connection: ${connectionName}`)
-
       if (!connectionName) {
-        logger.error('No connection selected')
         throw new Error('No connection selected')
       }
 
       // Fetch form schema for Step 2
-      logger.info('Fetching Step 2 form schema...')
       const formSchema = await $fetch(`${context.baseUrl}/api/forms/connect/update/details`, {
         headers: {
           'Authorization': `Bearer ${context.token}`
         }
       })
 
-      logger.success('Step 2 form schema fetched')
-      logger.object('Form schema', formSchema)
-
       // Update step formData
       const currentStep = allSteps[1]
       if (currentStep) {
         currentStep.formData = formSchema as any
-        logger.success('Step 2 formData updated')
       }
 
       // Fetch connection details to pre-populate
-      logger.info(`Fetching connection details for: ${connectionName}`)
       const connectionDetails = await $fetch<ConnectionDetails>(`${context.baseUrl}/api/forms/connection-details/${connectionName}`, {
         headers: {
           'Authorization': `Bearer ${context.token}`
         }
       })
-
-      logger.success('Connection details fetched')
-      logger.object('Connection details', connectionDetails)
-      
-      // Backend already sends separated components (host, port, username, password, etc.)
-      // Backend's urlparse() handles URL-decoding, so password is already decoded
-      logger.debug(`Components from backend:`)
-      logger.debug(`  - Host: ${connectionDetails.host}`)
-      logger.debug(`  - Port: ${connectionDetails.port}`)
-      logger.debug(`  - Username: ${connectionDetails.username}`)
-      logger.debug(`  - Password length: ${connectionDetails.password?.length || 0}`)
-      logger.debug(`  - Database: ${connectionDetails.database}`)
-      logger.debug(`  - Auth Source: ${connectionDetails.auth_source}`)
 
       // Decode password if it contains URL encoding artifacts
       let decodedPassword = connectionDetails.password
@@ -131,13 +98,9 @@ export function createConnectUpdateStepper(formId: string): StepperFormConfig {
       try {
         // Check if password contains % encoding (like %40, %3F, etc.)
         if (decodedPassword && decodedPassword.includes('%')) {
-          const originalPassword = decodedPassword
           decodedPassword = decodeURIComponent(decodedPassword)
-          logger.debug(`Decoded password from: ${originalPassword}`)
-          logger.debug(`Decoded password to: ${decodedPassword}`)
         }
       } catch (error) {
-        logger.warn(`Failed to decode password: ${error}`)
         // Keep original if decode fails
       }
 
@@ -151,8 +114,6 @@ export function createConnectUpdateStepper(formId: string): StepperFormConfig {
         database: connectionDetails.database,
         auth_source: connectionDetails.auth_source
       }, false, true) // false = don't mask, true = for display (decoded password)
-      
-      logger.debug(`Built URI from components: ${builtUri}`)
 
       // Pre-populate step data with separated components
       if (currentStep) {
@@ -172,8 +133,6 @@ export function createConnectUpdateStepper(formId: string): StepperFormConfig {
           // Built URI for simple mode (from components, not from DB)
           uri: builtUri
         }
-        logger.success('Step 2 data pre-populated')
-        logger.object('Pre-populated data', currentStep.data)
       }
     },
     validate: (data, allSteps) => {

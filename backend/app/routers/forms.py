@@ -59,17 +59,7 @@ async def get_connection_details(
     # Parse URI to extract components for Advanced mode
     uri = connection.get("uri", "")
     
-    # DEBUG: Log the URI and parsed components
-    print(f"\n[get_connection_details] DEBUG:")
-    print(f"  URI from DB: {uri}")
-    
     parsed = urlparse(uri)
-    print(f"  Parsed scheme: {parsed.scheme}")
-    print(f"  Parsed netloc: {parsed.netloc}")
-    print(f"  Parsed username: {parsed.username}")
-    print(f"  Parsed password (URL-encoded): {parsed.password}")
-    print(f"  Parsed hostname: {parsed.hostname}")
-    print(f"  Parsed port: {parsed.port}")
     
     # Extract username and password
     username = parsed.username or ""
@@ -78,9 +68,7 @@ async def get_connection_details(
     # Decode URL-encoded password (urlparse doesn't decode automatically)
     from urllib.parse import unquote
     if password:
-        decoded_password = unquote(password)
-        print(f"  Password decoded: {decoded_password}")
-        password = decoded_password
+        password = unquote(password)
     
     # Extract host and port
     host = parsed.hostname or "localhost"

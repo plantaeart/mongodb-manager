@@ -87,9 +87,6 @@ import TerminalNumberField from '~/components/Terminal/Forms/Fields/TerminalNumb
 import type { StepDefinition, StepperFormConfig } from '~/types/stepper'
 import type { FormField } from '~/types/terminal'
 import { filterConnectionFields, buildMongoUri } from '~/utils/formHelpers'
-import { createLogger } from '~/services/logger'
-
-const logger = createLogger('UpdateDetails')
 
 interface Props {
   step: StepDefinition
@@ -126,11 +123,6 @@ const displayData = computed(() => {
 // Sync local data with step data
 watch(() => props.step.data, (newData) => {
   localData.value = { ...newData }
-  
-  // Debug URI field in simple mode
-  if (!isAdvancedMode.value && newData.uri) {
-    logger.debug(`[UpdateDetails] Step data updated - URI in simple mode: ${newData.uri.substring(0, 60)}...`)
-  }
 }, { deep: true })
 
 // Emit data changes
@@ -143,7 +135,6 @@ watch(() => props.readonly, (newReadonly) => {
   if (newReadonly && Object.keys(localData.value).length > 0) {
     // Store current data when entering readonly mode
     submittedData.value = { ...localData.value }
-    logger.debug('Stored submitted data:', submittedData.value)
   }
 })
 
@@ -167,7 +158,6 @@ watch(isAdvancedMode, (newMode, oldMode) => {
       }, false, true)  // false = don't mask, true = for display (decoded password)
       
       localData.value.uri = rebuiltUri
-      logger.info('Rebuilt URI for simple mode:', rebuiltUri)
     }
   }
 })
@@ -175,12 +165,7 @@ watch(isAdvancedMode, (newMode, oldMode) => {
 // Displayed fields based on mode
 const displayedFields = computed(() => {
   if (!props.step.formData?.fields) return []
-  const filtered = filterConnectionFields(props.step.formData.fields, isAdvancedMode.value)
-  
-  // Debug which fields are displayed
-  logger.debug(`[UpdateDetails] Mode: ${isAdvancedMode.value ? 'Advanced' : 'Simple'}, Fields: ${filtered.map(f => f.id).join(', ')}`)
-  
-  return filtered
+  return filterConnectionFields(props.step.formData.fields, isAdvancedMode.value)
 })
 
 // Get field component based on type

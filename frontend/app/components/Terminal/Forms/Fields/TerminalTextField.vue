@@ -57,9 +57,6 @@ import type { FormField } from '~/types/terminal'
 import FieldTooltip from '../FieldTooltip.vue'
 import { buildMongoUri } from '~/utils/formHelpers'
 import type { ConnectionComponents } from '~/utils/formHelpers'
-import { createLogger } from '~/services/logger'
-
-const logger = createLogger('TerminalTextField')
 
 interface Props {
   field: FormField
@@ -112,9 +109,7 @@ const displayValue = computed({
   get() {
     // If we have URI components, build URI dynamically
     if (hasUriComponents.value) {
-      const uri = buildUriFromComponents(!showPassword.value)
-      logger.debug(`[uri] Built URI (masked=${!showPassword.value}): ${uri.substring(0, 60)}...`)
-      return uri
+      return buildUriFromComponents(!showPassword.value)
     }
     
     // Fallback to internal value for non-URI fields or fields without components
@@ -129,7 +124,6 @@ const displayValue = computed({
 // Toggle password visibility in URI
 const togglePasswordVisibility = () => {
   showPassword.value = !showPassword.value
-  logger.debug(`[uri] Password visibility toggled: ${showPassword.value ? 'visible' : 'hidden'}`)
 }
 
 // Handle input changes for URI field
