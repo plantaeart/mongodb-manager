@@ -90,16 +90,7 @@ Restores a backup using mongorestore.
 #### `backup delete <filename>`
 Deletes a backup file.
 
-### 3. Database Operations
-
-**Commands**:
-- `db list` - List databases in connected instance
-- `db switch <name>` - Switch to a database
-- `collection list` - List collections in current database
-
-**Note**: These operations require an active connection context (work in progress).
-
-### 4. Authentication Commands
+### 3. Authentication Commands
 
 **Built-in Commands** (handled in frontend):
 - `auth change-password` - Opens password change modal

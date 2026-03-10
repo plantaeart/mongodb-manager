@@ -29,7 +29,6 @@ export const COMMAND_TO_API_PATH: Record<string, string> = {
   
   // Add more command mappings here as needed
   // 'backup create': 'backup/create',
-  // 'mongodb discover': 'mongodb/discover',
 }
 
 /**

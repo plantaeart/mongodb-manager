@@ -165,7 +165,7 @@ async def terminal_websocket(
 ):
     """WebSocket endpoint for command execution
     
-    Client sends: {"type": "execute", "command": "mongodb discover"}
+    Client sends: {"type": "execute", "command": "connect list"}
     Server sends: {"type": "output", "line": "...", "timestamp": "..."}
                   {"type": "complete", "status": "success", "exit_code": 0}
     """

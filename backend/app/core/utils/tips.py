@@ -18,7 +18,6 @@ class TipCategory(Enum):
     CONNECTION = "connection"
     BACKUP = "backup"
     AUTH = "auth"
-    DISCOVERY = "discovery"
     GENERAL = "general"
 
 
@@ -41,11 +40,8 @@ class TipKey(Enum):
     NO_SESSION_LOGIN = "no_session_login"
     LOGOUT_SUCCESS = "logout_success"
     
-    # Discovery tips
-    MONGODB_DISCOVERY_NONE_FOUND = "mongodb_discovery_none_found"
-    MONGODB_DISCOVERY_USE_CONFIG = "mongodb_discovery_use_config"
+    # Connection tips (post-add)
     CONNECTION_ADDED_BACKUP_TIP = "connection_added_backup_tip"
-    CONFIG_UPDATED_DISCOVER = "config_updated_discover"
     
     # General tips
     USE_HELP = "use_help"
@@ -66,19 +62,9 @@ TIPS_REGISTRY: dict[TipKey, str] = {
     TipKey.NO_SESSION_LOGIN: "Run any command to login",
     TipKey.LOGOUT_SUCCESS: "Your next command will prompt for login",
     
-    # Discovery tips
-    TipKey.MONGODB_DISCOVERY_NONE_FOUND: (
-        "No MongoDB instances found. Make sure MongoDB is running and accessible. "
-        "Use 'mongodb config-update' to adjust scan settings (port range, networks, timeout)."
-    ),
-    TipKey.MONGODB_DISCOVERY_USE_CONFIG: (
-        "Use 'mongodb config-show' to view scan settings or 'mongodb config-update' to customize."
-    ),
+    # Connection tips (post-add)
     TipKey.CONNECTION_ADDED_BACKUP_TIP: (
         "Use 'backup create' to create your first backup for this connection."
-    ),
-    TipKey.CONFIG_UPDATED_DISCOVER: (
-        "Configuration updated. Use 'mongodb discover' to scan with new settings."
     ),
     
     # General tips

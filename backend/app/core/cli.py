@@ -57,13 +57,8 @@ from .ui import (
     display_connection_tests,
     display_backups_table,
     confirm_action,
-    display_discovery_config_table,
-    display_discovered_mongodb_table,
     console
 )
-from .config import DiscoverySettings
-from .network_scanner import NetworkScanner
-from ..models.mongodb_instance import MongoDBInstance
 
 
 app = typer.Typer(
@@ -73,10 +68,8 @@ app = typer.Typer(
 )
 connect_app = typer.Typer(help="Manage MongoDB connections")
 auth_app = typer.Typer(help="Authentication management")
-mongodb_app = typer.Typer(help="MongoDB discovery and configuration")
 app.add_typer(connect_app, name="connect")
 app.add_typer(auth_app, name="auth")
-app.add_typer(mongodb_app, name="mongodb")
 
 DEFAULT_BACKUP_PATH = Path("/backups_mongodb_manager")
 
@@ -555,19 +548,34 @@ def _add_connection_quick(conn_mgr: ConnectionManager) -> None:
     console.print()
     console.print("[dim]Testing connection...[/dim]")
     
-    instance = MongoDBInstance(
-        host=host,
-        port=port,
-        detected=False
-    )
-    
-    success, message = instance.test_connection(timeout=3)
+    from pymongo import MongoClient
+    from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError, OperationFailure
+    from urllib.parse import quote_plus
     
     username = ""
     password = ""
+    auth_required = False
     
-    if not success:
+    # Try connection without auth first
+    test_uri = f"mongodb://{host}:{port}/?serverSelectionTimeoutMS=3000"
+    try:
+        client = MongoClient(test_uri, serverSelectionTimeoutMS=3000)
+        client.server_info()
+        client.close()
+        console.print("[green]✓ Connection successful (no auth required)[/green]")
+    except OperationFailure:
+        # Authentication required
+        auth_required = True
         console.print("[yellow]✗ Authentication required[/yellow]")
+    except (ConnectionFailure, ServerSelectionTimeoutError) as e:
+        console.print(f"[red]✗ Connection failed: {e}[/red]")
+        console.print("[yellow]Connection setup cancelled[/yellow]")
+        return
+    except Exception as e:
+        console.print(f"[yellow]⚠ Could not test connection: {e}[/yellow]")
+    
+    # If auth required, prompt for credentials
+    if auth_required:
         console.print()
         
         # Prompt for credentials
@@ -590,10 +598,17 @@ def _add_connection_quick(conn_mgr: ConnectionManager) -> None:
         
         # Test with credentials
         console.print("[dim]Testing connection with credentials...[/dim]")
-        success, message = instance.test_connection(username, password, timeout=3)
+        encoded_username = quote_plus(username)
+        encoded_password = quote_plus(password)
+        auth_uri = f"mongodb://{encoded_username}:{encoded_password}@{host}:{port}/?authSource=admin&serverSelectionTimeoutMS=3000"
         
-        if not success:
-            console.print(f"[red]✗ Connection failed: {message}[/red]")
+        try:
+            client = MongoClient(auth_uri, serverSelectionTimeoutMS=3000)
+            client.server_info()
+            client.close()
+            console.print("[green]✓ Connection successful with credentials[/green]")
+        except (ConnectionFailure, ServerSelectionTimeoutError, OperationFailure) as e:
+            console.print(f"[red]✗ Connection failed: {e}[/red]")
             
             # Ask if they want to add anyway
             add_anyway = questionary.confirm(
@@ -604,8 +619,8 @@ def _add_connection_quick(conn_mgr: ConnectionManager) -> None:
             if not add_anyway:
                 console.print("[yellow]Connection setup cancelled[/yellow]")
                 return
-    else:
-        console.print(f"[green]✓ {message}[/green]")
+        except Exception as e:
+            console.print(f"[yellow]⚠ Could not test connection: {e}[/yellow]")
     
     console.print()
     
@@ -626,12 +641,13 @@ def _add_connection_quick(conn_mgr: ConnectionManager) -> None:
         default=f"Quick connect to {host}:{port}"
     ).ask()
     
-    # Build connection URI with credentials
-    connection_uri = instance.get_connection_uri(
-        username=username,
-        password=password,
-        auth_source="admin"
-    )
+    # Build connection URI
+    if username and password:
+        encoded_username = quote_plus(username)
+        encoded_password = quote_plus(password)
+        connection_uri = f"mongodb://{encoded_username}:{encoded_password}@{host}:{port}/?authSource=admin"
+    else:
+        connection_uri = f"mongodb://{host}:{port}/"
     
     # Add connection
     if conn_mgr.add_connection(connection_name, connection_uri, description or ""):
@@ -1188,555 +1204,6 @@ def auth_hash(
     console.print("\n[green]Password hash generated:[/green]")
     console.print(f"\n{hash_value}\n")
     console.print("[yellow]Set this as your MONGODB_MANAGER_PASSWORD_HASH environment variable[/yellow]")
-
-
-# --- MongoDB Discovery Configuration Commands ---
-
-@mongodb_app.command("config")
-def mongodb_config(
-    ctx: typer.Context,
-):
-    """Manage MongoDB discovery configuration (interactive menu)"""
-    require_auth()
-    
-    # Show interactive menu
-    choice = questionary.select(
-        "MongoDB Discovery Configuration:",
-        choices=[
-            "Show current configuration",
-            "Update configuration",
-            "Cancel"
-        ]
-    ).ask()
-    
-    if not choice or choice == "Cancel":
-        return
-    
-    if choice == "Show current configuration":
-        mongodb_config_show()
-    elif choice == "Update configuration":
-        mongodb_config_update()
-
-
-@mongodb_app.command("config-show")
-def mongodb_config_show():
-    """Display current discovery configuration"""
-    require_auth()
-    
-    settings = DiscoverySettings.load()
-    display_discovery_config_table(settings)
-    console.print()
-
-
-@mongodb_app.command("config-update")
-def mongodb_config_update():
-    """Update discovery configuration interactively"""
-    require_auth()
-    
-    settings = DiscoverySettings.load()
-    
-    console.print("[bold cyan]MongoDB Discovery Configuration[/bold cyan]")
-    console.print()
-    
-    while True:
-        # Show current settings
-        display_discovery_config_table(settings)
-        console.print()
-        
-        # Show menu
-        choice = questionary.select(
-            "What would you like to update?",
-            choices=[
-                "Update port range",
-                "Update scan timeout",
-                "Update max concurrent scans",
-                "Toggle Docker network scanning",
-                "Manage Docker network ranges",
-                "Manage custom IP ranges",
-                "Reset to defaults",
-                "Save and exit"
-            ]
-        ).ask()
-        
-        if not choice or choice == "Save and exit":
-            settings.save()
-            console.print("[green]Configuration saved successfully[/green]")
-            break
-        
-        try:
-            if choice == "Update port range":
-                _update_port_range_interactive(settings)
-            elif choice == "Update scan timeout":
-                _update_timeout_interactive(settings)
-            elif choice == "Update max concurrent scans":
-                _update_max_concurrent_interactive(settings)
-            elif choice == "Toggle Docker network scanning":
-                _toggle_docker_scan_interactive(settings)
-            elif choice == "Manage Docker network ranges":
-                _manage_docker_ranges_interactive(settings)
-            elif choice == "Manage custom IP ranges":
-                _manage_custom_ranges_interactive(settings)
-            elif choice == "Reset to defaults":
-                if _confirm_reset_config():
-                    settings = settings.reset_to_defaults()
-                    console.print("[green]Configuration reset to defaults[/green]")
-        except ValueError as e:
-            console.print(f"[red]ERROR[/red] {e}")
-        
-        console.print()
-
-
-def _update_port_range_interactive(settings: DiscoverySettings) -> None:
-    """Interactive prompt to update port range"""
-    current = settings.scan_settings.port_range
-    
-    console.print(f"Current port range: {current['start']} - {current['end']}")
-    
-    start = questionary.text(
-        "Enter start port:",
-        default=str(current['start']),
-        validate=lambda x: x.isdigit() and 1 <= int(x) <= 65535
-    ).ask()
-    
-    if not start:
-        return
-    
-    end = questionary.text(
-        "Enter end port:",
-        default=str(current['end']),
-        validate=lambda x: x.isdigit() and 1 <= int(x) <= 65535
-    ).ask()
-    
-    if not end:
-        return
-    
-    settings.update_port_range(int(start), int(end))
-    console.print(f"[green]Port range updated to {start}-{end}[/green]")
-
-
-def _update_timeout_interactive(settings: DiscoverySettings) -> None:
-    """Interactive prompt to update timeout"""
-    current = settings.scan_settings.timeout_seconds
-    
-    console.print(f"Current timeout: {current} seconds")
-    
-    timeout = questionary.text(
-        "Enter timeout in seconds (1-30):",
-        default=str(current),
-        validate=lambda x: x.isdigit() and 1 <= int(x) <= 30
-    ).ask()
-    
-    if not timeout:
-        return
-    
-    settings.update_timeout(int(timeout))
-    console.print(f"[green]Timeout updated to {timeout} seconds[/green]")
-
-
-def _update_max_concurrent_interactive(settings: DiscoverySettings) -> None:
-    """Interactive prompt to update max concurrent scans"""
-    current = settings.scan_settings.max_concurrent_scans
-    
-    console.print(f"Current max concurrent scans: {current}")
-    
-    max_concurrent = questionary.text(
-        "Enter max concurrent scans (1-50):",
-        default=str(current),
-        validate=lambda x: x.isdigit() and 1 <= int(x) <= 50
-    ).ask()
-    
-    if not max_concurrent:
-        return
-    
-    settings.update_max_concurrent(int(max_concurrent))
-    console.print(f"[green]Max concurrent scans updated to {max_concurrent}[/green]")
-
-
-def _toggle_docker_scan_interactive(settings: DiscoverySettings) -> None:
-    """Interactive prompt to toggle Docker network scanning"""
-    current = settings.scan_settings.scan_docker_networks
-    
-    enabled = questionary.confirm(
-        "Enable Docker network scanning?",
-        default=current
-    ).ask()
-    
-    if enabled is None:
-        return
-    
-    settings.toggle_docker_scan(enabled)
-    status = "enabled" if enabled else "disabled"
-    console.print(f"[green]Docker network scanning {status}[/green]")
-
-
-def _manage_docker_ranges_interactive(settings: DiscoverySettings) -> None:
-    """Interactive menu to add/remove Docker network ranges"""
-    while True:
-        ranges = settings.scan_settings.docker_network_ranges
-        
-        console.print("\n[cyan]Current Docker Network Ranges:[/cyan]")
-        for i, ip_range in enumerate(ranges, 1):
-            console.print(f"  {i}. {ip_range}")
-        console.print()
-        
-        choice = questionary.select(
-            "Manage Docker network ranges:",
-            choices=[
-                "Add new range",
-                "Remove existing range",
-                "Back"
-            ]
-        ).ask()
-        
-        if not choice or choice == "Back":
-            break
-        
-        if choice == "Add new range":
-            ip_range = questionary.text(
-                "Enter IP range in CIDR notation (e.g., 172.23.0.0/24):"
-            ).ask()
-            
-            if ip_range:
-                try:
-                    settings.add_docker_range(ip_range)
-                    console.print(f"[green]Added range: {ip_range}[/green]")
-                except ValueError as e:
-                    console.print(f"[red]ERROR[/red] {e}")
-        
-        elif choice == "Remove existing range":
-            if not ranges:
-                console.print("[yellow]No ranges to remove[/yellow]")
-                continue
-            
-            selected = questionary.select(
-                "Select range to remove:",
-                choices=ranges + ["Cancel"]
-            ).ask()
-            
-            if selected and selected != "Cancel":
-                try:
-                    settings.remove_docker_range(selected)
-                    console.print(f"[green]Removed range: {selected}[/green]")
-                except ValueError as e:
-                    console.print(f"[red]ERROR[/red] {e}")
-
-
-def _manage_custom_ranges_interactive(settings: DiscoverySettings) -> None:
-    """Interactive menu to add/remove custom IP ranges"""
-    while True:
-        ranges = settings.scan_settings.custom_ip_ranges
-        
-        console.print("\n[cyan]Current Custom IP Ranges:[/cyan]")
-        if ranges:
-            for i, ip_range in enumerate(ranges, 1):
-                console.print(f"  {i}. {ip_range}")
-        else:
-            console.print("  None configured")
-        console.print()
-        
-        choice = questionary.select(
-            "Manage custom IP ranges:",
-            choices=[
-                "Add new range",
-                "Remove existing range" if ranges else None,
-                "Back"
-            ]
-        ).ask()
-        
-        if not choice or choice == "Back":
-            break
-        
-        if choice == "Add new range":
-            ip_range = questionary.text(
-                "Enter IP range in CIDR notation (e.g., 192.168.1.0/24):"
-            ).ask()
-            
-            if ip_range:
-                try:
-                    settings.add_ip_range(ip_range)
-                    console.print(f"[green]Added range: {ip_range}[/green]")
-                except ValueError as e:
-                    console.print(f"[red]ERROR[/red] {e}")
-        
-        elif choice == "Remove existing range" and ranges:
-            selected = questionary.select(
-                "Select range to remove:",
-                choices=ranges + ["Cancel"]
-            ).ask()
-            
-            if selected and selected != "Cancel":
-                try:
-                    settings.remove_ip_range(selected)
-                    console.print(f"[green]Removed range: {selected}[/green]")
-                except ValueError as e:
-                    console.print(f"[red]ERROR[/red] {e}")
-
-
-def _confirm_reset_config() -> bool:
-    """Confirm before resetting to defaults"""
-    return questionary.confirm(
-        "Are you sure you want to reset all settings to defaults?",
-        default=False
-    ).ask()
-
-
-# --- MongoDB Discovery Commands ---
-
-@mongodb_app.command("discover")
-def mongodb_discover(
-    port_start: Annotated[int | None, typer.Option(help="Override port range start")] = None,
-    port_end: Annotated[int | None, typer.Option(help="Override port range end")] = None,
-    skip_docker: Annotated[bool, typer.Option(help="Skip Docker network scanning")] = False,
-):
-    """Discover MongoDB instances on the network"""
-    logger.debug("[CLI-DISCOVER] Starting mongodb discover command")
-    
-    require_auth()
-    logger.debug("[CLI-DISCOVER] Auth check passed")
-    
-    # Load settings and apply overrides
-    settings = DiscoverySettings.load()
-    logger.debug("[CLI-DISCOVER] Settings loaded")
-    
-    if port_start or port_end:
-        current_range = settings.scan_settings.port_range
-        start = port_start or current_range["start"]
-        end = port_end or current_range["end"]
-        settings.update_port_range(start, end)
-        logger.debug(f"[CLI-DISCOVER] Port range updated: {start}-{end}")
-    
-    if skip_docker:
-        settings.toggle_docker_scan(False)
-        logger.debug("[CLI-DISCOVER] Docker scan disabled")
-    
-    # Display scan plan
-    logger.debug("[CLI-DISCOVER] Displaying scan plan")
-    _display_scan_plan(settings)
-    console.print()
-    
-    # Run scan
-    logger.debug("[CLI-DISCOVER] Creating scanner")
-    scanner = NetworkScanner(settings)
-    logger.debug("[CLI-DISCOVER] Running scan with progress")
-    instances = _run_scan_with_progress(scanner)
-    logger.debug(f"[CLI-DISCOVER] Scan complete, found {len(instances)} instances")
-    
-    console.print()
-    
-    # Display results
-    if instances:
-        logger.debug("[CLI-DISCOVER] Displaying results table")
-        display_discovered_mongodb_table(instances)
-        console.print()
-        
-        # Offer to add connection
-        _offer_add_connection(instances)
-    else:
-        console.print("[yellow]No MongoDB instances found[/yellow]")
-        console.print()
-        show_tip(TipKey.MONGODB_DISCOVERY_NONE_FOUND, console)
-    
-    logger.debug("[CLI-DISCOVER] Command completed")
-
-
-def _display_scan_plan(settings: DiscoverySettings) -> None:
-    """Display what will be scanned before starting"""
-    from rich.panel import Panel
-    
-    port_range = settings.scan_settings.port_range
-    
-    scan_info = []
-    scan_info.append(f"[cyan]Port Range:[/cyan] {port_range['start']}-{port_range['end']}")
-    scan_info.append(f"[cyan]Timeout:[/cyan] {settings.scan_settings.timeout_seconds}s per probe")
-    scan_info.append(f"[cyan]Max Concurrent:[/cyan] {settings.scan_settings.max_concurrent_scans} scans")
-    scan_info.append("")
-    scan_info.append("[bold]Scan Targets:[/bold]")
-    scan_info.append("  • Localhost ports")
-    
-    if settings.scan_settings.scan_docker_networks:
-        docker_count = len(settings.scan_settings.docker_network_ranges)
-        scan_info.append(f"  • Docker networks ({docker_count} ranges)")
-    
-    if settings.scan_settings.custom_ip_ranges:
-        custom_count = len(settings.scan_settings.custom_ip_ranges)
-        scan_info.append(f"  • Custom IP ranges ({custom_count} ranges)")
-    
-    panel = Panel(
-        "\n".join(scan_info),
-        title="[bold cyan]MongoDB Discovery[/bold cyan]",
-        border_style="cyan"
-    )
-    
-    console.print(panel)
-
-
-def _run_scan_with_progress(scanner: NetworkScanner) -> list[MongoDBInstance]:
-    """Run scan and show progress with detailed steps"""
-    logger.debug("[CLI-SCAN] Starting scan with progress")
-    
-    instances = []
-    settings = scanner.settings
-    ip_ranges = settings.get_all_ip_ranges()
-    logger.debug(f"[CLI-SCAN] Will scan {len(ip_ranges)} network ranges")
-    
-    # Scan localhost
-    logger.debug("[CLI-SCAN] About to scan localhost")
-    console.print("[cyan]Scanning localhost ports...[/cyan]")
-    console.file.flush() if hasattr(console, 'file') and console.file else None
-    sys.stdout.flush()  # Force immediate output
-    localhost_instances = scanner.scan_localhost_ports()
-    logger.debug(f"[CLI-SCAN] Localhost scan returned {len(localhost_instances)} instances")
-    instances.extend(localhost_instances)
-    
-    if localhost_instances:
-        console.print(f"  [green]✓[/green] Found {len(localhost_instances)} instance(s) on localhost")
-        console.file.flush() if hasattr(console, 'file') and console.file else None
-        sys.stdout.flush()
-    else:
-        console.print(f"  [dim]No instances on localhost[/dim]")
-        console.file.flush() if hasattr(console, 'file') and console.file else None
-        sys.stdout.flush()
-    
-    # Scan each network range
-    for idx, ip_range in enumerate(ip_ranges, 1):
-        logger.debug(f"[CLI-SCAN] Scanning range {idx}/{len(ip_ranges)}: {ip_range}")
-        console.print(f"[cyan]Scanning network {ip_range}... [{idx}/{len(ip_ranges)}][/cyan]")
-        console.file.flush() if hasattr(console, 'file') and console.file else None
-        sys.stdout.flush()
-        network_instances = scanner.scan_ip_range(ip_range)
-        logger.debug(f"[CLI-SCAN] Range {ip_range} returned {len(network_instances)} instances")
-        instances.extend(network_instances)
-        
-        if network_instances:
-            console.print(f"  [green]✓[/green] Found {len(network_instances)} instance(s) on {ip_range}")
-            console.file.flush() if hasattr(console, 'file') and console.file else None
-            sys.stdout.flush()  # Force immediate output
-    
-    print("[CLI-SCAN] All scans complete, printing completion message", file=sys.stderr, flush=True)
-    console.print("[green]✓ Scan complete[/green]")
-    console.file.flush() if hasattr(console, 'file') and console.file else None
-    sys.stdout.flush()  # Force immediate output
-    console.print()
-    print(f"[CLI-SCAN] Returning {len(instances)} total instances", file=sys.stderr, flush=True)
-    return instances
-
-
-def _offer_add_connection(instances: list[MongoDBInstance]) -> None:
-    """Offer to add connection from discovered instances"""
-    add_connection = questionary.confirm(
-        "Would you like to add a connection now?",
-        default=True
-    ).ask()
-    
-    if not add_connection:
-        console.print("[dim]Skipping interactive prompt (not a TTY)[/dim]")
-        return
-    
-    # Let user select instance
-    choices = [
-        f"{inst.get_display_name()} ({inst.host}:{inst.port})"
-        for inst in instances
-    ]
-    choices.append("Cancel")
-    
-    selected = questionary.select(
-        "Select MongoDB instance:",
-        choices=choices
-    ).ask()
-    
-    if not selected or selected == "Cancel":
-        return
-    
-    # Get selected instance
-    idx = choices.index(selected)
-    instance = instances[idx]
-    
-    # Add connection flow
-    _add_connection_from_instance(instance)
-
-
-def _add_connection_from_instance(instance: MongoDBInstance) -> None:
-    """Interactive flow to add connection from discovered instance"""
-    console.print(f"\n[cyan]Adding connection for {instance.get_display_name()}[/cyan]")
-    console.print()
-    
-    # Test connection without auth first
-    console.print("[dim]Testing connection without authentication...[/dim]")
-    success, message = instance.test_connection(timeout=3)
-    
-    username = ""
-    password = ""
-    
-    if not success:
-        console.print("[yellow]✗ Authentication required[/yellow]")
-        console.print()
-        
-        # Prompt for credentials
-        username = questionary.text(
-            "MongoDB username:",
-            default="admin"
-        ).ask()
-        
-        if not username:
-            console.print("[yellow]Connection setup cancelled[/yellow]")
-            return
-        
-        password = questionary.password(
-            "MongoDB password:"
-        ).ask()
-        
-        if not password:
-            console.print("[yellow]Connection setup cancelled[/yellow]")
-            return
-        
-        # Test with credentials
-        console.print("[dim]Testing connection with credentials...[/dim]")
-        success, message = instance.test_connection(username, password, timeout=3)
-        
-        if not success:
-            console.print(f"[red]✗ Connection failed: {message}[/red]")
-            console.print("[yellow]Unable to add connection with provided credentials[/yellow]")
-            return
-    
-    console.print(f"[green]✓ {message}[/green]")
-    console.print()
-    
-    # Prompt for connection details
-    default_name = f"{instance.host}-{instance.port}"
-    connection_name = questionary.text(
-        "Connection name:",
-        default=default_name
-    ).ask()
-    
-    if not connection_name:
-        console.print("[yellow]Connection setup cancelled[/yellow]")
-        return
-    
-    description = questionary.text(
-        "Description (optional):",
-        default=f"Discovered MongoDB at {instance.host}:{instance.port}"
-    ).ask()
-    
-    if description is None:
-        description = f"Discovered MongoDB at {instance.host}:{instance.port}"
-    
-    # Build connection URI with credentials
-    connection_uri = instance.get_connection_uri(
-        username=username,
-        password=password,
-        auth_source="admin"
-    )
-    
-    # Add connection
-    conn_mgr = ConnectionManager()
-    
-    if conn_mgr.add_connection(connection_name, connection_uri, description or ""):
-        console.print(f"\n[green]✓ Connection '{connection_name}' added successfully[/green]")
-        console.print()
-        show_tip(TipKey.CONNECTION_ADDED_BACKUP_TIP, console)
-    else:
-        console.print(f"\n[red]✗ Connection '{connection_name}' already exists[/red]")
-        raise typer.Exit(1)
 
 
 if __name__ == "__main__":

@@ -185,13 +185,6 @@ backup restore <file>     # Restore a backup
 backup delete <file>      # Delete a backup file
 ```
 
-#### Database Operations
-```bash
-db list                   # List all databases
-db switch <name>          # Switch to a specific database
-collection list           # List collections in current database
-```
-
 #### Other Commands
 ```bash
 help                      # Show available commands

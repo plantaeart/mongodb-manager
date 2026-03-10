@@ -21,20 +21,7 @@ export enum TerminalCommand {
   BACKUP_DELETE = 'backup delete',
   BACKUP_FOLDER_CREATE = 'create-backup-folder',
   
-  // Database operations
-  DB_LIST = 'db list',
-  DB_SWITCH = 'db switch',
-  
-  // Collection operations
-  COLLECTION_LIST = 'collection list',
-  
   // Authentication
   AUTH_CHANGE_PASSWORD = 'auth change-password',
-  AUTH_LOGOUT = 'auth logout',
-  
-  // MongoDB discovery
-  MONGODB_DISCOVER = 'mongodb discover',
-  MONGODB_CONFIG = 'mongodb config',
-  MONGODB_CONFIG_SHOW = 'mongodb config-show',
-  MONGODB_CONFIG_UPDATE = 'mongodb config-update'
+  AUTH_LOGOUT = 'auth logout'
 }
