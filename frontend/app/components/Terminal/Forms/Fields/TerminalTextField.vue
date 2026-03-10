@@ -55,14 +55,18 @@
 import { ref, watch, computed, onMounted } from 'vue'
 import type { FormField } from '~/types/terminal'
 import FieldTooltip from '../FieldTooltip.vue'
-import { maskMongoUriPassword } from '~/utils/formHelpers'
+import { buildMongoUri } from '~/utils/formHelpers'
+import type { ConnectionComponents } from '~/utils/formHelpers'
+import { createLogger } from '~/services/logger'
+
+const logger = createLogger('TerminalTextField')
 
 interface Props {
   field: FormField
   modelValue: any
   disabled?: boolean
   readonly?: boolean
-  originalValue?: string  // For URI password masking
+  uriComponents?: ConnectionComponents  // For building URI dynamically (no regex!)
 }
 
 const props = defineProps<Props>()
@@ -79,81 +83,64 @@ const errorMessage = ref<string>('')
 const touched = ref<boolean>(false)
 const showPassword = ref<boolean>(false)
 
-// Store the original unmasked URI
-const originalUri = ref<string>('')
-const maskedUri = ref<string>('')
-
-// Check if this is a URI field (for password masking)
+// Check if this is a URI field
 const isUriField = computed(() => props.field.id === 'uri')
 
-// Helper function to check if URI has password
-const hasPasswordInUri = computed(() => {
-  if (!internalValue.value) return false
-  const passwordRegex = /^mongodb:\/\/[^:]+:([^@]+)@/
-  return passwordRegex.test(internalValue.value)
+// Check if we have URI components (for building URI without regex)
+const hasUriComponents = computed(() => {
+  return isUriField.value && 
+         props.uriComponents && 
+         props.uriComponents.host && 
+         props.uriComponents.port
 })
 
-// Initialize URIs on mount
-onMounted(() => {
-  if (isUriField.value && props.originalValue) {
-    // originalValue is the decoded URI (from _originalUri)
-    originalUri.value = props.originalValue
-    // modelValue is already masked from the stepper config
-    maskedUri.value = props.modelValue
-    internalValue.value = maskedUri.value
-  }
+// Check if URI has password (only true if we have components with password)
+const hasPasswordInUri = computed(() => {
+  return hasUriComponents.value && !!props.uriComponents?.password
 })
+
+// Build URI dynamically from components (NO REGEX!)
+const buildUriFromComponents = (maskPassword: boolean): string => {
+  if (!props.uriComponents) return ''
+  
+  // Always use forDisplay=true for UI display
+  return buildMongoUri(props.uriComponents, maskPassword, true)
+}
 
 // Display value for URI field
 const displayValue = computed({
   get() {
-    if (!isUriField.value || !hasPasswordInUri.value) {
-      return internalValue.value
+    // If we have URI components, build URI dynamically
+    if (hasUriComponents.value) {
+      const uri = buildUriFromComponents(!showPassword.value)
+      logger.debug(`[uri] Built URI (masked=${!showPassword.value}): ${uri.substring(0, 60)}...`)
+      return uri
     }
     
-    return showPassword.value ? originalUri.value : maskedUri.value
+    // Fallback to internal value for non-URI fields or fields without components
+    return internalValue.value
   },
   set(newValue: string) {
-    // User is typing
-    if (isUriField.value && showPassword.value) {
-      // Update original when showing password
-      originalUri.value = newValue
-      maskedUri.value = maskMongoUriPassword(newValue)
-      internalValue.value = newValue
-    } else {
-      internalValue.value = newValue
-    }
+    // User is typing - update internal value
+    internalValue.value = newValue
   }
 })
 
 // Toggle password visibility in URI
 const togglePasswordVisibility = () => {
   showPassword.value = !showPassword.value
-  
-  // Emit the current correct value
-  if (showPassword.value) {
-    emit('update:modelValue', originalUri.value)
-  } else {
-    emit('update:modelValue', maskedUri.value)
-  }
+  logger.debug(`[uri] Password visibility toggled: ${showPassword.value ? 'visible' : 'hidden'}`)
 }
 
-// Handle input changes
+// Handle input changes for URI field
 const handleInput = (event: Event) => {
   const target = event.target as HTMLInputElement
   const newValue = target.value
   
-  if (showPassword.value) {
-    // User is typing with password visible
-    originalUri.value = newValue
-    maskedUri.value = maskMongoUriPassword(newValue)
-    internalValue.value = newValue
-  } else {
-    // User is typing with password masked
-    internalValue.value = newValue
-  }
-  
-  emit('update:modelValue', internalValue.value)
+  // For URI fields with components, user is editing the URI directly
+  // We'll store it as internal value
+  internalValue.value = newValue
+  emit('update:modelValue', newValue)
 }
 
 // Watch for external changes
@@ -163,20 +150,9 @@ watch(() => props.modelValue, (newValue) => {
   }
 })
 
-// Watch for originalValue prop changes (for URI field)
-watch(() => props.originalValue, (newValue) => {
-  if (isUriField.value && newValue) {
-    originalUri.value = newValue
-    maskedUri.value = maskMongoUriPassword(newValue)
-    if (!showPassword.value) {
-      internalValue.value = maskedUri.value
-    }
-  }
-})
-
-// Watch internal changes
+// Watch internal changes (for non-URI fields or URI without components)
 watch(internalValue, (newValue) => {
-  if (!isUriField.value || !hasPasswordInUri.value) {
+  if (!hasUriComponents.value) {
     emit('update:modelValue', newValue)
   }
 })
@@ -187,8 +163,10 @@ const isValid = computed(() => touched.value && !errorMessage.value && internalV
 const validate = (): boolean => {
   errorMessage.value = ''
   
-  // Get the actual value to validate (original URI if showing password)
-  const valueToValidate = (isUriField.value && showPassword.value) ? originalUri.value : internalValue.value
+  // Get the actual value to validate
+  const valueToValidate = hasUriComponents.value 
+    ? buildUriFromComponents(false)  // Validate full URI with password
+    : internalValue.value
   
   // Required validation
   if (props.field.required && !valueToValidate) {

@@ -23,26 +23,47 @@ export interface ConnectionComponents {
  * This is the ONLY place where we build URIs - no more regex parsing!
  * 
  * @param components - Connection components (host, port, username, password, etc.)
- * @param maskPassword - Whether to mask password with *** (for display only)
+ * @param maskPassword - Whether to mask password with *** (for hidden display)
+ * @param forDisplay - Whether URI is for display (uses decoded password) or submission (uses encoded password)
  * @returns MongoDB URI string
  * 
  * @example
  * // Build URI for submission (URL-encoded password)
- * buildMongoUri({ host: 'localhost', port: 27017, username: 'user', password: 'p@ss!' }, false)
+ * buildMongoUri({ host: 'localhost', port: 27017, username: 'user', password: 'p@ss!' }, false, false)
  * // Returns: "mongodb://user:p%40ss%21@localhost:27017"
  * 
- * // Build URI for display (masked password)
- * buildMongoUri({ host: 'localhost', port: 27017, username: 'user', password: 'p@ss!' }, true)
+ * // Build URI for display with visible password (decoded)
+ * buildMongoUri({ host: 'localhost', port: 27017, username: 'user', password: 'p@ss!' }, false, true)
+ * // Returns: "mongodb://user:p@ss!@localhost:27017"
+ * 
+ * // Build URI for display with masked password
+ * buildMongoUri({ host: 'localhost', port: 27017, username: 'user', password: 'p@ss!' }, true, true)
  * // Returns: "mongodb://user:***@localhost:27017"
  */
-export function buildMongoUri(components: ConnectionComponents, maskPassword: boolean = false): string {
+export function buildMongoUri(
+  components: ConnectionComponents, 
+  maskPassword: boolean = false,
+  forDisplay: boolean = true
+): string {
   const { username, password, host, port, database, auth_source } = components
   
   let uri = 'mongodb://'
   
   // Add credentials if provided
   if (username && password) {
-    const displayPassword = maskPassword ? '***' : encodeURIComponent(password)
+    let displayPassword: string
+    
+    if (maskPassword) {
+      // Masked mode: always show ***
+      displayPassword = '***'
+    } else if (forDisplay) {
+      // Display mode: show decoded password as-is
+      displayPassword = password
+    } else {
+      // Submission mode: URL-encode password for backend
+      displayPassword = encodeURIComponent(password)
+    }
+    
     uri += `${username}:${displayPassword}@`
   }
   

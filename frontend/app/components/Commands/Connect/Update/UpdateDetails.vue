@@ -68,6 +68,7 @@
           v-model="localData[field.id]"
           :disabled="disabled"
           :readonly="readonly"
+          :uri-components="field.id === 'uri' ? getUriComponents() : undefined"
           @blur="handleFieldBlur(field.id)"
           @valid="handleFieldValid(field.id)"
           @invalid="handleFieldInvalid(field.id, $event)"
@@ -85,7 +86,10 @@ import TerminalPasswordField from '~/components/Terminal/Forms/Fields/TerminalPa
 import TerminalNumberField from '~/components/Terminal/Forms/Fields/TerminalNumberField.vue'
 import type { StepDefinition, StepperFormConfig } from '~/types/stepper'
 import type { FormField } from '~/types/terminal'
-import { filterConnectionFields } from '~/utils/formHelpers'
+import { filterConnectionFields, buildMongoUri } from '~/utils/formHelpers'
+import { createLogger } from '~/services/logger'
+
+const logger = createLogger('UpdateDetails')
 
 interface Props {
   step: StepDefinition
@@ -122,6 +126,11 @@ const displayData = computed(() => {
 // Sync local data with step data
 watch(() => props.step.data, (newData) => {
   localData.value = { ...newData }
+  
+  // Debug URI field in simple mode
+  if (!isAdvancedMode.value && newData.uri) {
+    logger.debug(`[UpdateDetails] Step data updated - URI in simple mode: ${newData.uri.substring(0, 60)}...`)
+  }
 }, { deep: true })
 
 // Emit data changes
@@ -134,7 +143,7 @@ watch(() => props.readonly, (newReadonly) => {
   if (newReadonly && Object.keys(localData.value).length > 0) {
     // Store current data when entering readonly mode
     submittedData.value = { ...localData.value }
-    console.log('[UpdateDetails] Stored submitted data:', submittedData.value)
+    logger.debug('Stored submitted data:', submittedData.value)
   }
 })
 
@@ -143,10 +152,35 @@ watch(localErrors, (newErrors) => {
   emit('update:errors', newErrors)
 }, { deep: true })
 
+// Watch mode changes to rebuild URI when switching modes
+watch(isAdvancedMode, (newMode, oldMode) => {
+  if (oldMode === true && newMode === false) {
+    // Switching from Advanced → Simple: rebuild URI from components
+    if (localData.value.host && localData.value.port) {
+      const rebuiltUri = buildMongoUri({
+        host: localData.value.host,
+        port: localData.value.port,
+        username: localData.value.username,
+        password: localData.value.password,
+        database: localData.value.database,
+        auth_source: localData.value.auth_source
+      }, false, true)  // false = don't mask, true = for display (decoded password)
+      
+      localData.value.uri = rebuiltUri
+      logger.info('Rebuilt URI for simple mode:', rebuiltUri)
+    }
+  }
+})
+
 // Displayed fields based on mode
 const displayedFields = computed(() => {
   if (!props.step.formData?.fields) return []
-  return filterConnectionFields(props.step.formData.fields, isAdvancedMode.value)
+  const filtered = filterConnectionFields(props.step.formData.fields, isAdvancedMode.value)
+  
+  // Debug which fields are displayed
+  logger.debug(`[UpdateDetails] Mode: ${isAdvancedMode.value ? 'Advanced' : 'Simple'}, Fields: ${filtered.map(f => f.id).join(', ')}`)
+  
+  return filtered
 })
 
 // Get field component based on type
@@ -158,6 +192,18 @@ const getFieldComponent = (field: FormField) => {
       return TerminalNumberField
     default:
       return TerminalTextField
+  }
+}
+
+// Get URI components for building URI dynamically (NO REGEX!)
+const getUriComponents = () => {
+  return {
+    host: localData.value.host || 'localhost',
+    port: localData.value.port || 27017,
+    username: localData.value.username,
+    password: localData.value.password,
+    database: localData.value.database,
+    auth_source: localData.value.auth_source
   }
 }
 
@@ -174,9 +220,17 @@ const handleFieldInvalid = (fieldId: string, error: string) => {
   localErrors.value[fieldId] = error
 }
 
-// Helper to mask URI password for readonly summary
+// Helper to mask URI password for readonly summary (using buildMongoUri - NO REGEX!)
 const getMaskedUri = (uri: string): string => {
   if (!uri) return 'N/A'
+  
+  // Build masked URI from components
+  const components = getUriComponents()
+  if (components.host && components.port) {
+    return buildMongoUri(components, true, true)  // true = mask password, true = for display
+  }
+  
+  // Fallback: mask using regex only for readonly display
   const passwordRegex = /:([^@]+)@/
   return uri.replace(passwordRegex, ':***@')
 }

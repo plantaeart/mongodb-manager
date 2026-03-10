@@ -125,20 +125,37 @@ export function createConnectUpdateStepper(formId: string): StepperFormConfig {
       logger.debug(`  - Database: ${connectionDetails.database}`)
       logger.debug(`  - Auth Source: ${connectionDetails.auth_source}`)
 
+      // Decode password if it contains URL encoding artifacts
+      let decodedPassword = connectionDetails.password
+      // Note: Backend now handles URL-decoding, so this is just a safety check
+      try {
+        // Check if password contains % encoding (like %40, %3F, etc.)
+        if (decodedPassword && decodedPassword.includes('%')) {
+          const originalPassword = decodedPassword
+          decodedPassword = decodeURIComponent(decodedPassword)
+          logger.debug(`Decoded password from: ${originalPassword}`)
+          logger.debug(`Decoded password to: ${decodedPassword}`)
+        }
+      } catch (error) {
+        logger.warn(`Failed to decode password: ${error}`)
+        // Keep original if decode fails
+      }
+
+      // Build URI from components for Simple Mode
+      // This ensures we have a clean, properly formatted URI for display
+      const builtUri = buildMongoUri({
+        host: connectionDetails.host || 'localhost',
+        port: connectionDetails.port || 27017,
+        username: connectionDetails.username,
+        password: decodedPassword,
+        database: connectionDetails.database,
+        auth_source: connectionDetails.auth_source
+      }, false, true) // false = don't mask, true = for display (decoded password)
+      
+      logger.debug(`Built URI from components: ${builtUri}`)
+
       // Pre-populate step data with separated components
       if (currentStep) {
-        // Build masked URI for simple mode display
-        const maskedUri = buildMongoUri({
-          host: connectionDetails.host || 'localhost',
-          port: connectionDetails.port || 27017,
-          username: connectionDetails.username,
-          password: connectionDetails.password,
-          database: connectionDetails.database,
-          auth_source: connectionDetails.auth_source
-        }, true)  // true = mask password
-        
-        logger.debug(`Built masked URI: ${maskedUri}`)
-        
         // Store components directly - no more parsing needed!
         currentStep.data = {
           name: connectionDetails.name,
@@ -148,12 +165,12 @@ export function createConnectUpdateStepper(formId: string): StepperFormConfig {
           host: connectionDetails.host,
           port: connectionDetails.port,
           username: connectionDetails.username,
-          password: connectionDetails.password,  // Already decoded by backend
+          password: decodedPassword,  // Use decoded password
           database: connectionDetails.database,
           auth_source: connectionDetails.auth_source,
           
-          // Masked URI for simple mode display
-          uri: maskedUri
+          // Built URI for simple mode (from components, not from DB)
+          uri: builtUri
         }
         logger.success('Step 2 data pre-populated')
         logger.object('Pre-populated data', currentStep.data)

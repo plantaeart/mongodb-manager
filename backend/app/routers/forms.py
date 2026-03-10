@@ -67,13 +67,20 @@ async def get_connection_details(
     print(f"  Parsed scheme: {parsed.scheme}")
     print(f"  Parsed netloc: {parsed.netloc}")
     print(f"  Parsed username: {parsed.username}")
-    print(f"  Parsed password: {parsed.password}")
+    print(f"  Parsed password (URL-encoded): {parsed.password}")
     print(f"  Parsed hostname: {parsed.hostname}")
     print(f"  Parsed port: {parsed.port}")
     
     # Extract username and password
     username = parsed.username or ""
     password = parsed.password or ""
+    
+    # Decode URL-encoded password (urlparse doesn't decode automatically)
+    from urllib.parse import unquote
+    if password:
+        decoded_password = unquote(password)
+        print(f"  Password decoded: {decoded_password}")
+        password = decoded_password
     
     # Extract host and port
     host = parsed.hostname or "localhost"
@@ -88,7 +95,6 @@ async def get_connection_details(
     
     return {
         "name": connection.get("name", ""),
-        "uri": uri,
         "description": connection.get("description", ""),
         "host": host,
         "port": port,

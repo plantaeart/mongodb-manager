@@ -344,7 +344,7 @@ class TerminalService {
         logger.debug(`  - Database: ${dataToSubmit.database}`)
         logger.debug(`  - Auth Source: ${dataToSubmit.auth_source}`)
         
-        // Build URL-encoded URI from components
+        // Build URL-encoded URI from components for backend submission
         const encodedUri = buildMongoUri({
           host: dataToSubmit.host,
           port: dataToSubmit.port,
@@ -352,9 +352,9 @@ class TerminalService {
           password: dataToSubmit.password,
           database: dataToSubmit.database,
           auth_source: dataToSubmit.auth_source
-        }, false)  // false = don't mask, URL-encode the password
+        }, false, false)  // false = don't mask, false = for submission (URL-encode password)
         
-        logger.debug(`Built encoded URI: ${encodedUri}`)
+        logger.debug(`Built encoded URI for submission: ${encodedUri}`)
         dataToSubmit.uri = encodedUri
         
         // Clean up - remove component fields (backend only needs URI)
