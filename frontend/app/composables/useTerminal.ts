@@ -100,15 +100,18 @@ class TerminalService {
           '  Connection Management:',
           `    ${TerminalCommand.CONNECT_LIST}              - List all MongoDB connections`,
           `    ${TerminalCommand.CONNECT_ADD}               - Add a new connection`,
-          `    ${TerminalCommand.CONNECT_REMOVE} <name>     - Remove a connection`,
-          `    ${TerminalCommand.CONNECT_TEST} <name>       - Test a connection`,
+          `    ${TerminalCommand.CONNECT_REMOVE}            - Remove connection(s)`,
+          `    ${TerminalCommand.CONNECT_TEST}              - Test connection(s)`,
+          `    ${TerminalCommand.CONNECT_UPDATE}            - Update a connection`,
           '',
-          '  Backup Management:',
-          `    ${TerminalCommand.BACKUP_CREATE} <name>      - Create a backup`,
+          '  Backup Folder Management:',
+          `    ${TerminalCommand.BACKUP_FOLDER_ADD}         - Add backup folder to connection`,
+          `    ${TerminalCommand.BACKUP_FOLDER_LIST}        - List backup folders`,
+          '',
+          '  Backup Operations:',
+          `    ${TerminalCommand.BACKUP_CREATE}             - Create a new backup`,
           `    ${TerminalCommand.BACKUP_LIST}               - List all backups`,
-          `    ${TerminalCommand.BACKUP_RESTORE} <file>     - Restore a backup`,
-          `    ${TerminalCommand.BACKUP_DELETE} <file>      - Delete a backup`,
-          `    ${TerminalCommand.BACKUP_FOLDER_CREATE}      - Manage backup folders`,
+          `    ${TerminalCommand.BACKUP_DELETE}             - Delete a backup`,
           '',
           '  Authentication:',
           `    ${TerminalCommand.AUTH_CHANGE_PASSWORD}      - Change your password`,
@@ -287,14 +290,12 @@ class TerminalService {
    */
   async submitForm(formId: string, data: Record<string, any>) {
     if (this.activeFormId !== formId) {
-      console.warn('[TerminalService] Cannot submit form: form ID mismatch')
       return
     }
 
     // Find the form entry in history
     const formEntry = this._commandHistory.value.find(e => e.form?.form_id === formId)
     if (!formEntry) {
-      console.error('[TerminalService] Form entry not found')
       this.activeFormId = null
       return
     }
@@ -311,34 +312,10 @@ class TerminalService {
         return
       }
 
-      // Build URI from components for connection commands
-      const { decodeConnectionData, buildMongoUri } = await import('~/utils/formHelpers')
+      // Send components directly to backend (backend builds URI when needed)
+      const { decodeConnectionData } = await import('~/utils/formHelpers')
       
-      let dataToSubmit = { ...data }
-      
-      // If we have connection components (host, port, etc.), build the URI
-      if (dataToSubmit.host && dataToSubmit.port) {
-        // Build URL-encoded URI from components for backend submission
-        const encodedUri = buildMongoUri({
-          host: dataToSubmit.host,
-          port: dataToSubmit.port,
-          username: dataToSubmit.username,
-          password: dataToSubmit.password,
-          database: dataToSubmit.database,
-          auth_source: dataToSubmit.auth_source
-        }, false, false)  // false = don't mask, false = for submission (URL-encode password)
-        
-        dataToSubmit.uri = encodedUri
-        
-        // Clean up - remove component fields (backend only needs URI)
-        delete dataToSubmit.host
-        delete dataToSubmit.port
-        delete dataToSubmit.username
-        delete dataToSubmit.password
-        delete dataToSubmit.database
-        delete dataToSubmit.auth_source
-      }
-      
+      const dataToSubmit = { ...data }
       const processedData = decodeConnectionData(dataToSubmit, formEntry.command)
 
 
@@ -388,7 +365,6 @@ class TerminalService {
    */
   cancelForm(formId: string) {
     if (this.activeFormId !== formId) {
-      console.warn('[TerminalService] Cannot cancel form: form ID mismatch')
       return
     }
 
@@ -414,7 +390,7 @@ class TerminalService {
       try {
         this._favorites.value = JSON.parse(savedFavorites)
       } catch (error) {
-        console.error('[TerminalService] Failed to load favorites:', error)
+        // Failed to load favorites
       }
     }
   }

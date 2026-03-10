@@ -119,6 +119,7 @@ import TerminalTextField from './Fields/TerminalTextField.vue'
 import TerminalPasswordField from './Fields/TerminalPasswordField.vue'
 import TerminalNumberField from './Fields/TerminalNumberField.vue'
 import TerminalCheckboxListField from './Fields/TerminalCheckboxListField.vue'
+import TerminalSelectField from './Fields/TerminalSelectField.vue'
 import TerminalCustomStepper from './TerminalCustomStepper.vue'
 import CommandsConnectUpdateSelectConnection from '~/components/Commands/Connect/Update/SelectConnection.vue'
 import CommandsConnectUpdateUpdateDetails from '~/components/Commands/Connect/Update/UpdateDetails.vue'
@@ -178,7 +179,6 @@ const customComponentRegistry: Record<string, any> = {
 const getCustomComponent = (componentName: string) => {
   const component = customComponentRegistry[componentName]
   if (!component) {
-    console.error(`Failed to resolve component: ${componentName}`)
     return null
   }
   return component
@@ -243,6 +243,8 @@ const getFieldComponent = (field: FormField) => {
       return TerminalNumberField
     case 'checkbox-list':
       return TerminalCheckboxListField
+    case 'select':
+      return TerminalSelectField
     default:
       return TerminalTextField
   }
@@ -425,7 +427,6 @@ const loadStepData = async (stepIndex: number) => {
       })
     }
   } catch (error: any) {
-    console.error(`Failed to load step ${stepIndex}:`, error)
     // Go back to previous step on error
     if (stepIndex > 0) {
       stepper.value?.goToStep(stepIndex - 1)

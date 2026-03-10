@@ -86,7 +86,7 @@ def display_connections_table(connections: list[dict]):
     Args:
         connections: List of connection dictionaries
     """
-    from app.core.utils.uri_builder import mask_password_in_uri
+    from app.core.utils.uri_builder import build_mongodb_uri_masked
     
     table = Table(title="MongoDB Connections")
     
@@ -96,8 +96,14 @@ def display_connections_table(connections: list[dict]):
     table.add_column("Added", style="dim", no_wrap=True, width=20)
     
     for conn in connections:
-        # Mask password in URI using utility function
-        uri_display = mask_password_in_uri(conn["uri"])
+        # Build masked URI from components
+        uri_display = build_mongodb_uri_masked(
+            host=conn.get('host', 'localhost'),
+            port=conn.get('port', 27017),
+            username=conn.get('username'),
+            database=conn.get('database'),
+            auth_source=conn.get('auth_source', 'admin')
+        )
         
         table.add_row(
             conn["name"],

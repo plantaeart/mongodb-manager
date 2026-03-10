@@ -27,20 +27,15 @@ logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 async def lifespan(app: FastAPI):
     """Handle application startup and shutdown"""
     # Startup
-    print("🚀 Starting MongoDB Manager API...")
     try:
         init_database()
-        print("✅ Database initialized successfully")
     except Exception as e:
-        print(f"❌ Failed to initialize database: {e}")
         raise
     
     yield
     
     # Shutdown
-    print("🛑 Shutting down MongoDB Manager API...")
     close_database()
-    print("✅ Shutdown complete")
 
 # Create FastAPI app
 app = FastAPI(

@@ -41,10 +41,9 @@ async def execute_command(
     This endpoint allows executing CLI commands without WebSocket,
     which is useful for form-based commands that don't need streaming output.
     
-    Supports two modes for 'connect add' command:
-    - Simple mode: params contain 'uri' field with complete MongoDB URI
-    - Advanced mode: params contain 'host', 'port', 'username', 'password' fields
-                     and URI is automatically constructed
+    Connection commands use component-based parameters:
+    - params contain 'host', 'port', 'username', 'password', 'database', 'auth_source' fields
+    - URIs are automatically constructed by the backend when connecting to MongoDB
     
     Args:
         request: Command and parameters to execute
@@ -87,44 +86,32 @@ async def execute_command(
             "exit_code": 0
         }
     """
-    # Check if this is advanced mode (has host/port instead of uri)
-    if "_mode" in request.params and request.params["_mode"] == "advanced":
-        # Advanced mode: build URI from components
-        try:
-            uri = build_mongodb_uri(
-                host=request.params.get("host", "localhost"),
-                port=int(request.params.get("port", 27017)),
-                username=request.params.get("username") or None,
-                password=request.params.get("password") or None,
-                database=request.params.get("database") or None,
-                auth_source=request.params.get("auth_source", "admin")
-            )
+    # For connect add/update commands, ensure port is an integer
+    if request.command.strip() in ["connect add", "connect update"]:
+        if "port" in request.params:
+            port_value = request.params["port"]
             
-            # Replace params with constructed URI for CLI
-            request.params = {
-                "name": request.params["name"],
-                "uri": uri,
-                "description": request.params.get("description", "")
-            }
-        except ValueError as e:
-            return CommandExecuteResponse(
-                success=False,
-                output="",
-                error=f"Invalid connection parameters: {str(e)}",
-                exit_code=1
-            )
+            # Convert empty string to default port
+            if isinstance(port_value, str):
+                if port_value.strip() == '':
+                    request.params["port"] = 27017
+                else:
+                    request.params["port"] = int(port_value)
+            elif port_value is None:
+                request.params["port"] = 27017
+        else:
+            # No port provided, set default
+            request.params["port"] = 27017
     
     # Special handling for 'connect remove' with multiple connections
     if request.command.strip() == "connect remove" and "connections" in request.params:
         # connections is an array of connection names to remove
         connections_to_remove = request.params.get("connections", [])
-        logger.info(f"[CONNECT REMOVE] Received request with connections: {connections_to_remove}")
         
         if not isinstance(connections_to_remove, list):
             connections_to_remove = [connections_to_remove]
         
         if not connections_to_remove:
-            logger.warning("[CONNECT REMOVE] No connections selected")
             return CommandExecuteResponse(
                 success=False,
                 output="",
@@ -133,19 +120,15 @@ async def execute_command(
             )
         
         # Remove connections one by one and collect results
+        success_count = 0
+        failed_count = 0
         all_output = []
         all_errors = []
-        failed_count = 0
-        
-        logger.info(f"[CONNECT REMOVE] Processing {len(connections_to_remove)} connection(s)")
         
         for conn_name in connections_to_remove:
-            # Build CLI arguments for single removal with --yes to skip confirmation
-            single_cmd_parts = ["connect", "remove", "--name", str(conn_name), "--yes"]
-            logger.info(f"[CONNECT REMOVE] Removing connection: {conn_name}")
-            logger.debug(f"[CONNECT REMOVE] CLI command: {single_cmd_parts}")
+            single_cmd_parts = ["connect", "remove", "--name", conn_name, "--yes"]
             
-            # Capture output for this removal
+            # Capture output for this single removal
             single_stdout = io.StringIO()
             single_stderr = io.StringIO()
             single_exit_code = 0
@@ -156,24 +139,18 @@ async def execute_command(
                         cli_app(single_cmd_parts, standalone_mode=False)
                     except SystemExit as e:
                         single_exit_code = e.code if e.code is not None else 0
-                        logger.debug(f"[CONNECT REMOVE] CLI exited with code: {single_exit_code}")
                     except Exception as e:
                         single_exit_code = 1
-                        logger.error(f"[CONNECT REMOVE] Exception during removal: {str(e)}", exc_info=True)
                         single_stderr.write(f"Error: {str(e)}\n")
                 
                 stdout_val = single_stdout.getvalue()
                 stderr_val = single_stderr.getvalue()
-                logger.debug(f"[CONNECT REMOVE] stdout: {stdout_val}")
-                logger.debug(f"[CONNECT REMOVE] stderr: {stderr_val}")
                 
                 if single_exit_code != 0:
                     failed_count += 1
                     all_errors.append(stderr_val)
-                    logger.warning(f"[CONNECT REMOVE] Failed to remove {conn_name}")
                 else:
                     all_output.append(stdout_val)
-                    logger.info(f"[CONNECT REMOVE] Successfully removed {conn_name}")
             
             finally:
                 single_stdout.close()
@@ -190,10 +167,6 @@ async def execute_command(
         if failed_count > 0:
             combined_errors += f"\n✗ Failed to remove {failed_count} connection(s)"
         
-        logger.info(f"[CONNECT REMOVE] Complete: {success_count} success, {failed_count} failed")
-        logger.debug(f"[CONNECT REMOVE] Combined output: {combined_output}")
-        logger.debug(f"[CONNECT REMOVE] Combined errors: {combined_errors}")
-        
         return CommandExecuteResponse(
             success=(failed_count == 0),
             output=combined_output,
@@ -205,13 +178,11 @@ async def execute_command(
     if request.command.strip() == "connect test" and "connections" in request.params:
         # connections is an array of connection names to test
         connections_to_test = request.params.get("connections", [])
-        logger.info(f"[CONNECT TEST] Received request with connections: {connections_to_test}")
         
         if not isinstance(connections_to_test, list):
             connections_to_test = [connections_to_test]
         
         if not connections_to_test:
-            logger.warning("[CONNECT TEST] No connections selected")
             return CommandExecuteResponse(
                 success=False,
                 output="",
@@ -222,9 +193,6 @@ async def execute_command(
         # Build command with comma-separated names and JSON output flag
         names_param = ",".join(connections_to_test)
         cmd_parts = ["connect", "test", "--names", names_param, "--yes", "--json"]
-        
-        logger.info(f"[CONNECT TEST] Testing {len(connections_to_test)} connection(s)")
-        logger.debug(f"[CONNECT TEST] CLI command: {cmd_parts}")
         
         # Capture output
         stdout_capture = io.StringIO()
@@ -243,9 +211,6 @@ async def execute_command(
             
             output = stdout_capture.getvalue()
             error = stderr_capture.getvalue()
-            
-            logger.info(f"[CONNECT TEST] Complete with exit code: {exit_code}")
-            logger.debug(f"[CONNECT TEST] Raw output: {output}")
             
             # Parse JSON output and format for display
             try:
@@ -284,7 +249,6 @@ async def execute_command(
                     exit_code=exit_code
                 )
             except json.JSONDecodeError as e:
-                logger.error(f"[CONNECT TEST] Failed to parse JSON output: {e}")
                 # Fallback to raw output
                 return CommandExecuteResponse(
                     success=(exit_code == 0),
@@ -298,7 +262,6 @@ async def execute_command(
     
     # Special handling for 'connect update' with connection selection and update data
     if request.command.strip() == "connect update":
-        logger.info(f"[CONNECT UPDATE] Received request with params: {request.params}")
         
         # Get the selected connection name (from checkbox-list)
         connection_name = request.params.get("connection_name")
@@ -306,7 +269,6 @@ async def execute_command(
             connection_name = connection_name[0] if connection_name else None
         
         if not connection_name:
-            logger.warning("[CONNECT UPDATE] No connection selected")
             return CommandExecuteResponse(
                 success=False,
                 output="",
@@ -314,46 +276,44 @@ async def execute_command(
                 exit_code=1
             )
         
-        # Check if this is advanced mode (has host/port instead of uri)
-        if "_mode" in request.params and request.params["_mode"] == "advanced":
-            # Advanced mode: build URI from components
-            try:
-                uri = build_mongodb_uri(
-                    host=request.params.get("host", "localhost"),
-                    port=int(request.params.get("port", 27017)),
-                    username=request.params.get("username") or None,
-                    password=request.params.get("password") or None,
-                    database=request.params.get("database") or None,
-                    auth_source=request.params.get("auth_source", "admin")
-                )
-                
-                # Update URI in params
-                request.params["uri"] = uri
-            except ValueError as e:
-                logger.error(f"[CONNECT UPDATE] Invalid connection parameters: {e}")
-                return CommandExecuteResponse(
-                    success=False,
-                    output="",
-                    error=f"Invalid connection parameters: {str(e)}",
-                    exit_code=1
-                )
-        
-        # Update the connection
+        # Update the connection with components directly (no URI building)
         from app.core.connection_ops import ConnectionManager
         
         conn_mgr = ConnectionManager()
         
-        # Get the new values
+        # Extract component values from params
         new_name = request.params.get("name")
-        new_uri = request.params.get("uri")
-        new_description = request.params.get("description")
+        host = request.params.get("host")
+        port = request.params.get("port")
+        username = request.params.get("username")
+        password = request.params.get("password")
+        database = request.params.get("database")
+        auth_source = request.params.get("auth_source")
+        description = request.params.get("description")
         
-        # Perform update
+        # Convert port to int if provided
+        if port is not None:
+            try:
+                port = int(port)
+            except (ValueError, TypeError):
+                return CommandExecuteResponse(
+                    success=False,
+                    output="",
+                    error=f"Invalid port value: {port}",
+                    exit_code=1
+                )
+        
+        # Perform update with components
         success = conn_mgr.update_connection(
             name=connection_name,
             new_name=new_name if new_name != connection_name else None,
-            uri=new_uri,
-            description=new_description
+            host=host,
+            port=port,
+            username=username,
+            password=password,
+            database=database,
+            auth_source=auth_source,
+            description=description
         )
         
         if not success:
@@ -364,7 +324,6 @@ async def execute_command(
                 if existing:
                     error_msg = f"Connection name '{new_name}' already exists"
             
-            logger.error(f"[CONNECT UPDATE] {error_msg}")
             return CommandExecuteResponse(
                 success=False,
                 output="",
@@ -375,7 +334,6 @@ async def execute_command(
         # Success message
         display_name = new_name if new_name else connection_name
         output_msg = f"✓ Connection '{display_name}' updated successfully"
-        logger.info(f"[CONNECT UPDATE] {output_msg}")
         
         return CommandExecuteResponse(
             success=True,
@@ -383,6 +341,108 @@ async def execute_command(
             error=None,
             exit_code=0
         )
+    
+    # Special handling for 'backup folder add' with connection selection and folder configuration
+    if request.command.strip() == "backup folder add":
+        
+        # Get the selected connection name (from step 1)
+        connection_name = request.params.get("connection_name")
+        if isinstance(connection_name, list):
+            connection_name = connection_name[0] if connection_name else None
+        
+        if not connection_name:
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error="No connection selected",
+                exit_code=1
+            )
+        
+        # Get folder configuration (from step 2)
+        folder_path = request.params.get("folder_path")
+        create_if_missing = request.params.get("create_if_missing", True)
+        set_as_active = request.params.get("set_as_active", True)
+        
+        if not folder_path:
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error="Folder path is required",
+                exit_code=1
+            )
+        
+        # Add backup folder using ConnectionManager directly
+        from app.core.connection_ops import ConnectionManager
+        from pathlib import Path
+        import os
+        
+        conn_mgr = ConnectionManager()
+        
+        # Verify connection exists
+        connection = conn_mgr.get_connection(connection_name)
+        if not connection:
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error=f"Connection '{connection_name}' not found",
+                exit_code=1
+            )
+        
+        # Process folder path
+        folder_path = folder_path.strip()
+        path_obj = Path(folder_path)
+        
+        # Check if path exists
+        if not path_obj.exists():
+            if create_if_missing:
+                try:
+                    path_obj.mkdir(parents=True, exist_ok=True)
+                except Exception as e:
+                    return CommandExecuteResponse(
+                        success=False,
+                        output="",
+                        error=f"Failed to create directory: {str(e)}",
+                        exit_code=1
+                    )
+            else:
+                return CommandExecuteResponse(
+                    success=False,
+                    output="",
+                    error=f"Path '{folder_path}' does not exist",
+                    exit_code=1
+                )
+        
+        # Check if writable
+        if not os.access(folder_path, os.W_OK):
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error=f"Path is not writable: {folder_path}",
+                exit_code=1
+            )
+        
+        # Add to connection
+        if conn_mgr.add_backup_path(connection_name, folder_path):
+            output_msg = f"✓ Added backup folder: {folder_path}"
+            
+            # Set as active if requested
+            if set_as_active:
+                conn_mgr.set_active_backup_path(connection_name, folder_path)
+                output_msg += f"\n✓ Set as active backup folder"
+            
+            return CommandExecuteResponse(
+                success=True,
+                output=output_msg,
+                error=None,
+                exit_code=0
+            )
+        else:
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error="Folder already exists in connection's backup folder list",
+                exit_code=1
+            )
     
     # Build CLI arguments from command and params
     cmd_parts = request.command.strip().split()
@@ -393,7 +453,9 @@ async def execute_command(
             # Skip internal parameters (like _mode)
             continue
         if value is not None and value != "":
-            cmd_parts.append(f"--{key}")
+            # Convert underscores to dashes for CLI compatibility (e.g., auth_source -> auth-source)
+            cli_key = key.replace("_", "-")
+            cmd_parts.append(f"--{cli_key}")
             cmd_parts.append(str(value))
     
     # Capture stdout and stderr

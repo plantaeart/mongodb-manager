@@ -9,9 +9,16 @@ class ConnectionDocument(BaseModel):
     """MongoDB document model for connection storage
     
     This model represents how connections are stored in the manager database.
+    Connections are stored as separate components (host, port, username, etc.)
+    and URIs are built dynamically when needed.
     """
     name: str = Field(..., description="Unique connection name")
-    uri: str = Field(..., description="MongoDB connection URI")
+    host: str = Field(..., description="MongoDB server hostname or IP")
+    port: int = Field(default=27017, description="MongoDB server port")
+    username: Optional[str] = Field(default=None, description="Username for authentication")
+    password: Optional[str] = Field(default=None, description="Password for authentication")
+    database: Optional[str] = Field(default=None, description="Default database")
+    auth_source: str = Field(default="admin", description="Authentication database")
     description: str = Field(default="", description="Connection description")
     added_at: datetime = Field(default_factory=datetime.utcnow, description="When connection was created")
     updated_at: datetime = Field(default_factory=datetime.utcnow, description="When connection was last updated")
@@ -23,7 +30,12 @@ class ConnectionDocument(BaseModel):
         json_schema_extra = {
             "example": {
                 "name": "production-db",
-                "uri": "mongodb://localhost:27017",
+                "host": "localhost",
+                "port": 27017,
+                "username": "admin",
+                "password": "secret123",
+                "database": None,
+                "auth_source": "admin",
                 "description": "Production database",
                 "added_at": "2024-01-20T10:00:00",
                 "updated_at": "2024-01-20T10:00:00",
@@ -37,12 +49,22 @@ class ConnectionDocument(BaseModel):
 class ConnectionCreate(BaseModel):
     """Model for creating a new connection"""
     name: str
-    uri: str
+    host: str
+    port: int = 27017
+    username: Optional[str] = None
+    password: Optional[str] = None
+    database: Optional[str] = None
+    auth_source: str = "admin"
     description: str = ""
 
 
 class ConnectionUpdate(BaseModel):
     """Model for updating an existing connection"""
     new_name: Optional[str] = None
-    uri: Optional[str] = None
+    host: Optional[str] = None
+    port: Optional[int] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
+    database: Optional[str] = None
+    auth_source: Optional[str] = None
     description: Optional[str] = None

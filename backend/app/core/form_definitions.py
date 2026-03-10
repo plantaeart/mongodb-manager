@@ -75,12 +75,12 @@ class FormStepperSchema(BaseModel):
 
 # === FORM DEFINITIONS ===
 
-# Connection Add Form (Hybrid: Simple & Advanced modes)
+# Connection Add Form (Component-based)
 CONNECT_ADD_FORM = FormSchema(
     title="Add MongoDB Connection",
     description="Enter connection details",
     fields=[
-        # ALWAYS VISIBLE: Connection Name
+        # Connection Name
         FormField(
             id="name",
             label="Connection Name",
@@ -94,40 +94,24 @@ CONNECT_ADD_FORM = FormSchema(
             help_text="Unique name for this connection"
         ),
         
-        # SIMPLE MODE ONLY: MongoDB URI
-        FormField(
-            id="uri",
-            label="MongoDB URI",
-            type="text",
-            required=True,
-            default="mongodb://localhost:27017",
-            placeholder="mongodb://host:port",
-            validation=ValidationRule(
-                pattern=r"^mongodb://.*",
-                message="Must start with mongodb://"
-            ),
-            help_text="Format: mongodb://[username:password@]host:port[/database]",
-            tooltip="Docker: Use host.docker.internal for cross-network connections"
-        ),
-        
-        # ADVANCED MODE ONLY: Host
+        # Host
         FormField(
             id="host",
             label="Host",
             type="text",
-            required=False,
+            required=True,
             default="localhost",
             placeholder="localhost or IP address",
             help_text="MongoDB server hostname or IP",
             tooltip="Docker: Use container name (same network) or host.docker.internal"
         ),
         
-        # ADVANCED MODE ONLY: Port
+        # Port
         FormField(
             id="port",
             label="Port",
             type="number",
-            required=False,
+            required=True,
             default=27017,
             min=1,
             max=65535,
@@ -135,7 +119,7 @@ CONNECT_ADD_FORM = FormSchema(
             tooltip="Docker: Use exposed host port (e.g., 27019) for cross-network access"
         ),
         
-        # ADVANCED MODE ONLY: Username
+        # Username
         FormField(
             id="username",
             label="Username (optional)",
@@ -145,7 +129,7 @@ CONNECT_ADD_FORM = FormSchema(
             help_text="Leave empty for no authentication"
         ),
         
-        # ADVANCED MODE ONLY: Password
+        # Password
         FormField(
             id="password",
             label="Password (optional)",
@@ -155,7 +139,7 @@ CONNECT_ADD_FORM = FormSchema(
             help_text="Required if username is provided"
         ),
         
-        # ADVANCED MODE ONLY: Auth Source
+        # Auth Source
         FormField(
             id="auth_source",
             label="Authentication Database",
@@ -167,7 +151,7 @@ CONNECT_ADD_FORM = FormSchema(
             tooltip="Usually 'admin' - database where the user was created"
         ),
         
-        # ADVANCED MODE ONLY: Database
+        # Database
         FormField(
             id="database",
             label="Database (optional)",
@@ -177,7 +161,7 @@ CONNECT_ADD_FORM = FormSchema(
             help_text="Default database to connect to"
         ),
         
-        # ALWAYS VISIBLE: Description
+        # Description
         FormField(
             id="description",
             label="Description (optional)",
@@ -297,40 +281,24 @@ CONNECT_UPDATE_DETAILS_FORM = FormSchema(
             help_text="Unique name for this connection"
         ),
         
-        # SIMPLE MODE ONLY: MongoDB URI
-        FormField(
-            id="uri",
-            label="MongoDB URI",
-            type="text",
-            required=True,
-            default="mongodb://localhost:27017",
-            placeholder="mongodb://host:port",
-            validation=ValidationRule(
-                pattern=r"^mongodb://.*",
-                message="Must start with mongodb://"
-            ),
-            help_text="Format: mongodb://[username:password@]host:port[/database]",
-            tooltip="Docker: Use host.docker.internal for cross-network connections"
-        ),
-        
-        # ADVANCED MODE ONLY: Host
+        # Host
         FormField(
             id="host",
             label="Host",
             type="text",
-            required=False,
+            required=True,
             default="localhost",
             placeholder="localhost or IP address",
             help_text="MongoDB server hostname or IP",
             tooltip="Docker: Use container name (same network) or host.docker.internal"
         ),
         
-        # ADVANCED MODE ONLY: Port
+        # Port
         FormField(
             id="port",
             label="Port",
             type="number",
-            required=False,
+            required=True,
             default=27017,
             min=1,
             max=65535,
@@ -338,7 +306,7 @@ CONNECT_UPDATE_DETAILS_FORM = FormSchema(
             tooltip="Docker: Use exposed host port (e.g., 27019) for cross-network access"
         ),
         
-        # ADVANCED MODE ONLY: Username
+        # Username
         FormField(
             id="username",
             label="Username (optional)",
@@ -348,7 +316,7 @@ CONNECT_UPDATE_DETAILS_FORM = FormSchema(
             help_text="Leave empty for no authentication"
         ),
         
-        # ADVANCED MODE ONLY: Password
+        # Password
         FormField(
             id="password",
             label="Password (optional)",
@@ -358,7 +326,7 @@ CONNECT_UPDATE_DETAILS_FORM = FormSchema(
             help_text="Required if username is provided"
         ),
         
-        # ADVANCED MODE ONLY: Auth Source
+        # Auth Source
         FormField(
             id="auth_source",
             label="Authentication Database",
@@ -370,7 +338,7 @@ CONNECT_UPDATE_DETAILS_FORM = FormSchema(
             tooltip="Usually 'admin' - database where the user was created"
         ),
         
-        # ADVANCED MODE ONLY: Database
+        # Database
         FormField(
             id="database",
             label="Database (optional)",
@@ -391,6 +359,206 @@ CONNECT_UPDATE_DETAILS_FORM = FormSchema(
     ],
     actions=[
         FormAction(label="Update Connection", style="primary", action="submit"),
+        FormAction(label="Cancel", style="secondary", action="cancel")
+    ]
+)
+
+
+# === BACKUP MANAGEMENT FORMS ===
+
+# Backup Folder Add - Step 2: Select Connection
+BACKUP_FOLDER_ADD_SELECT_FORM = FormSchema(
+    title="Add Backup Folder - Step 2",
+    description="Choose which connection this backup folder will be used for",
+    fields=[
+        FormField(
+            id="connection_name",
+            label="Connection",
+            type="select",
+            required=True,
+            help_text="Select the connection to add a backup folder to",
+            options=[]  # Populated dynamically
+        )
+    ],
+    actions=[
+        FormAction(label="Next", style="primary", action="submit"),
+        FormAction(label="Cancel", style="secondary", action="cancel")
+    ]
+)
+
+# Backup Folder Add - Step 1: Configure Folder
+BACKUP_FOLDER_ADD_CONFIGURE_FORM = FormSchema(
+    title="Add Backup Folder - Step 1",
+    description="Enter backup folder path and options",
+    fields=[
+        FormField(
+            id="folder_path",
+            label="Backup Folder Path",
+            type="text",
+            required=True,
+            placeholder="/path/to/backups",
+            help_text="Folder path for backups ('_mongodb_manager' will be added automatically)"
+        ),
+        FormField(
+            id="create_if_missing",
+            label="Create folder if it doesn't exist",
+            type="checkbox",
+            default=True,
+            help_text="Automatically create the folder if not found"
+        ),
+        FormField(
+            id="set_as_active",
+            label="Set as active backup folder",
+            type="checkbox",
+            default=True,
+            help_text="Use this folder as the default for backups"
+        )
+    ],
+    actions=[
+        FormAction(label="Add Folder", style="primary", action="submit"),
+        FormAction(label="Cancel", style="secondary", action="cancel")
+    ]
+)
+
+
+# Backup Folder List Form (Display form with filter)
+BACKUP_FOLDER_LIST_FORM = FormSchema(
+    title="Backup Folders",
+    description="View backup folders configured for connections",
+    fields=[
+        FormField(
+            id="connection_filter",
+            label="Filter by Connection",
+            type="select",
+            required=False,
+            help_text="Show folders for a specific connection or all",
+            options=[
+                SelectOption(value="all", label="All Connections")
+            ]  # Additional options populated dynamically
+        ),
+        FormField(
+            id="folders_list",
+            label="",
+            type="list",
+            items=[]  # Populated dynamically with folder data
+        )
+    ],
+    actions=[
+        FormAction(label="Close", style="secondary", action="cancel")
+    ]
+)
+
+
+# Backup Create - Step 1: Select Connection
+BACKUP_CREATE_SELECT_FORM = FormSchema(
+    title="Create Backup - Step 1",
+    description="Choose connection to backup",
+    fields=[
+        FormField(
+            id="connection_name",
+            label="Connection",
+            type="select",
+            required=True,
+            help_text="Select connection (must have an active backup folder)",
+            options=[]  # Populated with connections that have active_backup_path
+        )
+    ],
+    actions=[
+        FormAction(label="Next", style="primary", action="submit"),
+        FormAction(label="Cancel", style="secondary", action="cancel")
+    ]
+)
+
+# Backup Create - Step 2: Configure Backup
+BACKUP_CREATE_CONFIGURE_FORM = FormSchema(
+    title="Create Backup - Step 2",
+    description="Enter backup details",
+    fields=[
+        FormField(
+            id="backup_name",
+            label="Backup Name",
+            type="text",
+            required=True,
+            placeholder="backup-2024-01-15",
+            validation=ValidationRule(
+                pattern=r"^[a-zA-Z0-9_-]+$",
+                message="Only letters, numbers, - and _ allowed"
+            ),
+            help_text="Unique name for this backup (must be unique in backup folder)"
+        ),
+        FormField(
+            id="backup_location",
+            label="Backup Location",
+            type="readonly",
+            content="",  # Populated with active_backup_path
+            help_text="Backup will be saved to this location"
+        )
+    ],
+    actions=[
+        FormAction(label="Create Backup", style="primary", action="submit"),
+        FormAction(label="Cancel", style="secondary", action="cancel")
+    ]
+)
+
+
+# Backup List Form (Display form with filter)
+BACKUP_LIST_FORM = FormSchema(
+    title="Backups",
+    description="View all MongoDB backups",
+    fields=[
+        FormField(
+            id="connection_filter",
+            label="Filter by Connection",
+            type="select",
+            required=False,
+            help_text="Show backups for a specific connection or all",
+            options=[
+                SelectOption(value="all", label="All Backups")
+            ]  # Additional options populated dynamically
+        ),
+        FormField(
+            id="backups_list",
+            label="",
+            type="list",
+            items=[]  # Populated dynamically with backup data
+        )
+    ],
+    actions=[
+        FormAction(label="Close", style="secondary", action="cancel")
+    ]
+)
+
+
+# Backup Delete Form (Confirmation form)
+BACKUP_DELETE_FORM = FormSchema(
+    title="Delete Backup",
+    description="Permanently delete a backup",
+    fields=[
+        FormField(
+            id="backup_selector",
+            label="Select Backup to Delete",
+            type="select",
+            required=True,
+            help_text="Choose the backup to delete (this cannot be undone)",
+            options=[]  # Populated with format: "folder_path|backup_name"
+        ),
+        FormField(
+            id="warning",
+            label="",
+            type="readonly",
+            content="⚠️ WARNING: This action cannot be undone. The backup will be permanently deleted from disk.",
+            help_text=""
+        ),
+        FormField(
+            id="confirmation",
+            label="I understand this backup will be permanently deleted",
+            type="checkbox",
+            required=True,
+            help_text="You must confirm to proceed with deletion"
+        )
+    ],
+    actions=[
+        FormAction(label="Delete Backup", style="danger", action="submit"),
         FormAction(label="Cancel", style="secondary", action="cancel")
     ]
 )

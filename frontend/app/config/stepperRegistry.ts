@@ -5,6 +5,8 @@
 
 import type { StepperFormConfig } from '~/types/stepper'
 import { createConnectUpdateStepper } from './steppers/connectUpdate'
+import { createBackupFolderAddStepper } from './steppers/backupFolderAdd'
+import { createBackupCreateStepper } from './steppers/backupCreate'
 
 /**
  * Get stepper configuration for a command
@@ -17,11 +19,11 @@ export function getStepperConfig(command: string, formId: string): StepperFormCo
     case 'connect update':
       return createConnectUpdateStepper(formId)
     
-    // Add more stepper commands here:
-    // case 'backup create':
-    //   return createBackupCreateStepper(formId)
-    // case 'user register':
-    //   return createUserRegisterStepper(formId)
+    case 'backup folder add':
+      return createBackupFolderAddStepper(formId)
+    
+    case 'backup create':
+      return createBackupCreateStepper(formId)
     
     default:
       return null

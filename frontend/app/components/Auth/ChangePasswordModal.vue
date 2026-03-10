@@ -130,7 +130,6 @@ const handleChangePassword = async () => {
   validationError.value = ''
 
   if (!props.onChangePassword) {
-    console.warn('[ChangePasswordModal] No onChangePassword callback provided')
     return
   }
 

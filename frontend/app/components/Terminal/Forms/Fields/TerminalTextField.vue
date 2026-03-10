@@ -8,33 +8,7 @@
       <FieldTooltip :text="field.tooltip" />
     </div>
     
-    <div v-if="isUriField && hasPasswordInUri" class="password-input-wrapper">
-      <input
-        :id="field.id"
-        type="text"
-        v-model="displayValue"
-        :placeholder="field.placeholder"
-        :disabled="disabled"
-        :readonly="readonly"
-        class="field-input"
-        @input="handleInput"
-        @blur="handleBlur"
-        @keydown.enter="handleEnter"
-      />
-      <button
-        v-if="displayValue"
-        type="button"
-        class="toggle-password-btn"
-        @click="togglePasswordVisibility"
-        :disabled="disabled || readonly"
-        :title="showPassword ? 'Hide password' : 'Show password'"
-      >
-        <Icon :name="showPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'" class="eye-icon" />
-      </button>
-    </div>
-    
     <input
-      v-else
       :id="field.id"
       type="text"
       v-model="internalValue"
@@ -55,15 +29,12 @@
 import { ref, watch, computed, onMounted } from 'vue'
 import type { FormField } from '~/types/terminal'
 import FieldTooltip from '../FieldTooltip.vue'
-import { buildMongoUri } from '~/utils/formHelpers'
-import type { ConnectionComponents } from '~/utils/formHelpers'
 
 interface Props {
   field: FormField
   modelValue: any
   disabled?: boolean
   readonly?: boolean
-  uriComponents?: ConnectionComponents  // For building URI dynamically (no regex!)
 }
 
 const props = defineProps<Props>()
@@ -78,64 +49,6 @@ const emit = defineEmits<{
 const internalValue = ref<string>(props.modelValue || props.field.default || '')
 const errorMessage = ref<string>('')
 const touched = ref<boolean>(false)
-const showPassword = ref<boolean>(false)
-
-// Check if this is a URI field
-const isUriField = computed(() => props.field.id === 'uri')
-
-// Check if we have URI components (for building URI without regex)
-const hasUriComponents = computed(() => {
-  return isUriField.value && 
-         props.uriComponents && 
-         props.uriComponents.host && 
-         props.uriComponents.port
-})
-
-// Check if URI has password (only true if we have components with password)
-const hasPasswordInUri = computed(() => {
-  return hasUriComponents.value && !!props.uriComponents?.password
-})
-
-// Build URI dynamically from components (NO REGEX!)
-const buildUriFromComponents = (maskPassword: boolean): string => {
-  if (!props.uriComponents) return ''
-  
-  // Always use forDisplay=true for UI display
-  return buildMongoUri(props.uriComponents, maskPassword, true)
-}
-
-// Display value for URI field
-const displayValue = computed({
-  get() {
-    // If we have URI components, build URI dynamically
-    if (hasUriComponents.value) {
-      return buildUriFromComponents(!showPassword.value)
-    }
-    
-    // Fallback to internal value for non-URI fields or fields without components
-    return internalValue.value
-  },
-  set(newValue: string) {
-    // User is typing - update internal value
-    internalValue.value = newValue
-  }
-})
-
-// Toggle password visibility in URI
-const togglePasswordVisibility = () => {
-  showPassword.value = !showPassword.value
-}
-
-// Handle input changes for URI field
-const handleInput = (event: Event) => {
-  const target = event.target as HTMLInputElement
-  const newValue = target.value
-  
-  // For URI fields with components, user is editing the URI directly
-  // We'll store it as internal value
-  internalValue.value = newValue
-  emit('update:modelValue', newValue)
-}
 
 // Watch for external changes
 watch(() => props.modelValue, (newValue) => {
@@ -144,11 +57,9 @@ watch(() => props.modelValue, (newValue) => {
   }
 })
 
-// Watch internal changes (for non-URI fields or URI without components)
+// Watch internal changes and emit
 watch(internalValue, (newValue) => {
-  if (!hasUriComponents.value) {
-    emit('update:modelValue', newValue)
-  }
+  emit('update:modelValue', newValue)
 })
 
 const hasError = computed(() => touched.value && !!errorMessage.value)
@@ -157,22 +68,17 @@ const isValid = computed(() => touched.value && !errorMessage.value && internalV
 const validate = (): boolean => {
   errorMessage.value = ''
   
-  // Get the actual value to validate
-  const valueToValidate = hasUriComponents.value 
-    ? buildUriFromComponents(false)  // Validate full URI with password
-    : internalValue.value
-  
   // Required validation
-  if (props.field.required && !valueToValidate) {
+  if (props.field.required && !internalValue.value) {
     errorMessage.value = `${props.field.label} is required`
     emit('invalid', errorMessage.value)
     return false
   }
   
   // Pattern validation
-  if (props.field.validation?.pattern && valueToValidate) {
+  if (props.field.validation?.pattern && internalValue.value) {
     const regex = new RegExp(props.field.validation.pattern)
-    if (!regex.test(valueToValidate)) {
+    if (!regex.test(internalValue.value)) {
       errorMessage.value = props.field.validation.message || 'Invalid format'
       emit('invalid', errorMessage.value)
       return false

@@ -100,7 +100,6 @@ watch(() => props.readonly, (newReadonly) => {
   if (newReadonly && Object.keys(localData.value).length > 0) {
     // Store current data when entering readonly mode
     submittedData.value = { ...localData.value }
-    console.log('[SelectConnection] Stored submitted data:', submittedData.value)
   }
 })
 

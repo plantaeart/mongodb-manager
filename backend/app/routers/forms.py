@@ -7,7 +7,14 @@ from app.core.form_definitions import (
     CONNECT_LIST_FORM, 
     CONNECT_TEST_FORM,
     CONNECT_UPDATE_SELECT_FORM,
-    CONNECT_UPDATE_DETAILS_FORM
+    CONNECT_UPDATE_DETAILS_FORM,
+    BACKUP_FOLDER_ADD_SELECT_FORM,
+    BACKUP_FOLDER_ADD_CONFIGURE_FORM,
+    BACKUP_FOLDER_LIST_FORM,
+    BACKUP_CREATE_SELECT_FORM,
+    BACKUP_CREATE_CONFIGURE_FORM,
+    BACKUP_LIST_FORM,
+    BACKUP_DELETE_FORM
 )
 from app.middleware.auth import get_current_user
 
@@ -21,9 +28,15 @@ FORM_REGISTRY = {
     "connect/test": CONNECT_TEST_FORM,
     "connect/update/select": CONNECT_UPDATE_SELECT_FORM,
     "connect/update/details": CONNECT_UPDATE_DETAILS_FORM,
-    # Add more form commands here as needed
-    # "backup/create": BACKUP_CREATE_FORM,
-    # "mongodb/discover": MONGODB_DISCOVER_FORM,
+    
+    # Backup management forms (multi-step)
+    "backup/folder/add/select": BACKUP_FOLDER_ADD_SELECT_FORM,
+    "backup/folder/add/configure": BACKUP_FOLDER_ADD_CONFIGURE_FORM,
+    "backup/folder/list": BACKUP_FOLDER_LIST_FORM,
+    "backup/create/select": BACKUP_CREATE_SELECT_FORM,
+    "backup/create/configure": BACKUP_CREATE_CONFIGURE_FORM,
+    "backup/list": BACKUP_LIST_FORM,
+    "backup/delete": BACKUP_DELETE_FORM,
 }
 
 
@@ -44,8 +57,6 @@ async def get_connection_details(
         404: If connection not found
     """
     from app.core.connection_ops import ConnectionManager
-    from urllib.parse import urlparse, parse_qs
-    import re
     
     conn_mgr = ConnectionManager()
     connection = conn_mgr.get_connection(connection_name)
@@ -56,40 +67,16 @@ async def get_connection_details(
             detail=f"Connection '{connection_name}' not found"
         )
     
-    # Parse URI to extract components for Advanced mode
-    uri = connection.get("uri", "")
-    
-    parsed = urlparse(uri)
-    
-    # Extract username and password
-    username = parsed.username or ""
-    password = parsed.password or ""
-    
-    # Decode URL-encoded password (urlparse doesn't decode automatically)
-    from urllib.parse import unquote
-    if password:
-        password = unquote(password)
-    
-    # Extract host and port
-    host = parsed.hostname or "localhost"
-    port = parsed.port or 27017
-    
-    # Extract database from path
-    database = parsed.path.lstrip("/") if parsed.path else ""
-    
-    # Extract auth_source from query params
-    query_params = parse_qs(parsed.query)
-    auth_source = query_params.get("authSource", ["admin"])[0]
-    
+    # Return connection components directly (no URI parsing needed!)
     return {
         "name": connection.get("name", ""),
         "description": connection.get("description", ""),
-        "host": host,
-        "port": port,
-        "username": username,
-        "password": password,
-        "database": database,
-        "auth_source": auth_source
+        "host": connection.get("host", "localhost"),
+        "port": connection.get("port", 27017),
+        "username": connection.get("username", ""),
+        "password": connection.get("password", ""),
+        "database": connection.get("database", ""),
+        "auth_source": connection.get("auth_source", "admin")
     }
 
 
@@ -124,7 +111,7 @@ async def get_form_schema(
     # Special handling for connect/remove: populate connection options dynamically
     if command_path == "connect/remove":
         from app.core.connection_ops import ConnectionManager
-        from app.core.utils.uri_builder import mask_password_in_uri
+        from app.core.utils.uri_builder import build_mongodb_uri_masked
         from datetime import datetime
         
         conn_mgr = ConnectionManager()
@@ -133,7 +120,14 @@ async def get_form_schema(
         # Build options from connections
         options = []
         for conn in connections:
-            uri_display = mask_password_in_uri(conn["uri"])
+            # Build masked URI from components
+            uri_display = build_mongodb_uri_masked(
+                host=conn.get("host", "localhost"),
+                port=conn.get("port", 27017),
+                username=conn.get("username"),
+                database=conn.get("database"),
+                auth_source=conn.get("auth_source", "admin")
+            )
             desc = conn.get("description", "")
             added_at = conn.get("added_at", "")
             
@@ -171,7 +165,7 @@ async def get_form_schema(
     # Special handling for connect/list: populate connection items
     if command_path == "connect/list":
         from app.core.connection_ops import ConnectionManager
-        from app.core.utils.uri_builder import mask_password_in_uri
+        from app.core.utils.uri_builder import build_mongodb_uri_masked
         
         conn_mgr = ConnectionManager()
         connections = conn_mgr.list_connections()
@@ -182,9 +176,18 @@ async def get_form_schema(
         # Build items array with connection data
         items = []
         for conn in connections:
+            # Build masked URI from components
+            masked_uri = build_mongodb_uri_masked(
+                host=conn.get("host", "localhost"),
+                port=conn.get("port", 27017),
+                username=conn.get("username"),
+                database=conn.get("database"),
+                auth_source=conn.get("auth_source", "admin")
+            )
+            
             items.append({
                 "name": conn["name"],
-                "uri": mask_password_in_uri(conn["uri"]),
+                "uri": masked_uri,
                 "description": conn.get("description", ""),
                 "added_at": conn.get("added_at", "")
             })
@@ -200,7 +203,7 @@ async def get_form_schema(
     # Special handling for connect/test: populate connection options for checkbox-list
     if command_path == "connect/test":
         from app.core.connection_ops import ConnectionManager
-        from app.core.utils.uri_builder import mask_password_in_uri
+        from app.core.utils.uri_builder import build_mongodb_uri_masked
         
         conn_mgr = ConnectionManager()
         connections = conn_mgr.list_connections()
@@ -210,7 +213,14 @@ async def get_form_schema(
         # Build options from connections
         options = []
         for conn in connections:
-            uri_display = mask_password_in_uri(conn["uri"])
+            # Build masked URI from components
+            uri_display = build_mongodb_uri_masked(
+                host=conn.get("host", "localhost"),
+                port=conn.get("port", 27017),
+                username=conn.get("username"),
+                database=conn.get("database"),
+                auth_source=conn.get("auth_source", "admin")
+            )
             desc = conn.get("description", "")
             
             options.append({
@@ -234,7 +244,7 @@ async def get_form_schema(
     # Special handling for connect/update/select: populate connection options for Step 1
     if command_path == "connect/update/select":
         from app.core.connection_ops import ConnectionManager
-        from app.core.utils.uri_builder import mask_password_in_uri
+        from app.core.utils.uri_builder import build_mongodb_uri_masked
         
         conn_mgr = ConnectionManager()
         connections = conn_mgr.list_connections()
@@ -244,7 +254,14 @@ async def get_form_schema(
         # Build connection options for selector
         options = []
         for conn in connections:
-            uri_display = mask_password_in_uri(conn["uri"])
+            # Build masked URI from components
+            uri_display = build_mongodb_uri_masked(
+                host=conn.get("host", "localhost"),
+                port=conn.get("port", 27017),
+                username=conn.get("username"),
+                database=conn.get("database"),
+                auth_source=conn.get("auth_source", "admin")
+            )
             desc = conn.get("description", "")
             
             options.append({
@@ -270,5 +287,465 @@ async def get_form_schema(
         # This form will be pre-populated by frontend when connection is selected
         return form_schema.dict(exclude_none=True)
     
+    # === BACKUP FOLDER FORMS ===
+    
+    # Special handling for backup/folder/add/select: populate connection options for Step 2
+    if command_path == "backup/folder/add/select":
+        from app.core.connection_ops import ConnectionManager
+        from app.core.utils.uri_builder import build_mongodb_uri_masked
+        
+        conn_mgr = ConnectionManager()
+        connections = conn_mgr.list_connections()
+        
+        form_dict = form_schema.dict(exclude_none=True)
+        
+        # Build connection options with masked URI for display
+        options = []
+        for conn in connections:
+            # Build masked URI from components
+            masked_uri = build_mongodb_uri_masked(
+                host=conn.get("host", "localhost"),
+                port=conn.get("port", 27017),
+                username=conn.get("username"),
+                database=conn.get("database"),
+                auth_source=conn.get("auth_source", "admin")
+            )
+            
+            options.append({
+                "value": conn["name"],
+                "label": conn["name"],
+                "description": masked_uri,
+                "metadata": {
+                    "user_description": conn.get("description", "")
+                }
+            })
+        
+        # Update the connection selector field
+        for field in form_dict.get("fields", []):
+            if field["id"] == "connection_name":
+                field["options"] = options
+                break
+        
+        return form_dict
+    
+    # Special handling for backup/folder/add/configure: Step 1 form (no dynamic data needed)
+    if command_path == "backup/folder/add/configure":
+        return form_schema.dict(exclude_none=True)
+    
+    # Special handling for backup/folder/list: populate filter and folder list
+    if command_path == "backup/folder/list":
+        from app.core.connection_ops import ConnectionManager
+        
+        conn_mgr = ConnectionManager()
+        connections = conn_mgr.list_connections()
+        
+        form_dict = form_schema.dict(exclude_none=True)
+        
+        # Build connection filter options
+        filter_options = [{"value": "all", "label": "All Connections"}]
+        for conn in connections:
+            filter_options.append({
+                "value": conn["name"],
+                "label": conn["name"]
+            })
+        
+        # Build folders list
+        folders_items = []
+        for conn in connections:
+            backup_paths = conn.get("backup_paths", [])
+            active_path = conn.get("active_backup_path")
+            
+            if backup_paths:
+                folders_items.append({
+                    "connection_name": conn["name"],
+                    "description": conn.get("description", ""),
+                    "backup_paths": backup_paths,
+                    "active_backup_path": active_path
+                })
+        
+        # Update form fields
+        for field in form_dict.get("fields", []):
+            if field["id"] == "connection_filter":
+                field["options"] = filter_options
+            elif field["id"] == "folders_list":
+                field["items"] = folders_items
+        
+        return form_dict
+    
+    # === BACKUP OPERATION FORMS ===
+    
+    # Special handling for backup/create/select: populate connections with active_backup_path for Step 1
+    if command_path == "backup/create/select":
+        from app.core.connection_ops import ConnectionManager
+        
+        conn_mgr = ConnectionManager()
+        connections = conn_mgr.list_connections()
+        
+        form_dict = form_schema.dict(exclude_none=True)
+        
+        # Build options - only connections with active backup path
+        options = []
+        for conn in connections:
+            active_path = conn.get("active_backup_path")
+            if active_path:
+                options.append({
+                    "value": conn["name"],
+                    "label": conn["name"],
+                    "description": f"Backup to: {active_path}",
+                    "metadata": {
+                        "active_backup_path": active_path
+                    }
+                })
+        
+        # Update connection selector field
+        for field in form_dict.get("fields", []):
+            if field["id"] == "connection_name":
+                field["options"] = options
+                break
+        
+        return form_dict
+    
+    # Special handling for backup/create/configure: Step 2 form (no dynamic data needed)
+    if command_path == "backup/create/configure":
+        return form_schema.dict(exclude_none=True)
+    
+    # Special handling for backup/list: populate filter and backup list
+    if command_path == "backup/list":
+        from app.core.connection_ops import ConnectionManager
+        from app.core.backup_ops import BackupManager
+        from pathlib import Path
+        
+        conn_mgr = ConnectionManager()
+        connections = conn_mgr.list_connections()
+        
+        form_dict = form_schema.dict(exclude_none=True)
+        
+        # Build connection filter options
+        filter_options = [{"value": "all", "label": "All Backups"}]
+        for conn in connections:
+            filter_options.append({
+                "value": conn["name"],
+                "label": conn["name"]
+            })
+        
+        # Collect all backups from all connections
+        all_backups = []
+        for conn in connections:
+            backup_paths = conn.get("backup_paths", [])
+            for backup_path in backup_paths:
+                backup_mgr = BackupManager(Path(backup_path))
+                backups = backup_mgr.list_backups()
+                
+                for backup in backups:
+                    # Calculate size
+                    backup_size = 0
+                    try:
+                        for item in Path(backup["path"]).rglob("*"):
+                            if item.is_file():
+                                backup_size += item.stat().st_size
+                    except:
+                        backup_size = 0
+                    
+                    # Format size
+                    size_str = _format_size(backup_size)
+                    
+                    all_backups.append({
+                        "backup_name": backup.get("backup_name", backup["name"]),
+                        "connection_name": backup["connection_name"],
+                        "created_at": backup.get("created_at", ""),
+                        "databases": backup.get("databases", []),
+                        "size": size_str,
+                        "folder_path": str(backup_path)
+                    })
+        
+        # Sort by created_at descending
+        all_backups.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        
+        # Update form fields
+        for field in form_dict.get("fields", []):
+            if field["id"] == "connection_filter":
+                field["options"] = filter_options
+            elif field["id"] == "backups_list":
+                field["items"] = all_backups
+        
+        return form_dict
+    
+    # Special handling for backup/delete: populate backup selector
+    if command_path == "backup/delete":
+        from app.core.connection_ops import ConnectionManager
+        from app.core.backup_ops import BackupManager
+        from pathlib import Path
+        
+        conn_mgr = ConnectionManager()
+        connections = conn_mgr.list_connections()
+        
+        form_dict = form_schema.dict(exclude_none=True)
+        
+        # Collect all backups with composite key
+        options = []
+        for conn in connections:
+            backup_paths = conn.get("backup_paths", [])
+            for backup_path in backup_paths:
+                backup_mgr = BackupManager(Path(backup_path))
+                backups = backup_mgr.list_backups()
+                
+                for backup in backups:
+                    backup_name = backup.get("backup_name", backup["name"])
+                    created_at = backup.get("created_at", "")
+                    
+                    # Composite key: folder_path|backup_name
+                    composite_key = f"{backup_path}|{backup_name}"
+                    
+                    options.append({
+                        "value": composite_key,
+                        "label": f"{backup_name} ({conn['name']})",
+                        "description": f"Created: {created_at}",
+                        "metadata": {
+                            "folder_path": backup_path,
+                            "backup_name": backup_name,
+                            "connection_name": conn["name"]
+                        }
+                    })
+        
+        # Sort by label
+        options.sort(key=lambda x: x["label"])
+        
+        # Update backup selector field
+        for field in form_dict.get("fields", []):
+            if field["id"] == "backup_selector":
+                field["options"] = options
+                break
+        
+        return form_dict
+    
     # Convert Pydantic model to dict for JSON response
     return form_schema.dict(exclude_none=True)
+
+
+def _format_size(size_bytes: int) -> str:
+    """Format bytes to human-readable size
+    
+    Args:
+        size_bytes: Size in bytes
+        
+    Returns:
+        Formatted size string (e.g., "1.5 GB")
+    """
+    size = float(size_bytes)
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if size < 1024.0:
+            return f"{size:.1f} {unit}"
+        size /= 1024.0
+    return f"{size:.1f} PB"
+
+
+# === POST ENDPOINTS FOR FORM SUBMISSIONS ===
+
+@router.post("/backup/folder/add/configure")
+async def submit_backup_folder_add(
+    form_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Add a backup folder to a connection (Step 2 submission)
+    
+    Args:
+        form_data: Form submission data with connection_name, folder_path, create_if_missing, set_as_active
+        
+    Returns:
+        Success message or error
+    """
+    from app.core.connection_ops import ConnectionManager
+    from app.core.utils.config import BACKUP_FOLDER_SUFFIX
+    from pathlib import Path
+    import os
+    
+    try:
+        connection_name = form_data.get("connection_name")
+        folder_path_input = form_data.get("folder_path")
+        create_if_missing = form_data.get("create_if_missing", True)
+        set_as_active = form_data.get("set_as_active", True)
+        
+        if not connection_name or not folder_path_input:
+            raise HTTPException(status_code=400, detail="Missing required fields")
+        
+        # Automatically append suffix if not already present
+        if not folder_path_input.endswith(BACKUP_FOLDER_SUFFIX):
+            folder_path = f"{folder_path_input.rstrip('/')}{BACKUP_FOLDER_SUFFIX}"
+        else:
+            folder_path = folder_path_input
+        
+        # Check if folder exists or create it
+        path_obj = Path(folder_path)
+        if not path_obj.exists():
+            if create_if_missing:
+                try:
+                    path_obj.mkdir(parents=True, exist_ok=True)
+                except Exception as e:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Failed to create folder: {str(e)}"
+                    )
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Folder does not exist: {folder_path}"
+                )
+        
+        # Test write permissions
+        test_file = path_obj / ".write_test"
+        try:
+            test_file.write_text("test")
+            test_file.unlink()
+        except Exception as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Folder is not writable: {str(e)}"
+            )
+        
+        # Add backup path to connection
+        conn_mgr = ConnectionManager()
+        success = conn_mgr.add_backup_path(connection_name, folder_path)
+        
+        if not success:
+            raise HTTPException(
+                status_code=400,
+                detail="Failed to add backup path (may already exist or connection not found)"
+            )
+        
+        # Set as active if requested or if it's the first path
+        connection = conn_mgr.get_connection(connection_name)
+        if connection and (set_as_active or len(connection.get("backup_paths", [])) == 1):
+            conn_mgr.set_active_backup_path(connection_name, folder_path)
+        
+        return {
+            "success": True,
+            "message": f"Backup folder added: {folder_path}"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/backup/create/configure")
+async def submit_backup_create(
+    form_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Create a new backup (Step 2 submission)
+    
+    Args:
+        form_data: Form submission data with connection_name, backup_name
+        
+    Returns:
+        Success message or error
+    """
+    from app.core.connection_ops import ConnectionManager
+    from app.core.backup_ops import BackupManager
+    from pathlib import Path
+    
+    try:
+        connection_name = form_data.get("connection_name")
+        backup_name = form_data.get("backup_name")
+        
+        if not connection_name or not backup_name:
+            raise HTTPException(status_code=400, detail="Missing required fields")
+        
+        # Get connection
+        conn_mgr = ConnectionManager()
+        connection = conn_mgr.get_connection(connection_name)
+        
+        if not connection:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Connection '{connection_name}' not found"
+            )
+        
+        # Get active backup path
+        active_path = connection.get("active_backup_path")
+        if not active_path:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Connection '{connection_name}' has no active backup folder"
+            )
+        
+        # Create backup
+        backup_mgr = BackupManager(Path(active_path))
+        
+        try:
+            backup_path = backup_mgr.create_backup(
+                connection["uri"],
+                connection_name,
+                backup_name
+            )
+        except ValueError as e:
+            # Duplicate backup name or invalid name
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            # mongodump failed
+            raise HTTPException(status_code=500, detail=f"Backup failed: {str(e)}")
+        
+        return {
+            "success": True,
+            "message": f"Backup '{backup_name}' created successfully at {backup_path}"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/backup/delete")
+async def submit_backup_delete(
+    form_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete a backup
+    
+    Args:
+        form_data: Form submission data with backup_selector (composite key), confirmation
+        
+    Returns:
+        Success message or error
+    """
+    from app.core.backup_ops import BackupManager
+    from pathlib import Path
+    
+    try:
+        backup_selector = form_data.get("backup_selector")
+        confirmation = form_data.get("confirmation", False)
+        
+        if not backup_selector:
+            raise HTTPException(status_code=400, detail="No backup selected")
+        
+        if not confirmation:
+            raise HTTPException(
+                status_code=400,
+                detail="You must confirm the deletion"
+            )
+        
+        # Parse composite key: folder_path|backup_name
+        try:
+            folder_path, backup_name = backup_selector.split("|", 1)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid backup selector format"
+            )
+        
+        # Delete backup
+        backup_mgr = BackupManager(Path(folder_path))
+        backup_mgr.delete_backup(backup_name)
+        
+        return {
+            "success": True,
+            "message": f"Backup '{backup_name}' deleted successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

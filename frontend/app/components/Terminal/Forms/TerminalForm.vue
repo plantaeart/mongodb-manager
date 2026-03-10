@@ -18,28 +18,8 @@
       <p v-if="formData.description">{{ formData.description }}</p>
     </div>
     
-    <!-- Mode Toggle (only for connection add form) -->
-    <div v-if="isConnectionForm" class="form-mode-toggle">
-      <button 
-        type="button"
-        class="mode-button" 
-        :class="{ 'active': !isAdvancedMode }"
-        @click="isAdvancedMode = false"
-      >
-        Simple
-      </button>
-      <button 
-        type="button"
-        class="mode-button" 
-        :class="{ 'active': isAdvancedMode }"
-        @click="isAdvancedMode = true"
-      >
-        Advanced
-      </button>
-    </div>
-    
     <!-- Fields -->
-    <div class="form-body" :class="{ 'two-columns': isConnectionForm && isAdvancedMode }">
+    <div class="form-body" :class="{ 'two-columns': shouldUseTwoColumns }">
       <component
         v-for="field in displayedFields"
         :key="field.id"
@@ -85,6 +65,7 @@ import TerminalNumberField from './Fields/TerminalNumberField.vue'
 import TerminalCheckboxListField from './Fields/TerminalCheckboxListField.vue'
 import TerminalReadonlyField from './Fields/TerminalReadonlyField.vue'
 import TerminalListField from './Fields/TerminalListField.vue'
+import TerminalSelectField from './Fields/TerminalSelectField.vue'
 import TerminalFormActions from './TerminalFormActions.vue'
 import TerminalFormStepper from './TerminalFormStepper.vue'
 import type { FormRequestMessage, FormField } from '~/types/terminal'
@@ -107,17 +88,16 @@ const emit = defineEmits<{
 
 // Detect if this is a stepper form and get its config
 const stepperConfig = computed(() => {
-  // Check if this is Step 1 of a stepper form
-  if (props.formData.title.includes('Step 1')) {
-    // Extract command from form title or formId
-    const command = getCommandFromFormTitle(props.formData.title)
-    if (command) {
-      const config = getStepperConfig(command, props.formId)
-      if (config && config.steps[0]) {
-        // Initialize Step 1 with the provided formData
-        config.steps[0].formData = props.formData
-        return config
-      }
+  // Try to detect if this is a stepper form by matching the title pattern
+  const command = getCommandFromFormTitle(props.formData.title)
+  
+  if (command) {
+    const config = getStepperConfig(command, props.formId)
+    
+    if (config && config.steps[0]) {
+      // Initialize Step 1 with the provided formData
+      config.steps[0].formData = props.formData
+      return config
     }
   }
   return null
@@ -126,7 +106,6 @@ const stepperConfig = computed(() => {
 const fieldValues = ref<Record<string, any>>({})
 const fieldErrors = ref<Record<string, string>>({})
 const isSubmitting = ref(false)
-const isAdvancedMode = ref(false)
 const isReadonly = computed(() => 
   props.readonly || props.status === CommandStatus.SUCCESS || props.status === CommandStatus.ERROR
 )
@@ -136,27 +115,14 @@ const isReadOnlyForm = computed(() => {
   return props.formData.fields.every(f => f.type === 'readonly')
 })
 
-// Detect if this is the connection add form
-const isConnectionForm = computed(() => {
-  return props.formData.title === "Add MongoDB Connection"
+// Two-column layout for forms with many fields
+const shouldUseTwoColumns = computed(() => {
+  return props.formData.fields.length > 4
 })
 
-// Dynamic field filtering based on mode
+// Show all fields (no filtering)
 const displayedFields = computed(() => {
-  if (!isConnectionForm.value) {
-    // Not a connection form, show all fields
-    return props.formData.fields
-  }
-  
-  if (!isAdvancedMode.value) {
-    // Simple mode: show name, uri, description
-    return props.formData.fields.filter(f => 
-      ['name', 'uri', 'description'].includes(f.id)
-    )
-  } else {
-    // Advanced mode: show all except uri
-    return props.formData.fields.filter(f => f.id !== 'uri')
-  }
+  return props.formData.fields
 })
 
 // Get appropriate component for field type
@@ -176,8 +142,7 @@ const getFieldComponent = (field: FormField) => {
       // TODO: Create TerminalTextAreaField when needed
       return TerminalTextField
     case 'select':
-      // TODO: Create TerminalSelectField when needed
-      return TerminalTextField
+      return TerminalSelectField
     default:
       return TerminalTextField
   }
@@ -197,55 +162,27 @@ watch(() => props.formData, (formData) => {
   })
 }, { immediate: true })
 
-// Mode-aware validation
+// Unified validation for all forms
 const canSubmit = computed(() => {
   // Read-only forms cannot be submitted
   if (isReadOnlyForm.value) {
     return false
   }
   
-  if (!isConnectionForm.value) {
-    // Non-connection form: require all required fields
-    const requiredFields = props.formData.fields.filter(f => f.required)
-    const allRequiredFilled = requiredFields.every(f => {
-      const value = fieldValues.value[f.id]
-      // For checkbox-list fields (arrays), check if at least one item is selected
-      if (f.type === 'checkbox-list' && Array.isArray(value)) {
-        return value.length > 0
-      }
-      // For other fields, check if value exists and is not empty
-      return value !== undefined && value !== ''
-    })
-    const hasErrors = Object.keys(fieldErrors.value).length > 0
-    return allRequiredFilled && !hasErrors && !isSubmitting.value
-  }
+  // Require all required fields
+  const requiredFields = props.formData.fields.filter(f => f.required)
+  const allRequiredFilled = requiredFields.every(f => {
+    const value = fieldValues.value[f.id]
+    // For checkbox-list fields (arrays), check if at least one item is selected
+    if (f.type === 'checkbox-list' && Array.isArray(value)) {
+      return value.length > 0
+    }
+    // For other fields, check if value exists and is not empty
+    return value !== undefined && value !== ''
+  })
   
-  if (isAdvancedMode.value) {
-    // Advanced mode: require name, host, port
-    const required = ['name', 'host', 'port']
-    const allRequiredFilled = required.every(
-      id => fieldValues.value[id] !== undefined && fieldValues.value[id] !== ''
-    )
-    
-    // If username provided, password should be too
-    const hasUsername = !!fieldValues.value.username
-    const hasPassword = !!fieldValues.value.password
-    const authValid = hasUsername === hasPassword // both or neither
-    
-    const hasErrors = Object.keys(fieldErrors.value).length > 0
-    
-    return allRequiredFilled && authValid && !hasErrors && !isSubmitting.value
-  } else {
-    // Simple mode: require name, uri
-    const required = ['name', 'uri']
-    const allRequiredFilled = required.every(
-      id => fieldValues.value[id] !== undefined && fieldValues.value[id] !== ''
-    )
-    
-    const hasErrors = Object.keys(fieldErrors.value).length > 0
-    
-    return allRequiredFilled && !hasErrors && !isSubmitting.value
-  }
+  const hasErrors = Object.keys(fieldErrors.value).length > 0
+  return allRequiredFilled && !hasErrors && !isSubmitting.value
 })
 
 // Handlers
@@ -273,35 +210,8 @@ const handleSubmit = async (action: string) => {
   
   isSubmitting.value = true
   
-  // For connection forms, only submit relevant fields based on mode
-  let submitData: Record<string, any>
-  
-  if (isConnectionForm.value) {
-    if (isAdvancedMode.value) {
-      // Advanced mode: submit name, host, port, username, password, auth_source, database, description
-      submitData = {
-        name: fieldValues.value.name,
-        host: fieldValues.value.host,
-        port: fieldValues.value.port,
-        username: fieldValues.value.username,
-        password: fieldValues.value.password,
-        auth_source: fieldValues.value.auth_source,
-        database: fieldValues.value.database,
-        description: fieldValues.value.description,
-        _mode: 'advanced'
-      }
-    } else {
-      // Simple mode: submit name, uri, description
-      submitData = {
-        name: fieldValues.value.name,
-        uri: fieldValues.value.uri,
-        description: fieldValues.value.description
-      }
-    }
-  } else {
-    // Non-connection forms: submit all fields
-    submitData = { ...fieldValues.value }
-  }
+  // Submit all field values
+  const submitData = { ...fieldValues.value }
   
   emit('submit', submitData)
 }

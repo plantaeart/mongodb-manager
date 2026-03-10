@@ -12,6 +12,10 @@ from dotenv import load_dotenv
 # Load environment variables from .env file (local development)
 load_dotenv()
 
+# Constants
+BACKUP_FOLDER_SUFFIX = "_mongodb_manager"
+"""Suffix automatically appended to all backup folder paths"""
+
 
 def get_env_var(key: str, default: str = "") -> str:
     """Get environment variable value

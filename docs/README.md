@@ -54,6 +54,12 @@ Welcome to the MongoDB Manager documentation. This directory contains comprehens
    - WebSocket terminal limitations
    - Best practices and rules
 
+9. **[09 - Form Implementation Guide](09-form-implementation-guide.md)**
+   - Complete guide for creating terminal forms
+   - Single-step and multi-step (stepper) forms
+   - Field types and validation patterns
+   - Troubleshooting and best practices
+
 ### Specialized Topics
 
 #### Backend Deep Dives
@@ -105,6 +111,9 @@ Welcome to the MongoDB Manager documentation. This directory contains comprehens
 
 **Implement a new CLI command**
 → Read [08 - CLI Dual-Mode Pattern](08-cli-dual-mode-pattern.md)
+
+**Build single or multi-step terminal forms**
+→ Read [09 - Form Implementation Guide](09-form-implementation-guide.md)
 
 **Deploy to production**
 → Follow [05 - Deployment Guide](05-deployment.md)
@@ -174,4 +183,4 @@ When adding new documentation:
 
 ---
 
-**Last Updated**: February 2026
+**Last Updated**: March 2026

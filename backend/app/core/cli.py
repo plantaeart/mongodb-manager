@@ -49,7 +49,7 @@ from .connection_ops import ConnectionManager
 from .backup_ops import BackupManager
 from .auth import AuthManager
 from .utils import show_tip, TipKey
-from .utils.uri_builder import mask_password_in_uri
+from .utils.uri_builder import build_mongodb_uri, build_mongodb_uri_masked
 from .ui import (
     select_connection,
     select_backup,
@@ -100,14 +100,19 @@ def require_auth():
 def connect_add(
     ctx: typer.Context,
     name: Annotated[str | None, typer.Option("--name", "-n", help="Connection name")] = None,
-    uri: Annotated[str | None, typer.Option("--uri", "-u", help="MongoDB connection URI")] = None,
+    host: Annotated[str | None, typer.Option("--host", "-h", help="MongoDB server hostname")] = None,
+    port: Annotated[int, typer.Option("--port", "-p", help="MongoDB server port")] = 27017,
+    username: Annotated[str | None, typer.Option("--username", "-u", help="Username for authentication")] = None,
+    password: Annotated[str | None, typer.Option("--password", help="Password for authentication")] = None,
+    database: Annotated[str | None, typer.Option("--database", "-db", help="Default database")] = None,
+    auth_source: Annotated[str, typer.Option("--auth-source", "-a", help="Authentication database")] = "admin",
     description: Annotated[str, typer.Option("--description", "-d", help="Description")] = "",
 ):
-    """Add a new MongoDB connection
+    """Add a new MongoDB connection (component-based)
     
     Usage:
         # Via HTTP API with form (frontend handles this)
-        connect add --name my-db --uri mongodb://localhost:27017 --description "My DB"
+        connect add --name my-db --host localhost --port 27017 --username admin --password secret --description "My DB"
         
         # Via terminal (interactive wizard for non-WebSocket terminals)
         connect add
@@ -115,10 +120,19 @@ def connect_add(
     require_auth()
     conn_mgr = ConnectionManager()
     
-    # Direct mode: if name and uri provided, add immediately
+    # Direct mode: if name and host provided, add immediately
     # This is used when called via HTTP API with form data
-    if name and uri:
-        if conn_mgr.add_connection(name, uri, description):
+    if name and host:
+        if conn_mgr.add_connection(
+            name=name,
+            host=host,
+            port=port,
+            username=username,
+            password=password,
+            database=database,
+            auth_source=auth_source,
+            description=description
+        ):
             console.print(f"[green]✓[/green] Connection '{name}' added successfully")
         else:
             console.print(f"[red]✗[/red] Connection '{name}' already exists")
@@ -318,7 +332,14 @@ def _remove_connection_direct(conn_mgr: ConnectionManager, connections: list[dic
     if not skip_confirm:
         console.print(f"\n[yellow]Connection to remove:[/yellow]")
         console.print(f"  Name: {conn['name']}")
-        console.print(f"  URI: {mask_password_in_uri(conn['uri'])}")
+        masked_uri = build_mongodb_uri_masked(
+            host=conn.get('host', 'localhost'),
+            port=conn.get('port', 27017),
+            username=conn.get('username'),
+            database=conn.get('database'),
+            auth_source=conn.get('auth_source', 'admin')
+        )
+        console.print(f"  URI: {masked_uri}")
         console.print(f"  Description: {conn.get('description', 'N/A')}")
         console.print()
     
@@ -374,7 +395,13 @@ def _show_remove_form_terminal(conn_mgr: ConnectionManager, connections: list[di
     # Selection menu with formatted choices
     choices = []
     for conn in connections:
-        uri_display = mask_password_in_uri(conn["uri"])
+        uri_display = build_mongodb_uri_masked(
+            host=conn.get('host', 'localhost'),
+            port=conn.get('port', 27017),
+            username=conn.get('username'),
+            database=conn.get('database'),
+            auth_source=conn.get('auth_source', 'admin')
+        )
         desc = conn.get("description", "")
         if desc:
             choices.append(f"{conn['name']} - {desc}")
@@ -402,7 +429,14 @@ def _show_remove_form_terminal(conn_mgr: ConnectionManager, connections: list[di
     console.print()
     console.print("[yellow]You are about to remove:[/yellow]")
     console.print(f"  Name: {connection['name']}")
-    console.print(f"  URI: {mask_password_in_uri(connection['uri'])}")
+    masked_uri = build_mongodb_uri_masked(
+        host=connection.get('host', 'localhost'),
+        port=connection.get('port', 27017),
+        username=connection.get('username'),
+        database=connection.get('database'),
+        auth_source=connection.get('auth_source', 'admin')
+    )
+    console.print(f"  URI: {masked_uri}")
     console.print(f"  Description: {connection.get('description', 'N/A')}")
     console.print()
     
@@ -729,7 +763,16 @@ def backup(
     console.print(f"[yellow]Backing up '{connection_name}'...[/yellow]")
     
     try:
-        backup_folder = backup_mgr.create_backup(conn["uri"], connection_name)
+        # Build URI from connection components
+        connection_uri = build_mongodb_uri(
+            host=conn.get('host', 'localhost'),
+            port=conn.get('port', 27017),
+            username=conn.get('username'),
+            password=conn.get('password'),
+            database=conn.get('database'),
+            auth_source=conn.get('auth_source', 'admin')
+        )
+        backup_folder = backup_mgr.create_backup(connection_uri, connection_name)
         console.print(f"[green]OK[/green] Backup created: {backup_folder.name}")
     except Exception as e:
         console.print(f"[red]ERROR[/red] Backup failed: {str(e)}")
@@ -820,7 +863,16 @@ def restore(
     console.print(f"[yellow]Restoring to '{connection_name}'...[/yellow]")
     
     try:
-        backup_mgr.restore_backup(backup_folder, conn["uri"], drop=drop)
+        # Build URI from connection components
+        connection_uri = build_mongodb_uri(
+            host=conn.get('host', 'localhost'),
+            port=conn.get('port', 27017),
+            username=conn.get('username'),
+            password=conn.get('password'),
+            database=conn.get('database'),
+            auth_source=conn.get('auth_source', 'admin')
+        )
+        backup_mgr.restore_backup(backup_folder, connection_uri, drop=drop)
         console.print(f"[green]OK[/green] Restore completed successfully")
     except Exception as e:
         console.print(f"[red]ERROR[/red] Restore failed: {str(e)}")

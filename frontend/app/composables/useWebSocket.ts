@@ -25,7 +25,6 @@ class WebSocketService {
 
   connect(token: string, wsUrl: string) {
     if (!token) {
-      console.warn('[WebSocketService] Cannot connect: no token provided')
       return
     }
 
@@ -68,11 +67,11 @@ class WebSocketService {
             try {
               handler(message)
             } catch (error) {
-              console.error('[WebSocketService] Error in message handler:', error)
+              // Error in message handler
             }
           })
         } catch (error) {
-          console.error('[WebSocketService] Failed to parse WebSocket message:', error)
+          // Failed to parse WebSocket message
         }
       }
 
@@ -90,11 +89,9 @@ class WebSocketService {
       }
 
       this.socket.onerror = (error) => {
-        console.error('[WebSocketService] WebSocket error:', error)
         this.isConnecting = false
       }
     } catch (error) {
-      console.error('[WebSocketService] Failed to create WebSocket:', error)
       this.isConnecting = false
     }
   }
@@ -113,7 +110,6 @@ class WebSocketService {
 
   sendCommand(command: string): boolean {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      console.error('[WebSocketService] Cannot send command: WebSocket not connected')
       return false
     }
 
@@ -126,14 +122,12 @@ class WebSocketService {
       this.socket.send(JSON.stringify(message))
       return true
     } catch (error) {
-      console.error('[WebSocketService] Failed to send command:', error)
       return false
     }
   }
 
   send(message: any): boolean {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      console.error('[WebSocketService] Cannot send message: WebSocket not connected')
       return false
     }
 
@@ -141,7 +135,6 @@ class WebSocketService {
       this.socket.send(JSON.stringify(message))
       return true
     } catch (error) {
-      console.error('[WebSocketService] Failed to send message:', error)
       return false
     }
   }

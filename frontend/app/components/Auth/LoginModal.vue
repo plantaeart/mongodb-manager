@@ -86,7 +86,6 @@ const handleLogin = async () => {
   needsPasswordChange.value = false
 
   if (!props.onLogin) {
-    console.warn('[LoginModal] No onLogin callback provided')
     return
   }
 

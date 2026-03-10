@@ -62,13 +62,10 @@ class DatabaseClient:
                 db_name = os.getenv('NUXT_MONGODB_DATABASE', 'mongodb_manager')
             
             self._database = self._client[db_name]
-            print(f"✅ Connected to manager database: {db_name}")
             
         except ConnectionFailure as e:
-            print(f"❌ Failed to connect to manager database: {e}")
             raise
         except Exception as e:
-            print(f"❌ Unexpected error connecting to manager database: {e}")
             raise
     
     def get_database(self) -> Database:
@@ -90,7 +87,6 @@ class DatabaseClient:
             self._client.close()
             self._client = None
             self._database = None
-            print("✅ Closed manager database connection")
 
 
 # Singleton instance
@@ -117,17 +113,12 @@ def init_database():
     
     # Create unique index on connection name
     db.connections.create_index("name", unique=True)
-    print("✅ Created unique index on connections.name")
     
     # Create index on created_by for user filtering
     db.connections.create_index("created_by")
-    print("✅ Created index on connections.created_by")
     
     # Create index on added_at for sorting
     db.connections.create_index("added_at")
-    print("✅ Created index on connections.added_at")
-    
-    print("✅ Database initialized successfully")
 
 
 def close_database():

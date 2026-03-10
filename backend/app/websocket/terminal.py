@@ -184,31 +184,26 @@ async def terminal_websocket(
             message = json.loads(data)
             
             message_type = message.get("type")
-            logger.info(f"[DEBUG] Received WebSocket message: type={message_type}")
             
             if message_type == "execute":
                 command = message.get("command", "")
-                logger.info(f"[DEBUG] Execute command: {command}")
                 if command:
                     await execute_command_and_stream(websocket, command)
             
             elif message_type == "form_submit":
                 form_id = message.get("form_id")
                 form_data = message.get("data")
-                logger.info(f"[DEBUG] Form submit: form_id={form_id}")
                 if form_id and form_data is not None:
                     form_manager.handle_form_submit(form_id, form_data)
             
             elif message_type == "form_cancel":
                 form_id = message.get("form_id")
-                logger.info(f"[DEBUG] Form cancel: form_id={form_id}")
                 if form_id:
                     form_manager.handle_form_cancel(form_id)
             
     except WebSocketDisconnect:
         pass
     except Exception as e:
-        logger.error(f"WebSocket error: {e}", exc_info=True)
         try:
             await websocket.send_json({
                 "type": "error",
@@ -277,13 +272,11 @@ async def execute_command_and_stream(websocket: WebSocket, command: str):
                 # CRITICAL FIX: Don't use thread - run CLI directly in this event loop
                 # The issue was that threading created a NEW event loop (via anyio.run)
                 # which couldn't communicate with our WebSocket event loop's Futures
-                logger.info(f"[DEBUG] Executing command: {cmd_parts}")
                 
                 # Invoke CLI directly - Typer will handle async properly
                 # Context vars are already set (lines 200-201)
                 cli_app(cmd_parts, standalone_mode=False)
                 
-                logger.info(f"[DEBUG] Command completed")
         except SystemExit as e:
             exit_code = e.code if e.code is not None else 0
         except Exception as e:
@@ -310,7 +303,6 @@ async def execute_command_and_stream(websocket: WebSocket, command: str):
         })
         
     except Exception as e:
-        logger.error(f"Command execution error: {e}", exc_info=True)
         await websocket.send_json({
             "type": "error",
             "message": str(e),

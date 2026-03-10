@@ -25,10 +25,16 @@ export const COMMAND_TO_API_PATH: Record<string, string> = {
   'connect remove': 'connect/remove',
   'connect list': 'connect/list',
   'connect test': 'connect/test',
-  'connect update': 'connect/update/select',  // Step 1 of stepper
+  'connect update': 'connect/update/select',  // Step 1 of multi-step
   
-  // Add more command mappings here as needed
-  // 'backup create': 'backup/create',
+  // Backup Folder Management Commands (multi-step)
+  'backup folder add': 'backup/folder/add/configure',  // Step 1: Configure folder path
+  'backup folder list': 'backup/folder/list',
+  
+  // Backup Operation Commands (multi-step)
+  'backup create': 'backup/create/select',  // Step 1
+  'backup list': 'backup/list',
+  'backup delete': 'backup/delete',
 }
 
 /**
@@ -71,9 +77,14 @@ export function getCommandFromFormTitle(title: string): string | null {
     return 'connect update'
   }
   
-  // Match "Select MongoDB Connection - Step 1" (alternative pattern)
-  if (titleLower.includes('connection') && titleLower.includes('select')) {
-    return 'connect update'
+  // Match "Add Backup Folder - Step 1"
+  if (titleLower.includes('add') && titleLower.includes('backup') && titleLower.includes('folder')) {
+    return 'backup folder add'
+  }
+  
+  // Match "Create Backup - Step 1"
+  if (titleLower.includes('create') && titleLower.includes('backup')) {
+    return 'backup create'
   }
   
   // Add more title patterns here as needed

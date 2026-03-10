@@ -7,7 +7,6 @@
 import type { StepDefinition, StepperFormConfig } from '~/types/stepper'
 import type { ConnectionDetails } from '~/types/connection'
 import { createStep } from '~/types/stepper'
-import { buildMongoUri } from '~/utils/formHelpers'
 
 /**
  * Create stepper configuration for 'connect update' command
@@ -104,34 +103,18 @@ export function createConnectUpdateStepper(formId: string): StepperFormConfig {
         // Keep original if decode fails
       }
 
-      // Build URI from components for Simple Mode
-      // This ensures we have a clean, properly formatted URI for display
-      const builtUri = buildMongoUri({
-        host: connectionDetails.host || 'localhost',
-        port: connectionDetails.port || 27017,
-        username: connectionDetails.username,
-        password: decodedPassword,
-        database: connectionDetails.database,
-        auth_source: connectionDetails.auth_source
-      }, false, true) // false = don't mask, true = for display (decoded password)
-
-      // Pre-populate step data with separated components
+      // Pre-populate step data with components ONLY
+      // NO URI building - backend will handle URI construction when needed
       if (currentStep) {
-        // Store components directly - no more parsing needed!
         currentStep.data = {
           name: connectionDetails.name,
           description: connectionDetails.description,
-          
-          // Components for advanced mode
           host: connectionDetails.host,
           port: connectionDetails.port,
           username: connectionDetails.username,
           password: decodedPassword,  // Use decoded password
           database: connectionDetails.database,
-          auth_source: connectionDetails.auth_source,
-          
-          // Built URI for simple mode (from components, not from DB)
-          uri: builtUri
+          auth_source: connectionDetails.auth_source
         }
       }
     },
@@ -141,31 +124,19 @@ export function createConnectUpdateStepper(formId: string): StepperFormConfig {
 
       const hasErrors = Object.keys(step.errors).length > 0
       
-      // Check if we're in advanced mode (based on presence of host field)
-      const isAdvancedMode = !!data.host
+      // Component-based validation: require name, host, port
+      // (regardless of simple/advanced mode UI display)
+      const required = ['name', 'host', 'port']
+      const allRequiredFilled = required.every(
+        id => data[id] !== undefined && data[id] !== ''
+      )
       
-      if (isAdvancedMode) {
-        // Advanced mode: require name, host, port
-        const required = ['name', 'host', 'port']
-        const allRequiredFilled = required.every(
-          id => data[id] !== undefined && data[id] !== ''
-        )
-        
-        // If username provided, password should be too
-        const hasUsername = !!data.username
-        const hasPassword = !!data.password
-        const authValid = hasUsername === hasPassword
-        
-        return allRequiredFilled && authValid && !hasErrors
-      } else {
-        // Simple mode: require name, uri
-        const required = ['name', 'uri']
-        const allRequiredFilled = required.every(
-          id => data[id] !== undefined && data[id] !== ''
-        )
-        
-        return allRequiredFilled && !hasErrors
-      }
+      // If username provided, password should be too
+      const hasUsername = !!data.username
+      const hasPassword = !!data.password
+      const authValid = !hasUsername || (hasUsername && hasPassword)
+      
+      return allRequiredFilled && authValid && !hasErrors
     }
   }
 
@@ -175,8 +146,6 @@ export function createConnectUpdateStepper(formId: string): StepperFormConfig {
     steps: [step1, step2],
     onSubmit: async (allData) => {
       // Submit logic will be handled by parent component
-      // This is just for reference
-      console.log('Submitting connect update with data:', allData)
     }
   }
 }

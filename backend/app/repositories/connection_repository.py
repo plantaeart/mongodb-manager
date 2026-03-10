@@ -26,8 +26,13 @@ class ConnectionRepository:
     
     def add_connection(
         self, 
-        name: str, 
-        uri: str, 
+        name: str,
+        host: str,
+        port: int = 27017,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        database: Optional[str] = None,
+        auth_source: str = "admin",
         description: str = "",
         created_by: str = "admin"
     ) -> bool:
@@ -35,7 +40,12 @@ class ConnectionRepository:
         
         Args:
             name: Unique connection name
-            uri: MongoDB connection URI
+            host: MongoDB server hostname or IP
+            port: MongoDB server port (default: 27017)
+            username: Username for authentication
+            password: Password for authentication
+            database: Default database
+            auth_source: Authentication database (default: "admin")
             description: Optional description
             created_by: User who created the connection
             
@@ -45,7 +55,12 @@ class ConnectionRepository:
         try:
             connection = ConnectionDocument(
                 name=name,
-                uri=uri,
+                host=host,
+                port=port,
+                username=username,
+                password=password,
+                database=database,
+                auth_source=auth_source,
                 description=description,
                 added_at=datetime.utcnow(),
                 updated_at=datetime.utcnow(),
@@ -84,7 +99,12 @@ class ConnectionRepository:
         self,
         name: str,
         new_name: Optional[str] = None,
-        uri: Optional[str] = None,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        database: Optional[str] = None,
+        auth_source: Optional[str] = None,
         description: Optional[str] = None
     ) -> bool:
         """Update an existing connection
@@ -92,7 +112,12 @@ class ConnectionRepository:
         Args:
             name: Current connection name
             new_name: New name (if renaming), None to keep current
-            uri: New URI, None to keep current
+            host: New host, None to keep current
+            port: New port, None to keep current
+            username: New username, None to keep current
+            password: New password, None to keep current
+            database: New database, None to keep current
+            auth_source: New auth_source, None to keep current
             description: New description, None to keep current
             
         Returns:
@@ -113,8 +138,23 @@ class ConnectionRepository:
         if new_name and new_name != name:
             update_doc["name"] = new_name
         
-        if uri is not None:
-            update_doc["uri"] = uri
+        if host is not None:
+            update_doc["host"] = host
+        
+        if port is not None:
+            update_doc["port"] = port
+        
+        if username is not None:
+            update_doc["username"] = username
+        
+        if password is not None:
+            update_doc["password"] = password
+        
+        if database is not None:
+            update_doc["database"] = database
+        
+        if auth_source is not None:
+            update_doc["auth_source"] = auth_source
         
         if description is not None:
             update_doc["description"] = description
@@ -126,6 +166,26 @@ class ConnectionRepository:
         )
         
         return result.modified_count > 0 or result.matched_count > 0
+    
+    def build_uri_from_connection(self, connection: dict) -> str:
+        """Build MongoDB URI from connection components
+        
+        Args:
+            connection: Connection dictionary with components
+            
+        Returns:
+            Complete MongoDB connection URI
+        """
+        from app.core.utils.uri_builder import build_mongodb_uri
+        
+        return build_mongodb_uri(
+            host=connection.get("host", "localhost"),
+            port=connection.get("port", 27017),
+            username=connection.get("username"),
+            password=connection.get("password"),
+            database=connection.get("database"),
+            auth_source=connection.get("auth_source", "admin")
+        )
     
     def remove_connection(self, name: str) -> bool:
         """Remove a connection

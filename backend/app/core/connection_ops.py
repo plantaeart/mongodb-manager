@@ -23,21 +23,40 @@ class ConnectionManager:
     
     def add_connection(
         self, 
-        name: str, 
-        uri: str, 
+        name: str,
+        host: str,
+        port: int = 27017,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        database: Optional[str] = None,
+        auth_source: str = "admin",
         description: str = ""
     ) -> bool:
         """Add a new MongoDB connection
         
         Args:
             name: Unique name for the connection
-            uri: MongoDB connection URI
+            host: MongoDB server hostname or IP
+            port: MongoDB server port (default: 27017)
+            username: Username for authentication
+            password: Password for authentication
+            database: Default database
+            auth_source: Authentication database (default: "admin")
             description: Optional description
             
         Returns:
             True if added successfully, False if name already exists
         """
-        return self.repository.add_connection(name, uri, description)
+        return self.repository.add_connection(
+            name=name,
+            host=host,
+            port=port,
+            username=username,
+            password=password,
+            database=database,
+            auth_source=auth_source,
+            description=description
+        )
     
     def remove_connection(self, name: str) -> bool:
         """Remove a connection
@@ -53,22 +72,42 @@ class ConnectionManager:
     def update_connection(
         self, 
         name: str, 
-        new_name: str | None = None,
-        uri: str | None = None, 
-        description: str | None = None
+        new_name: Optional[str] = None,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        database: Optional[str] = None,
+        auth_source: Optional[str] = None,
+        description: Optional[str] = None
     ) -> bool:
         """Update an existing MongoDB connection
         
         Args:
             name: Current name of the connection
             new_name: New name (if renaming), None to keep current
-            uri: New MongoDB connection URI, None to keep current
+            host: New host, None to keep current
+            port: New port, None to keep current
+            username: New username, None to keep current
+            password: New password, None to keep current
+            database: New database, None to keep current
+            auth_source: New auth_source, None to keep current
             description: New description, None to keep current
             
         Returns:
             True if updated successfully, False if not found or new_name already exists
         """
-        return self.repository.update_connection(name, new_name, uri, description)
+        return self.repository.update_connection(
+            name=name,
+            new_name=new_name,
+            host=host,
+            port=port,
+            username=username,
+            password=password,
+            database=database,
+            auth_source=auth_source,
+            description=description
+        )
     
     def list_connections(self) -> list[dict]:
         """List all configured connections
@@ -102,8 +141,11 @@ class ConnectionManager:
         if not conn:
             return False, f"Connection '{name}' not found"
         
+        # Build URI from connection components
+        uri = self.repository.build_uri_from_connection(conn)
+        
         try:
-            client = MongoClient(conn["uri"], serverSelectionTimeoutMS=5000)
+            client = MongoClient(uri, serverSelectionTimeoutMS=5000)
             # Test connection
             client.admin.command('ping')
             

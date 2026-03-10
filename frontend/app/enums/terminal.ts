@@ -14,12 +14,14 @@ export enum TerminalCommand {
   CONNECT_TEST = 'connect test',
   CONNECT_UPDATE = 'connect update',
   
+  // Backup folder management
+  BACKUP_FOLDER_ADD = 'backup folder add',
+  BACKUP_FOLDER_LIST = 'backup folder list',
+  
   // Backup operations
   BACKUP_CREATE = 'backup create',
   BACKUP_LIST = 'backup list',
-  BACKUP_RESTORE = 'backup restore',
   BACKUP_DELETE = 'backup delete',
-  BACKUP_FOLDER_CREATE = 'create-backup-folder',
   
   // Authentication
   AUTH_CHANGE_PASSWORD = 'auth change-password',

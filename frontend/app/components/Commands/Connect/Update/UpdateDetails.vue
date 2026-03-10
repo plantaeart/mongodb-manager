@@ -13,11 +13,6 @@
           <span class="summary-value">{{ displayData.name || 'N/A' }}</span>
         </div>
         
-        <div v-if="displayData.uri" class="summary-item">
-          <span class="summary-label">MongoDB URI:</span>
-          <span class="summary-value uri-value">{{ getMaskedUri(displayData.uri) }}</span>
-        </div>
-        
         <div v-if="displayData.host" class="summary-item">
           <span class="summary-label">Host:</span>
           <span class="summary-value">{{ displayData.host }}</span>
@@ -52,14 +47,8 @@
 
     <!-- Editable Form View -->
     <div v-else>
-      <!-- Mode Toggle (Simple/Advanced) -->
-      <FormModeToggle 
-        v-model="isAdvancedMode" 
-        :disabled="disabled"
-      />
-
-      <!-- Fields based on mode -->
-      <div class="form-body" :class="{ 'two-columns': isAdvancedMode }">
+      <!-- Fields (two-column layout) -->
+      <div class="form-body two-columns">
         <component
           v-for="field in displayedFields"
           :key="field.id"
@@ -68,7 +57,6 @@
           v-model="localData[field.id]"
           :disabled="disabled"
           :readonly="readonly"
-          :uri-components="field.id === 'uri' ? getUriComponents() : undefined"
           @blur="handleFieldBlur(field.id)"
           @valid="handleFieldValid(field.id)"
           @invalid="handleFieldInvalid(field.id, $event)"
@@ -80,13 +68,11 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import FormModeToggle from '~/components/Terminal/Forms/Shared/FormModeToggle.vue'
 import TerminalTextField from '~/components/Terminal/Forms/Fields/TerminalTextField.vue'
 import TerminalPasswordField from '~/components/Terminal/Forms/Fields/TerminalPasswordField.vue'
 import TerminalNumberField from '~/components/Terminal/Forms/Fields/TerminalNumberField.vue'
 import type { StepDefinition, StepperFormConfig } from '~/types/stepper'
 import type { FormField } from '~/types/terminal'
-import { filterConnectionFields, buildMongoUri } from '~/utils/formHelpers'
 
 interface Props {
   step: StepDefinition
@@ -102,7 +88,6 @@ const emit = defineEmits<{
 }>()
 
 // Local state
-const isAdvancedMode = ref(false)
 const localData = ref<Record<string, any>>({ ...props.step.data })
 const localErrors = ref<Record<string, string>>({ ...props.step.errors })
 
@@ -143,29 +128,9 @@ watch(localErrors, (newErrors) => {
   emit('update:errors', newErrors)
 }, { deep: true })
 
-// Watch mode changes to rebuild URI when switching modes
-watch(isAdvancedMode, (newMode, oldMode) => {
-  if (oldMode === true && newMode === false) {
-    // Switching from Advanced → Simple: rebuild URI from components
-    if (localData.value.host && localData.value.port) {
-      const rebuiltUri = buildMongoUri({
-        host: localData.value.host,
-        port: localData.value.port,
-        username: localData.value.username,
-        password: localData.value.password,
-        database: localData.value.database,
-        auth_source: localData.value.auth_source
-      }, false, true)  // false = don't mask, true = for display (decoded password)
-      
-      localData.value.uri = rebuiltUri
-    }
-  }
-})
-
-// Displayed fields based on mode
+// Show all fields
 const displayedFields = computed(() => {
-  if (!props.step.formData?.fields) return []
-  return filterConnectionFields(props.step.formData.fields, isAdvancedMode.value)
+  return props.step.formData?.fields || []
 })
 
 // Get field component based on type
@@ -180,18 +145,6 @@ const getFieldComponent = (field: FormField) => {
   }
 }
 
-// Get URI components for building URI dynamically (NO REGEX!)
-const getUriComponents = () => {
-  return {
-    host: localData.value.host || 'localhost',
-    port: localData.value.port || 27017,
-    username: localData.value.username,
-    password: localData.value.password,
-    database: localData.value.database,
-    auth_source: localData.value.auth_source
-  }
-}
-
 // Field handlers
 const handleFieldBlur = (fieldId: string) => {
   // Validation happens in field component
@@ -203,21 +156,6 @@ const handleFieldValid = (fieldId: string) => {
 
 const handleFieldInvalid = (fieldId: string, error: string) => {
   localErrors.value[fieldId] = error
-}
-
-// Helper to mask URI password for readonly summary (using buildMongoUri - NO REGEX!)
-const getMaskedUri = (uri: string): string => {
-  if (!uri) return 'N/A'
-  
-  // Build masked URI from components
-  const components = getUriComponents()
-  if (components.host && components.port) {
-    return buildMongoUri(components, true, true)  // true = mask password, true = for display
-  }
-  
-  // Fallback: mask using regex only for readonly display
-  const passwordRegex = /:([^@]+)@/
-  return uri.replace(passwordRegex, ':***@')
 }
 </script>
 

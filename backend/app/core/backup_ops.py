@@ -28,23 +28,27 @@ class BackupManager:
         self.backup_root.mkdir(parents=True, exist_ok=True)
         return self.backup_root
     
-    def create_backup(self, connection_uri: str, connection_name: str) -> Path:
+    def create_backup(self, connection_uri: str, connection_name: str, backup_name: str) -> Path:
         """Backup MongoDB using mongodump
         
         Args:
             connection_uri: MongoDB connection URI
             connection_name: Name of the connection being backed up
+            backup_name: Custom name for the backup (required, must be unique)
             
         Returns:
             Path to created backup folder
             
         Raises:
+            ValueError: If backup_name already exists or is invalid
             Exception: If mongodump fails
         """
-        # Create timestamped backup folder
-        timestamp = get_backup_timestamp()
-        backup_name = f"{connection_name}_{timestamp}"
+        # Validate backup name doesn't exist
         backup_path = self.backup_root / backup_name
+        if backup_path.exists():
+            raise ValueError(f"Backup '{backup_name}' already exists in {self.backup_root}")
+        
+        # Create backup folder
         backup_path.mkdir(parents=True, exist_ok=True)
         
         # Run mongodump
@@ -65,9 +69,13 @@ class BackupManager:
         # Get list of databases backed up
         databases = [d.name for d in backup_path.iterdir() if d.is_dir()]
         
+        # Get timestamp for metadata
+        timestamp = get_backup_timestamp()
+        
         # Save metadata
         metadata = {
             "connection_name": connection_name,
+            "backup_name": backup_name,
             "timestamp": timestamp,
             "created_at": get_current_time().isoformat(),
             "databases": databases,

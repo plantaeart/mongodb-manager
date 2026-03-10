@@ -91,55 +91,94 @@ def build_mongodb_uri(
     return "".join(uri_parts)
 
 
-def mask_password_in_uri(uri: str) -> str:
+def build_mongodb_uri_masked(
+    host: str,
+    port: int = 27017,
+    username: Optional[str] = None,
+    database: Optional[str] = None,
+    auth_source: str = "admin",
+    options: Optional[dict] = None
+) -> str:
     """
-    Mask password in MongoDB URI for display purposes
+    Build MongoDB URI from components with masked password for display
     
     Args:
-        uri: MongoDB connection URI
+        host: MongoDB server hostname or IP address
+        port: MongoDB server port (default: 27017)
+        username: Optional username for authentication (password will be ***)
+        database: Optional default database
+        auth_source: Authentication database (default: "admin")
+        options: Optional connection options dict
         
     Returns:
-        URI with password replaced by asterisks
+        MongoDB URI with password masked as ***
         
     Examples:
-        >>> mask_password_in_uri("mongodb://admin:password123@localhost:27017")
-        'mongodb://admin:****@localhost:27017'
+        >>> build_mongodb_uri_masked("localhost", 27017, "admin")
+        'mongodb://admin:***@localhost:27017?authSource=admin'
         
-        >>> mask_password_in_uri("mongodb://localhost:27017")
+        >>> build_mongodb_uri_masked("localhost", 27017)
         'mongodb://localhost:27017'
     """
-    if not uri or "mongodb://" not in uri:
-        return uri
+    # Build URI components
+    uri_parts = ["mongodb://"]
     
-    # Find credentials section (between mongodb:// and @)
+    # Add credentials if username provided (password is always ***)
+    if username:
+        uri_parts.append(f"{username}:***@")
+    
+    # Add host and port
+    uri_parts.append(f"{host}:{port}")
+    
+    # Add database if provided
+    if database and database.strip():
+        uri_parts.append(f"/{database}")
+    
+    # Build query parameters
+    query_params = []
+    
+    # Add authSource if credentials provided
+    if username and auth_source:
+        query_params.append(f"authSource={auth_source}")
+    
+    # Add custom options
+    if options:
+        for key, value in options.items():
+            query_params.append(f"{key}={value}")
+    
+    # Append query string if there are parameters
+    if query_params:
+        uri_parts.append("?" + "&".join(query_params))
+    
+    return "".join(uri_parts)
+    
     try:
-        # Split by protocol
-        parts = uri.split("mongodb://", 1)
-        if len(parts) != 2:
-            return uri
+        # Parse the URI
+        parsed = urlparse(uri)
         
-        after_protocol = parts[1]
+        # Extract components
+        username = parsed.username or None
+        host = parsed.hostname or "localhost"
+        port = parsed.port or 27017
+        database = parsed.path.lstrip("/") if parsed.path else None
         
-        # Check if there's an @ symbol (indicating credentials)
-        if "@" not in after_protocol:
-            return uri  # No credentials to mask
+        # Extract auth_source from query params
+        query_params = parse_qs(parsed.query)
+        auth_source = query_params.get("authSource", ["admin"])[0] if query_params.get("authSource") else "admin"
         
-        # Split by @ to get credentials and rest
-        creds_and_rest = after_protocol.split("@", 1)
-        credentials = creds_and_rest[0]
-        rest = creds_and_rest[1]
+        # Extract other options (excluding authSource)
+        other_options = {k: v[0] for k, v in query_params.items() if k != "authSource"}
         
-        # Check if credentials contain ':'
-        if ":" not in credentials:
-            return uri  # No password to mask
-        
-        # Split credentials into username and password
-        username, password = credentials.split(":", 1)
-        
-        # Rebuild URI with masked password (use *** for consistency)
-        masked_uri = f"mongodb://{username}:***@{rest}"
-        return masked_uri
+        # Rebuild URI with masked password
+        return build_mongodb_uri_with_masked_password(
+            host=host,
+            port=port,
+            username=username,
+            database=database,
+            auth_source=auth_source if username else None,
+            options=other_options if other_options else None
+        )
         
     except Exception:
-        # If any parsing fails, return original URI
+        # If parsing fails, return original URI
         return uri

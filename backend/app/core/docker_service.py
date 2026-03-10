@@ -27,12 +27,10 @@ class DockerService:
             # Test connection
             self.client.ping()
             self.available = True
-            logger.info("Docker API connection established (read-only)")
         except DockerException as e:
-            logger.warning(f"Docker API not available: {e}")
-            logger.info("Container names will not be available in discovery")
+            pass
         except Exception as e:
-            logger.warning(f"Unexpected error connecting to Docker: {e}")
+            pass
     
     def get_container_name_by_ip(self, ip_address: str) -> Optional[str]:
         """
@@ -66,7 +64,6 @@ class DockerService:
             return None
             
         except Exception as e:
-            logger.debug(f"Error looking up container for IP {ip_address}: {e}")
             return None
     
     def get_container_info_by_ip(self, ip_address: str) -> Optional[dict]:
@@ -104,7 +101,6 @@ class DockerService:
             return None
             
         except Exception as e:
-            logger.debug(f"Error getting container info for IP {ip_address}: {e}")
             return None
     
     def is_available(self) -> bool:

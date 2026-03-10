@@ -103,7 +103,6 @@ export function createBackupCreateStepper(formId: string): StepperFormConfig {
     command: 'backup create',
     steps: [step1, step2, step3],
     onSubmit: async (allData) => {
-      console.log('Creating backup with:', allData)
       // Submit logic handled by parent
     }
   }
