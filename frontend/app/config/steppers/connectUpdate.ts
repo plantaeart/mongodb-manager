@@ -7,6 +7,10 @@
 import type { StepDefinition, StepperFormConfig } from '~/types/stepper'
 import type { ConnectionDetails } from '~/types/connection'
 import { createStep } from '~/types/stepper'
+import { createLogger } from '~/services/logger'
+import { buildMongoUri } from '~/utils/formHelpers'
+
+const logger = createLogger('ConnectUpdateStepper')
 
 /**
  * Create stepper configuration for 'connect update' command
@@ -20,6 +24,27 @@ export function createConnectUpdateStepper(formId: string): StepperFormConfig {
       'Choose which connection to update',
       'i-lucide-database'
     ),
+    component: 'CommandsConnectUpdateSelectConnection',  // Use custom component
+    loadData: async (allSteps, context) => {
+      logger.info('Loading Step 1 data...')
+      
+      // Fetch form schema for Step 1 (connection list)
+      const formSchema = await $fetch(`${context.baseUrl}/api/forms/connect/update/select`, {
+        headers: {
+          'Authorization': `Bearer ${context.token}`
+        }
+      })
+      
+      logger.success('Step 1 form schema fetched')
+      logger.object('Form schema', formSchema)
+      
+      // Update step formData
+      const currentStep = allSteps[0]
+      if (currentStep) {
+        currentStep.formData = formSchema as any
+        logger.success('Step 1 formData updated')
+      }
+    },
     validate: (data, allSteps) => {
       // Validate that exactly one connection is selected
       const connectionName = data.connection_name
@@ -43,8 +68,10 @@ export function createConnectUpdateStepper(formId: string): StepperFormConfig {
       'Modify connection settings',
       'i-lucide-edit'
     ),
-    component: 'ConnectUpdateStep2',  // Use custom component for mode toggle
+    component: 'CommandsConnectUpdateUpdateDetails',  // Use custom component for mode toggle
     loadData: async (allSteps, context) => {
+      logger.info('Loading Step 2 data...')
+      
       // Get selected connection from Step 1
       const step1Data = allSteps[0]?.data
       let connectionName = step1Data?.connection_name
@@ -52,43 +79,84 @@ export function createConnectUpdateStepper(formId: string): StepperFormConfig {
         connectionName = connectionName[0]
       }
 
+      logger.debug(`Selected connection: ${connectionName}`)
+
       if (!connectionName) {
+        logger.error('No connection selected')
         throw new Error('No connection selected')
       }
 
       // Fetch form schema for Step 2
+      logger.info('Fetching Step 2 form schema...')
       const formSchema = await $fetch(`${context.baseUrl}/api/forms/connect/update/details`, {
         headers: {
           'Authorization': `Bearer ${context.token}`
         }
       })
 
+      logger.success('Step 2 form schema fetched')
+      logger.object('Form schema', formSchema)
+
       // Update step formData
       const currentStep = allSteps[1]
       if (currentStep) {
         currentStep.formData = formSchema as any
+        logger.success('Step 2 formData updated')
       }
 
       // Fetch connection details to pre-populate
+      logger.info(`Fetching connection details for: ${connectionName}`)
       const connectionDetails = await $fetch<ConnectionDetails>(`${context.baseUrl}/api/forms/connection-details/${connectionName}`, {
         headers: {
           'Authorization': `Bearer ${context.token}`
         }
       })
 
-      // Pre-populate step data
+      logger.success('Connection details fetched')
+      logger.object('Connection details', connectionDetails)
+      
+      // Backend already sends separated components (host, port, username, password, etc.)
+      // Backend's urlparse() handles URL-decoding, so password is already decoded
+      logger.debug(`Components from backend:`)
+      logger.debug(`  - Host: ${connectionDetails.host}`)
+      logger.debug(`  - Port: ${connectionDetails.port}`)
+      logger.debug(`  - Username: ${connectionDetails.username}`)
+      logger.debug(`  - Password length: ${connectionDetails.password?.length || 0}`)
+      logger.debug(`  - Database: ${connectionDetails.database}`)
+      logger.debug(`  - Auth Source: ${connectionDetails.auth_source}`)
+
+      // Pre-populate step data with separated components
       if (currentStep) {
-        currentStep.data = {
-          name: connectionDetails.name,
-          uri: connectionDetails.uri,
-          description: connectionDetails.description,
-          host: connectionDetails.host,
-          port: connectionDetails.port,
+        // Build masked URI for simple mode display
+        const maskedUri = buildMongoUri({
+          host: connectionDetails.host || 'localhost',
+          port: connectionDetails.port || 27017,
           username: connectionDetails.username,
           password: connectionDetails.password,
           database: connectionDetails.database,
           auth_source: connectionDetails.auth_source
+        }, true)  // true = mask password
+        
+        logger.debug(`Built masked URI: ${maskedUri}`)
+        
+        // Store components directly - no more parsing needed!
+        currentStep.data = {
+          name: connectionDetails.name,
+          description: connectionDetails.description,
+          
+          // Components for advanced mode
+          host: connectionDetails.host,
+          port: connectionDetails.port,
+          username: connectionDetails.username,
+          password: connectionDetails.password,  // Already decoded by backend
+          database: connectionDetails.database,
+          auth_source: connectionDetails.auth_source,
+          
+          // Masked URI for simple mode display
+          uri: maskedUri
         }
+        logger.success('Step 2 data pre-populated')
+        logger.object('Pre-populated data', currentStep.data)
       }
     },
     validate: (data, allSteps) => {

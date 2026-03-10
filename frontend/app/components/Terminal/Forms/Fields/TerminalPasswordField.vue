@@ -8,18 +8,30 @@
       <FieldTooltip :text="field.tooltip" />
     </div>
     
-    <input
-      :id="field.id"
-      type="password"
-      v-model="internalValue"
-      :placeholder="field.placeholder"
-      :disabled="disabled"
-      :readonly="readonly"
-      class="field-input"
-      autocomplete="new-password"
-      @blur="handleBlur"
-      @keydown.enter="handleEnter"
-    />
+    <div class="password-input-wrapper">
+      <input
+        :id="field.id"
+        :type="showPassword ? 'text' : 'password'"
+        v-model="internalValue"
+        :placeholder="field.placeholder"
+        :disabled="disabled"
+        :readonly="readonly"
+        class="field-input"
+        autocomplete="new-password"
+        @blur="handleBlur"
+        @keydown.enter="handleEnter"
+      />
+      <button
+        v-if="internalValue"
+        type="button"
+        class="toggle-password-btn"
+        @click="togglePasswordVisibility"
+        :disabled="disabled || readonly"
+        :title="showPassword ? 'Hide password' : 'Show password'"
+      >
+        <Icon :name="showPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'" class="eye-icon" />
+      </button>
+    </div>
     
     <span v-if="field.help_text" class="help-text">{{ field.help_text }}</span>
     <span v-if="errorMessage" class="error-message">{{ errorMessage }}</span>
@@ -50,6 +62,12 @@ const emit = defineEmits<{
 const internalValue = ref<string>(props.modelValue || props.field.default || '')
 const errorMessage = ref<string>('')
 const touched = ref<boolean>(false)
+const showPassword = ref<boolean>(false)
+
+// Toggle password visibility
+const togglePasswordVisibility = () => {
+  showPassword.value = !showPassword.value
+}
 
 // Watch for external changes
 watch(() => props.modelValue, (newValue) => {
@@ -131,11 +149,18 @@ defineExpose({ validate })
   margin-left: 2px;
 }
 
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
 .field-input {
   background: var(--color-bg-tertiary, #282828);
   border: 1px solid var(--color-border-secondary, #504945);
   border-radius: 3px;
   padding: 8px 10px;
+  padding-right: 40px; /* Make room for eye icon */
   color: var(--color-text-primary, #ebdbb2);
   font-family: 'JetBrains Mono', 'Courier New', monospace;
   font-size: 13px;
@@ -159,6 +184,34 @@ defineExpose({ validate })
 
 .terminal-field.valid .field-input {
   border-color: var(--color-success, #b8bb26);
+}
+
+.toggle-password-btn {
+  position: absolute;
+  right: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary, #a89984);
+  transition: color 0.2s;
+}
+
+.toggle-password-btn:hover:not(:disabled) {
+  color: var(--color-text-primary, #ebdbb2);
+}
+
+.toggle-password-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.eye-icon {
+  width: 18px;
+  height: 18px;
 }
 
 .help-text {

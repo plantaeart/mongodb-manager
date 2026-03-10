@@ -322,6 +322,58 @@ class TerminalService {
         return
       }
 
+      // Build URI from components for connection commands
+      const { decodeConnectionData, buildMongoUri } = await import('~/utils/formHelpers')
+      const { createLogger } = await import('~/services/logger')
+      const logger = createLogger('TerminalSubmit')
+      
+      logger.info('===== SUBMISSION DEBUG =====')
+      logger.object('Raw data before processing', data)
+      logger.info(`Command: ${formEntry.command}`)
+      
+      let dataToSubmit = { ...data }
+      
+      // If we have connection components (host, port, etc.), build the URI
+      if (dataToSubmit.host && dataToSubmit.port) {
+        logger.success('✓ Building URL-encoded URI from components')
+        logger.debug(`Components:`)
+        logger.debug(`  - Host: ${dataToSubmit.host}`)
+        logger.debug(`  - Port: ${dataToSubmit.port}`)
+        logger.debug(`  - Username: ${dataToSubmit.username}`)
+        logger.debug(`  - Password length: ${dataToSubmit.password?.length || 0}`)
+        logger.debug(`  - Database: ${dataToSubmit.database}`)
+        logger.debug(`  - Auth Source: ${dataToSubmit.auth_source}`)
+        
+        // Build URL-encoded URI from components
+        const encodedUri = buildMongoUri({
+          host: dataToSubmit.host,
+          port: dataToSubmit.port,
+          username: dataToSubmit.username,
+          password: dataToSubmit.password,
+          database: dataToSubmit.database,
+          auth_source: dataToSubmit.auth_source
+        }, false)  // false = don't mask, URL-encode the password
+        
+        logger.debug(`Built encoded URI: ${encodedUri}`)
+        dataToSubmit.uri = encodedUri
+        
+        // Clean up - remove component fields (backend only needs URI)
+        delete dataToSubmit.host
+        delete dataToSubmit.port
+        delete dataToSubmit.username
+        delete dataToSubmit.password
+        delete dataToSubmit.database
+        delete dataToSubmit.auth_source
+      } else {
+        logger.warn('⚠ No connection components found, using URI as-is')
+      }
+      
+      const processedData = decodeConnectionData(dataToSubmit, formEntry.command)
+      logger.object('Final data to submit', processedData)
+      logger.info('===== END DEBUG =====')
+
+
+
       // Execute command via HTTP API
       const config = useRuntimeConfig()
       const backendUrl = config.public.backendUrl || 'http://localhost:9000'
@@ -334,7 +386,7 @@ class TerminalService {
         },
         body: JSON.stringify({
           command: formEntry.command,
-          params: data
+          params: processedData
         })
       })
 

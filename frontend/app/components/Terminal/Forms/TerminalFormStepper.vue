@@ -20,8 +20,8 @@
 
           <!-- Custom Component (if specified) -->
           <component 
-            v-else-if="step.component" 
-            :is="step.component"
+            v-else-if="step.component && getCustomComponent(step.component)" 
+            :is="getCustomComponent(step.component)"
             :step="step"
             :config="config"
             :disabled="isSubmitting"
@@ -120,11 +120,16 @@ import TerminalPasswordField from './Fields/TerminalPasswordField.vue'
 import TerminalNumberField from './Fields/TerminalNumberField.vue'
 import TerminalCheckboxListField from './Fields/TerminalCheckboxListField.vue'
 import TerminalCustomStepper from './TerminalCustomStepper.vue'
+import CommandsConnectUpdateSelectConnection from '~/components/Commands/Connect/Update/SelectConnection.vue'
+import CommandsConnectUpdateUpdateDetails from '~/components/Commands/Connect/Update/UpdateDetails.vue'
 import type { StepperFormConfig, StepContext } from '~/types/stepper'
 import { isStepValid, canProceedFromStep, getAllStepData } from '~/types/stepper'
 import type { FormField } from '~/types/terminal'
 import { CommandStatus } from '~/enums'
 import { useAuthStore } from '~/stores/auth'
+import { createLogger } from '~/services/logger'
+
+const logger = createLogger('StepperForm')
 
 interface Props {
   config: StepperFormConfig
@@ -161,6 +166,22 @@ const isReadonly = computed(() =>
 const stepFields = (stepIndex: number) => {
   const step = stepsRef.value[stepIndex]
   return step?.formData?.fields ?? []
+}
+
+// Component registry for custom step components
+const customComponentRegistry: Record<string, any> = {
+  CommandsConnectUpdateSelectConnection,
+  CommandsConnectUpdateUpdateDetails
+}
+
+// Resolve custom component by name
+const getCustomComponent = (componentName: string) => {
+  const component = customComponentRegistry[componentName]
+  if (!component) {
+    console.error(`Failed to resolve component: ${componentName}`)
+    return null
+  }
+  return component
 }
 
 // Stepper steps configuration for UI

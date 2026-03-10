@@ -136,8 +136,8 @@ def mask_password_in_uri(uri: str) -> str:
         # Split credentials into username and password
         username, password = credentials.split(":", 1)
         
-        # Rebuild URI with masked password
-        masked_uri = f"mongodb://{username}:****@{rest}"
+        # Rebuild URI with masked password (use *** for consistency)
+        masked_uri = f"mongodb://{username}:***@{rest}"
         return masked_uri
         
     except Exception:
