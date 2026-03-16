@@ -40,6 +40,22 @@ export interface SelectOption {
 
 export type FieldType = 'text' | 'textarea' | 'number' | 'select' | 'checkbox' | 'checkbox-list' | 'date' | 'readonly' | 'password' | 'list'
 
+// List Item Display Configuration
+export interface ListItemField {
+  key: string           // The property key in the item object
+  label: string         // Display label for this field
+  icon?: string         // Optional emoji icon
+  type?: 'text' | 'date' | 'list' | 'badge'  // How to render the value
+  primary?: boolean     // If true, this field is the main identifier (shown in header)
+  badge_key?: string    // For type='badge', the key to compare for active state
+}
+
+export interface ListDisplayConfig {
+  header_icon?: string  // Icon for the header (default based on first primary field)
+  fields: ListItemField[]
+  count_label?: string  // Label for total count (e.g., "connection(s)", "folder(s)")
+}
+
 export interface FormField {
   id: string
   label: string
@@ -58,6 +74,7 @@ export interface FormField {
   options?: SelectOption[]
   content?: string
   items?: any[]  // For 'list' type - array of items to display
+  list_config?: ListDisplayConfig  // Configuration for how to display list items
 }
 
 export interface FormAction {

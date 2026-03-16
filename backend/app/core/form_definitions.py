@@ -20,6 +20,23 @@ class SelectOption(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
 
 
+class ListItemField(BaseModel):
+    """Configuration for displaying a field in a list item"""
+    key: str  # The property key in the item object
+    label: str  # Display label for this field
+    icon: Optional[str] = None  # Optional emoji icon
+    type: Optional[Literal['text', 'date', 'list', 'badge']] = 'text'  # How to render the value
+    primary: Optional[bool] = False  # If true, shown in header
+    badge_key: Optional[str] = None  # For type='badge', the key to compare for active state
+
+
+class ListDisplayConfig(BaseModel):
+    """Configuration for how to display list items"""
+    header_icon: Optional[str] = None  # Icon for the header
+    fields: List[ListItemField]  # Fields to display
+    count_label: Optional[str] = "item(s)"  # Label for total count
+
+
 class FormField(BaseModel):
     """Form field definition"""
     id: str
@@ -40,6 +57,7 @@ class FormField(BaseModel):
     options: Optional[List[SelectOption]] = None  # select, checkbox-list
     content: Optional[str] = None  # readonly
     items: Optional[List[Dict[str, Any]]] = None  # list
+    list_config: Optional[ListDisplayConfig] = None  # Configuration for list display
 
 
 class FormAction(BaseModel):
@@ -208,7 +226,17 @@ CONNECT_LIST_FORM = FormSchema(
             id="connections_list",
             label="",
             type="list",
-            items=[]  # Populated dynamically with connection objects
+            items=[],  # Populated dynamically with connection objects
+            list_config=ListDisplayConfig(
+                header_icon="📌",
+                fields=[
+                    ListItemField(key="name", label="Name", primary=True),
+                    ListItemField(key="uri", label="URI", icon="🔗", type="text"),
+                    ListItemField(key="description", label="Description", icon="📝", type="text"),
+                    ListItemField(key="added_at", label="Added", icon="📅", type="date")
+                ],
+                count_label="connection(s)"
+            )
         )
     ],
     actions=[
@@ -440,7 +468,16 @@ BACKUP_FOLDER_LIST_FORM = FormSchema(
             id="folders_list",
             label="",
             type="list",
-            items=[]  # Populated dynamically with folder data
+            items=[],  # Populated dynamically with folder data
+            list_config=ListDisplayConfig(
+                header_icon="📁",
+                fields=[
+                    ListItemField(key="connection_name", label="Connection", primary=True),
+                    ListItemField(key="description", label="Description", icon="📝", type="text"),
+                    ListItemField(key="backup_paths", label="Backup Paths", icon="📂", type="list", badge_key="active_backup_path")
+                ],
+                count_label="connection(s)"
+            )
         )
     ],
     actions=[

@@ -15,33 +15,55 @@
           :key="index" 
           class="list-item-panel"
         >
-          <!-- Panel Header with Name -->
+          <!-- Panel Header with Primary Field -->
           <div class="panel-header">
-            <span class="icon">📌</span>
-            <span class="item-name">{{ item.name }}</span>
+            <span class="icon">{{ getHeaderIcon(item) }}</span>
+            <span class="item-name">{{ getPrimaryFieldValue(item) }}</span>
           </div>
           
           <!-- Panel Body with Details -->
           <div class="panel-body">
-            <!-- URI -->
-            <div v-if="item.uri" class="detail-row">
-              <span class="detail-icon">🔗</span>
-              <span class="detail-label">URI:</span>
-              <span class="detail-value">{{ item.uri }}</span>
-            </div>
-            
-            <!-- Description -->
-            <div v-if="item.description" class="detail-row">
-              <span class="detail-icon">📝</span>
-              <span class="detail-label">Description:</span>
-              <span class="detail-value">{{ item.description }}</span>
-            </div>
-            
-            <!-- Added Date -->
-            <div v-if="item.added_at" class="detail-row">
-              <span class="detail-icon">📅</span>
-              <span class="detail-label">Added:</span>
-              <span class="detail-value">{{ formatDate(item.added_at) }}</span>
+            <div 
+              v-for="fieldConfig in getDetailFields()" 
+              :key="fieldConfig.key" 
+              class="detail-row"
+            >
+              <template v-if="hasValue(item, fieldConfig.key)">
+                <span v-if="fieldConfig.icon" class="detail-icon">{{ fieldConfig.icon }}</span>
+                <span class="detail-label">{{ fieldConfig.label }}:</span>
+                
+                <!-- Render based on field type -->
+                <template v-if="fieldConfig.type === 'list'">
+                  <div class="detail-value">
+                    <div 
+                      v-for="(listItem, listIndex) in item[fieldConfig.key]" 
+                      :key="listIndex" 
+                      class="path-item"
+                    >
+                      <span class="path-indicator">
+                        {{ isActiveItem(item, listItem, fieldConfig.badge_key) ? '✓' : '•' }}
+                      </span>
+                      <span :class="{ 'active-path': isActiveItem(item, listItem, fieldConfig.badge_key) }">
+                        {{ listItem }}
+                      </span>
+                      <span 
+                        v-if="isActiveItem(item, listItem, fieldConfig.badge_key)" 
+                        class="active-badge"
+                      >
+                        Active
+                      </span>
+                    </div>
+                  </div>
+                </template>
+                
+                <template v-else-if="fieldConfig.type === 'date'">
+                  <span class="detail-value">{{ formatDate(item[fieldConfig.key]) }}</span>
+                </template>
+                
+                <template v-else>
+                  <span class="detail-value">{{ item[fieldConfig.key] }}</span>
+                </template>
+              </template>
             </div>
           </div>
         </div>
@@ -49,7 +71,7 @@
       
       <!-- Total Count -->
       <div v-if="field.items && field.items.length > 0" class="total-count">
-        Total: {{ field.items.length }} connection(s)
+        Total: {{ field.items.length }} {{ getCountLabel() }}
       </div>
     </div>
     
@@ -58,7 +80,7 @@
 </template>
 
 <script setup lang="ts">
-import type { FormField } from '~/types/terminal'
+import type { FormField, ListItemField } from '~/types/terminal'
 
 interface Props {
   field: FormField
@@ -76,6 +98,59 @@ const emit = defineEmits<{
   enter: []
 }>()
 
+// Get header icon (from config or default)
+const getHeaderIcon = (item: any): string => {
+  if (props.field.list_config?.header_icon) {
+    return props.field.list_config.header_icon
+  }
+  
+  // Fallback icons based on item type
+  if (item.connection_name) return '📁'
+  if (item.name) return '📌'
+  return '📄'
+}
+
+// Get primary field value (the main identifier shown in header)
+const getPrimaryFieldValue = (item: any): string => {
+  if (!props.field.list_config) {
+    // Fallback: try common primary fields
+    return item.connection_name || item.name || item.id || 'Unknown'
+  }
+  
+  const primaryField = props.field.list_config.fields.find(f => f.primary)
+  if (primaryField && item[primaryField.key]) {
+    return item[primaryField.key]
+  }
+  
+  // Fallback to first field
+  const firstField = props.field.list_config.fields[0]
+  return firstField ? item[firstField.key] : 'Unknown'
+}
+
+// Get detail fields (non-primary fields)
+const getDetailFields = (): ListItemField[] => {
+  if (!props.field.list_config) {
+    return []
+  }
+  
+  return props.field.list_config.fields.filter(f => !f.primary)
+}
+
+// Check if item has a value for a given key
+const hasValue = (item: any, key: string): boolean => {
+  const value = item[key]
+  if (value === null || value === undefined) return false
+  if (typeof value === 'string' && value.trim() === '') return false
+  if (Array.isArray(value) && value.length === 0) return false
+  return true
+}
+
+// Check if a list item is the active one
+const isActiveItem = (item: any, listItem: string, badgeKey?: string): boolean => {
+  if (!badgeKey) return false
+  return item[badgeKey] === listItem
+}
+
 // Format date for display
 const formatDate = (dateStr: string) => {
   try {
@@ -91,6 +166,11 @@ const formatDate = (dateStr: string) => {
   } catch {
     return dateStr
   }
+}
+
+// Get count label from config or default
+const getCountLabel = () => {
+  return props.field.list_config?.count_label || 'item(s)'
 }
 
 // List fields are always valid
@@ -216,6 +296,39 @@ emit('valid')
   font-size: 12px;
   color: var(--color-text-tertiary, #928374);
   font-style: italic;
+}
+
+.path-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 13px;
+}
+
+.path-indicator {
+  color: var(--color-success, #b8bb26);
+  font-weight: bold;
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.active-path {
+  color: var(--color-success, #b8bb26);
+  font-weight: 500;
+}
+
+.active-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--color-success-dim, rgba(184, 187, 38, 0.2));
+  color: var(--color-success, #b8bb26);
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 @media (max-width: 768px) {
