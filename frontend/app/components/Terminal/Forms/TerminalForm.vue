@@ -62,6 +62,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import TerminalTextField from './Fields/TerminalTextField.vue'
 import TerminalPasswordField from './Fields/TerminalPasswordField.vue'
 import TerminalNumberField from './Fields/TerminalNumberField.vue'
+import TerminalCheckboxField from './Fields/TerminalCheckboxField.vue'
 import TerminalCheckboxListField from './Fields/TerminalCheckboxListField.vue'
 import TerminalReadonlyField from './Fields/TerminalReadonlyField.vue'
 import TerminalListField from './Fields/TerminalListField.vue'
@@ -132,6 +133,8 @@ const getFieldComponent = (field: FormField) => {
       return TerminalPasswordField
     case 'number':
       return TerminalNumberField
+    case 'checkbox':
+      return TerminalCheckboxField
     case 'checkbox-list':
       return TerminalCheckboxListField
     case 'readonly':

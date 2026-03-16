@@ -374,7 +374,7 @@ async def get_form_schema(
     
     # === BACKUP OPERATION FORMS ===
     
-    # Special handling for backup/create/select: populate connections with active_backup_path for Step 1
+    # Special handling for backup/create/select: populate connections with backup_paths for Step 1
     if command_path == "backup/create/select":
         from app.core.connection_ops import ConnectionManager
         
@@ -383,16 +383,24 @@ async def get_form_schema(
         
         form_dict = form_schema.dict(exclude_none=True)
         
-        # Build options - only connections with active backup path
+        # Build options - only connections with backup paths
         options = []
         for conn in connections:
+            backup_paths = conn.get("backup_paths", [])
             active_path = conn.get("active_backup_path")
-            if active_path:
+            
+            if backup_paths:
+                # Show active path in description if available
+                description = f"Backup paths: {len(backup_paths)}"
+                if active_path:
+                    description += f" (Active: {active_path})"
+                
                 options.append({
                     "value": conn["name"],
                     "label": conn["name"],
-                    "description": f"Backup to: {active_path}",
+                    "description": description,
                     "metadata": {
+                        "backup_paths": backup_paths,
                         "active_backup_path": active_path
                     }
                 })
@@ -555,7 +563,7 @@ async def submit_backup_folder_add(
         Success message or error
     """
     from app.core.connection_ops import ConnectionManager
-    from app.core.utils.config import BACKUP_FOLDER_SUFFIX
+    from app.core.utils.config import BACKUP_FOLDER_SUFFIX, BACKUP_BASE_DIR
     from pathlib import Path
     import os
     
@@ -568,11 +576,23 @@ async def submit_backup_folder_add(
         if not connection_name or not folder_path_input:
             raise HTTPException(status_code=400, detail="Missing required fields")
         
+        # Clean the input path (remove leading/trailing slashes and whitespace)
+        clean_path = folder_path_input.strip().strip('/')
+        
+        # Enforce base directory prefix: mongodb-manager-backups/
+        # If user already included it, don't duplicate
+        if clean_path.startswith(BACKUP_BASE_DIR):
+            # Remove the base dir prefix temporarily for processing
+            clean_path = clean_path[len(BACKUP_BASE_DIR):].strip('/')
+        
+        # Construct full path: mongodb-manager-backups/user-input_mongodb_manager
+        folder_path_base = f"{BACKUP_BASE_DIR}/{clean_path}"
+        
         # Automatically append suffix if not already present
-        if not folder_path_input.endswith(BACKUP_FOLDER_SUFFIX):
-            folder_path = f"{folder_path_input.rstrip('/')}{BACKUP_FOLDER_SUFFIX}"
+        if not folder_path_base.endswith(BACKUP_FOLDER_SUFFIX):
+            folder_path = f"{folder_path_base}{BACKUP_FOLDER_SUFFIX}"
         else:
-            folder_path = folder_path_input
+            folder_path = folder_path_base
         
         # Check if folder exists or create it
         path_obj = Path(folder_path)
@@ -636,7 +656,7 @@ async def submit_backup_create(
     """Create a new backup (Step 2 submission)
     
     Args:
-        form_data: Form submission data with connection_name, backup_name
+        form_data: Form submission data with connection_name, backup_name, backup_location
         
     Returns:
         Success message or error
@@ -648,8 +668,9 @@ async def submit_backup_create(
     try:
         connection_name = form_data.get("connection_name")
         backup_name = form_data.get("backup_name")
+        backup_location = form_data.get("backup_location")
         
-        if not connection_name or not backup_name:
+        if not connection_name or not backup_name or not backup_location:
             raise HTTPException(status_code=400, detail="Missing required fields")
         
         # Get connection
@@ -662,20 +683,23 @@ async def submit_backup_create(
                 detail=f"Connection '{connection_name}' not found"
             )
         
-        # Get active backup path
-        active_path = connection.get("active_backup_path")
-        if not active_path:
+        # Verify backup_location is in the connection's backup_paths
+        backup_paths = connection.get("backup_paths", [])
+        if backup_location not in backup_paths:
             raise HTTPException(
                 status_code=400,
-                detail=f"Connection '{connection_name}' has no active backup folder"
+                detail=f"Invalid backup location. Must be one of the configured backup folders."
             )
         
+        # Build URI from connection components
+        connection_uri = conn_mgr.repository.build_uri_from_connection(connection)
+        
         # Create backup
-        backup_mgr = BackupManager(Path(active_path))
+        backup_mgr = BackupManager(Path(backup_location))
         
         try:
             backup_path = backup_mgr.create_backup(
-                connection["uri"],
+                connection_uri,
                 connection_name,
                 backup_name
             )

@@ -16,6 +16,9 @@ load_dotenv()
 BACKUP_FOLDER_SUFFIX = "_mongodb_manager"
 """Suffix automatically appended to all backup folder paths"""
 
+BACKUP_BASE_DIR = "mongodb-manager-backups"
+"""Base directory for all MongoDB backups"""
+
 
 def get_env_var(key: str, default: str = "") -> str:
     """Get environment variable value

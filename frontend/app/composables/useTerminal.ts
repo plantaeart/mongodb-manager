@@ -314,26 +314,31 @@ class TerminalService {
 
       // Send components directly to backend (backend builds URI when needed)
       const { decodeConnectionData } = await import('~/utils/formHelpers')
+      const { getApiPathForCommand } = await import('~/config/terminalForms')
       
       const dataToSubmit = { ...data }
       const processedData = decodeConnectionData(dataToSubmit, formEntry.command)
 
-
-
-      // Execute command via HTTP API
+      // Get API path for this command
+      const apiPath = getApiPathForCommand(formEntry.command)
+      
+      // Determine which endpoint to use
+      // Commands with dedicated form submission endpoints should use /api/forms/{path}
+      // Others fall back to /api/commands/execute
       const config = useRuntimeConfig()
       const backendUrl = config.public.backendUrl || 'http://localhost:9000'
       
-      const response = await fetch(`${backendUrl}/api/commands/execute`, {
+      const hasFormEndpoint = apiPath && this.shouldUseFormEndpoint(formEntry.command)
+      const endpoint = hasFormEndpoint ? `${backendUrl}/api/forms/${apiPath}` : `${backendUrl}/api/commands/execute`
+      const requestBody = hasFormEndpoint ? processedData : { command: formEntry.command, params: processedData }
+      
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          command: formEntry.command,
-          params: processedData
-        })
+        body: JSON.stringify(requestBody)
       })
 
       if (!response.ok) {
@@ -344,10 +349,10 @@ class TerminalService {
 
       // Update entry with result
       if (result.success) {
-        formEntry.output = result.output ? result.output.split('\n').filter((line: string) => line.trim()) : ['Command executed successfully']
+        formEntry.output = result.output ? result.output.split('\n').filter((line: string) => line.trim()) : [result.message || 'Command executed successfully']
         formEntry.status = CommandStatus.SUCCESS
       } else {
-        formEntry.output = result.error ? [result.error] : ['Command failed']
+        formEntry.output = result.error ? [result.error] : [result.message || 'Command failed']
         formEntry.status = CommandStatus.ERROR
       }
 
@@ -358,6 +363,19 @@ class TerminalService {
       this.activeFormId = null
       this._isExecuting.value = false
     }
+  }
+
+  /**
+   * Check if command should use dedicated form submission endpoint
+   */
+  private shouldUseFormEndpoint(command: string): boolean {
+    // Commands that have dedicated form submission endpoints
+    const formEndpointCommands = [
+      'backup delete',
+      // Add more commands here as they get form endpoints
+    ]
+    
+    return formEndpointCommands.includes(command)
   }
 
   /**

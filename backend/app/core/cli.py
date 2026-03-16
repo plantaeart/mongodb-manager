@@ -1013,17 +1013,37 @@ def create_backup_folder(
 
 def _add_backup_folder(conn_mgr: ConnectionManager, connection_name: str):
     """Add a new backup folder"""
-    console.print("\n[cyan]Add New Backup Folder[/cyan]")
+    from app.core.utils.config import BACKUP_BASE_DIR, BACKUP_FOLDER_SUFFIX
     
-    path = questionary.text(
-        "Enter backup folder path:",
-        validate=lambda text: True if text.strip() else "Path cannot be empty"
+    console.print("\n[cyan]Add New Backup Folder[/cyan]")
+    console.print(f"[dim]All backup folders are automatically created under '{BACKUP_BASE_DIR}/'[/dim]")
+    
+    path_input = questionary.text(
+        "Enter backup folder name (without prefix):",
+        validate=lambda text: True if text.strip() else "Name cannot be empty"
     ).ask()
     
-    if not path:
+    if not path_input:
         return
     
-    path = path.strip()
+    # Clean the input path
+    clean_path = path_input.strip().strip('/')
+    
+    # Enforce base directory prefix
+    if clean_path.startswith(BACKUP_BASE_DIR):
+        # Remove the base dir prefix temporarily for processing
+        clean_path = clean_path[len(BACKUP_BASE_DIR):].strip('/')
+    
+    # Construct full path: mongodb-manager-backups/user-input_mongodb_manager
+    folder_path_base = f"{BACKUP_BASE_DIR}/{clean_path}"
+    
+    # Automatically append suffix if not already present
+    if not folder_path_base.endswith(BACKUP_FOLDER_SUFFIX):
+        path = f"{folder_path_base}{BACKUP_FOLDER_SUFFIX}"
+    else:
+        path = folder_path_base
+    
+    console.print(f"[dim]Full path: {path}[/dim]")
     path_obj = Path(path)
     
     # Check if path exists

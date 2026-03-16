@@ -444,6 +444,101 @@ async def execute_command(
                 exit_code=1
             )
     
+    # Special handling for 'backup create' with connection and backup configuration
+    if request.command.strip() == "backup create":
+        
+        # Get parameters
+        connection_name = request.params.get("connection_name")
+        backup_name = request.params.get("backup_name")
+        backup_location = request.params.get("backup_location")
+        
+        if not connection_name:
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error="Connection name is required",
+                exit_code=1
+            )
+        
+        if not backup_name:
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error="Backup name is required",
+                exit_code=1
+            )
+        
+        if not backup_location:
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error="Backup location is required",
+                exit_code=1
+            )
+        
+        # Create backup using BackupManager directly
+        from app.core.connection_ops import ConnectionManager
+        from app.core.backup_ops import BackupManager
+        from pathlib import Path
+        
+        conn_mgr = ConnectionManager()
+        
+        # Get connection
+        connection = conn_mgr.get_connection(connection_name)
+        if not connection:
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error=f"Connection '{connection_name}' not found",
+                exit_code=1
+            )
+        
+        # Verify backup_location is in the connection's backup_paths
+        backup_paths = connection.get("backup_paths", [])
+        if backup_location not in backup_paths:
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error=f"Invalid backup location. Must be one of the configured backup folders.",
+                exit_code=1
+            )
+        
+        # Build URI from connection components
+        connection_uri = conn_mgr.repository.build_uri_from_connection(connection)
+        
+        # Create backup
+        backup_mgr = BackupManager(Path(backup_location))
+        
+        try:
+            backup_path = backup_mgr.create_backup(
+                connection_uri,
+                connection_name,
+                backup_name
+            )
+            
+            return CommandExecuteResponse(
+                success=True,
+                output=f"✓ Backup '{backup_name}' created successfully at {backup_path}",
+                error=None,
+                exit_code=0
+            )
+        except ValueError as e:
+            # Duplicate backup name or invalid name
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error=str(e),
+                exit_code=1
+            )
+        except Exception as e:
+            # mongodump failed
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error=f"Backup failed: {str(e)}",
+                exit_code=1
+            )
+    
     # Build CLI arguments from command and params
     cmd_parts = request.command.strip().split()
     

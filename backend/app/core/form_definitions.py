@@ -424,8 +424,8 @@ BACKUP_FOLDER_ADD_CONFIGURE_FORM = FormSchema(
             label="Backup Folder Path",
             type="text",
             required=True,
-            placeholder="/path/to/backups",
-            help_text="Folder path for backups ('_mongodb_manager' will be added automatically)"
+            placeholder="connection-name",
+            help_text="Name for this backup folder. Will be created as 'mongodb-manager-backups/your-name_mongodb_manager' automatically."
         ),
         FormField(
             id="create_if_missing",
@@ -526,9 +526,10 @@ BACKUP_CREATE_CONFIGURE_FORM = FormSchema(
         FormField(
             id="backup_location",
             label="Backup Location",
-            type="readonly",
-            content="",  # Populated with active_backup_path
-            help_text="Backup will be saved to this location"
+            type="select",
+            required=True,
+            options=[],  # Populated dynamically with backup_paths from selected connection
+            help_text="Choose the folder where backup will be saved"
         )
     ],
     actions=[
@@ -557,7 +558,19 @@ BACKUP_LIST_FORM = FormSchema(
             id="backups_list",
             label="",
             type="list",
-            items=[]  # Populated dynamically with backup data
+            items=[],  # Populated dynamically with backup data
+            list_config=ListDisplayConfig(
+                header_icon="💾",
+                fields=[
+                    ListItemField(key="backup_name", label="Backup Name", primary=True, icon="📦"),
+                    ListItemField(key="connection_name", label="Connection", icon="🔗"),
+                    ListItemField(key="folder_path", label="Location", icon="📂"),
+                    ListItemField(key="created_at", label="Created", type="date", icon="📅"),
+                    ListItemField(key="size", label="Size", icon="💾"),
+                    ListItemField(key="databases", label="Databases", type="list", icon="🗄️")
+                ],
+                count_label="backup(s)"
+            )
         )
     ],
     actions=[

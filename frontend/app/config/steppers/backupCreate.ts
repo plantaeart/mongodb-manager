@@ -73,21 +73,38 @@ export function createBackupCreateStepper(formId: string): StepperFormConfig {
       if (currentStep) {
         currentStep.formData = formSchema as any
         
-        // Get active backup path from step 1 metadata
+        // Get backup_paths from step 1 metadata
         const step1 = allSteps[0]
         const options = step1?.formData?.fields?.find((f: any) => f.id === 'connection_name')?.options || []
         const selectedOption = options.find((opt: any) => opt.value === connectionName)
-        const activeBackupPath = selectedOption?.metadata?.active_backup_path || 'Not configured'
+        const backupPaths = selectedOption?.metadata?.backup_paths || []
+        const activeBackupPath = selectedOption?.metadata?.active_backup_path
         
-        // Pre-populate backup location readonly field
+        // Populate backup_location dropdown with backup paths
         const locationField = currentStep.formData?.fields?.find((f: any) => f.id === 'backup_location')
-        if (locationField) {
-          locationField.content = activeBackupPath
-        }
-        
-        // Store connection_name for submission
-        currentStep.data = {
-          connection_name: connectionName
+        if (locationField && backupPaths.length > 0) {
+          locationField.options = backupPaths.map((path: string) => ({
+            value: path,
+            label: path,
+            description: path === activeBackupPath ? 'Active backup folder' : undefined
+          }))
+          
+          // Set default to active path if available
+          if (activeBackupPath) {
+            currentStep.data = {
+              connection_name: connectionName,
+              backup_location: activeBackupPath
+            }
+          } else {
+            currentStep.data = {
+              connection_name: connectionName
+            }
+          }
+        } else {
+          // Store connection_name for submission
+          currentStep.data = {
+            connection_name: connectionName
+          }
         }
       }
     },
@@ -97,8 +114,9 @@ export function createBackupCreateStepper(formId: string): StepperFormConfig {
 
       const hasErrors = Object.keys(step.errors).length > 0
       const hasBackupName = !!data.backup_name
+      const hasBackupLocation = !!data.backup_location
       
-      return hasBackupName && !hasErrors
+      return hasBackupName && hasBackupLocation && !hasErrors
     }
   }
 

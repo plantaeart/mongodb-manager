@@ -9,8 +9,8 @@ wheels/
 # Virtual environments
 .venv
 
-# Test backups
-*_mongodb_manager/
+# MongoDB backups
+mongodb-manager-backups/
 
 # MongoDB Manager config
 .mongodb-manager/
@@ -47,4 +47,3 @@ logs/
 
 # Docker volumes (if mounted locally)
 mongodb-data/
-backups/

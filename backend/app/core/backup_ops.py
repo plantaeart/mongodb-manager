@@ -52,11 +52,12 @@ class BackupManager:
         backup_path.mkdir(parents=True, exist_ok=True)
         
         # Run mongodump
+        # Note: --oplog is removed as it only works with replica sets
+        # and full dumps (no --db specified)
         cmd = [
             "mongodump",
             f"--uri={connection_uri}",
             f"--out={backup_path}",
-            "--oplog",
         ]
         
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -143,11 +144,11 @@ class BackupManager:
         Raises:
             Exception: If mongorestore fails
         """
+        # Note: --oplogReplay is removed as it only works with backups that have oplog
         cmd = [
             "mongorestore",
             f"--uri={connection_uri}",
             str(backup_path),
-            "--oplogReplay",
         ]
         
         if drop:

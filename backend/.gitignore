@@ -51,3 +51,6 @@ htmlcov/
 
 # Logs
 *.log
+
+# MongoDB backups (organized under single parent folder)
+mongodb-manager-backups/
