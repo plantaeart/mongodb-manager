@@ -14,7 +14,12 @@
   <div v-else class="terminal-form" :class="{ 'readonly': isReadonly }">
     <!-- Header -->
     <div class="form-header">
-      <h3>{{ formData.title }}</h3>
+      <div class="form-header-title">
+        <h3>{{ formData.title }}</h3>
+        <UBadge v-if="formData.step && formData.total_steps" color="primary" variant="subtle" size="sm" class="step-badge">
+          Step {{ formData.step }} of {{ formData.total_steps }}
+        </UBadge>
+      </div>
       <p v-if="formData.description">{{ formData.description }}</p>
     </div>
     
@@ -72,7 +77,6 @@ import TerminalFormStepper from './TerminalFormStepper.vue'
 import type { FormRequestMessage, FormField } from '~/types/terminal'
 import { CommandStatus } from '~/enums'
 import { getStepperConfig } from '~/config/stepperRegistry'
-import { getCommandFromFormTitle } from '~/config/terminalForms'
 
 interface Props {
   formData: FormRequestMessage
@@ -89,20 +93,29 @@ const emit = defineEmits<{
 
 // Detect if this is a stepper form and get its config
 const stepperConfig = computed(() => {
-  // Try to detect if this is a stepper form by matching the title pattern
-  const command = getCommandFromFormTitle(props.formData.title)
-  
-  if (command) {
-    const config = getStepperConfig(command, props.formId)
+  // Check if this is a multi-step form
+  if (props.formData.step && props.formData.total_steps) {
+    // Use the command field directly (set by useTerminal when form was fetched)
+    const command = props.formData.command || null
     
-    if (config && config.steps[0]) {
-      // Initialize Step 1 with the provided formData
-      config.steps[0].formData = props.formData
-      return config
+    if (command) {
+      const config = getStepperConfig(command, props.formId)
+      
+      if (config && config.steps[0]) {
+        // Initialize the current step with the provided formData
+        const stepIndex = (props.formData.step || 1) - 1
+        
+        if (config.steps[stepIndex]) {
+          config.steps[stepIndex].formData = props.formData
+          return config
+        }
+      }
     }
   }
+  
   return null
 })
+
 // State - MUST be declared before watch statements that reference them
 const fieldValues = ref<Record<string, any>>({})
 const fieldErrors = ref<Record<string, string>>({})
@@ -305,11 +318,23 @@ onUnmounted(() => {
   margin-bottom: 16px;
 }
 
+.form-header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
 .form-header h3 {
   color: var(--color-primary, #83a598);
   font-size: 16px;
-  margin: 0 0 4px 0;
+  margin: 0;
   font-weight: 600;
+}
+
+.step-badge {
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .form-header p {

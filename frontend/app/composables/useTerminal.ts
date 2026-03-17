@@ -212,12 +212,16 @@ class TerminalService {
       // Generate a unique form ID
       const formId = `form-${this.currentCommandId}`
       
-      // Add form_id to the form data (required by FormRequestMessage type)
+      // Add form_id and originating command to the form data
+      // IMPORTANT: step and total_steps MUST be forwarded from backend response
       const formWithId: FormRequestMessage = {
         type: 'form_request',
         form_id: formId,
+        command,                          // Originating terminal command
         title: formData.title,
         description: formData.description,
+        step: formData.step,              // Forward step info from backend
+        total_steps: formData.total_steps, // Forward total_steps from backend
         fields: formData.fields,
         actions: formData.actions
       }
@@ -315,7 +319,6 @@ class TerminalService {
 
       // Send components directly to backend (backend builds URI when needed)
       const { decodeConnectionData } = await import('~/utils/formHelpers')
-      const { getApiPathForCommand } = await import('~/config/terminalForms')
       
       const dataToSubmit = { ...data }
       const processedData = decodeConnectionData(dataToSubmit, formEntry.command)

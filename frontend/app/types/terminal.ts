@@ -6,7 +6,7 @@ export interface TerminalEntry {
   output: string[]
   timestamp: Date
   status: CommandStatus
-  form?: FormRequestMessage | FormStepperMessage | null
+  form?: FormRequestMessage | null
 }
 
 export interface WebSocketMessage {
@@ -86,26 +86,13 @@ export interface FormAction {
 export interface FormRequestMessage {
   type: 'form_request'
   form_id: string
+  command?: string  // Originating terminal command (e.g., 'connect update')
   title: string
   description?: string
+  step?: number  // Step number (1-indexed) for multi-step forms
+  total_steps?: number  // Total steps in multi-step flow
   fields: FormField[]
   actions: FormAction[]
-}
-
-export interface FormStep {
-  id: string
-  title: string
-  description?: string
-  fields: FormField[]
-}
-
-export interface FormStepperMessage {
-  type: 'form_stepper'
-  form_id: string
-  title: string
-  description?: string
-  steps: FormStep[]
-  actions: Record<string, FormAction>
 }
 
 export interface FormSubmitRequest {

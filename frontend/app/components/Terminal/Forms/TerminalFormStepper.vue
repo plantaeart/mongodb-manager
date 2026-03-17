@@ -129,9 +129,6 @@ import { isStepValid, canProceedFromStep, getAllStepData } from '~/types/stepper
 import type { FormField } from '~/types/terminal'
 import { CommandStatus } from '~/enums'
 import { useAuthStore } from '~/stores/auth'
-import { createLogger } from '~/services/logger'
-
-const logger = createLogger('StepperForm')
 
 interface Props {
   config: StepperFormConfig
@@ -224,14 +221,13 @@ const hasPrevious = computed(() => currentStepIndex.value > 0)
 const hasNext = computed(() => currentStepIndex.value < stepsRef.value.length - 1)
 
 // Can proceed to next step
-const canProceed = computed(() => {
-  return canProceedFromStep(currentStepIndex.value, stepsRef.value) && !isSubmitting.value
-})
+const canProceed = computed(() => 
+  canProceedFromStep(currentStepIndex.value, stepsRef.value) && !isSubmitting.value
+)
 
 // Can submit (last step valid)
 const canSubmit = computed(() => {
-  const lastStepIndex = stepsRef.value.length - 1
-  const lastStep = stepsRef.value[lastStepIndex]
+  const lastStep = stepsRef.value[stepsRef.value.length - 1]
   return lastStep && isStepValid(lastStep, stepsRef.value) && !isSubmitting.value
 })
 
@@ -292,13 +288,7 @@ const updateStepErrors = (stepIndex: number, errors: Record<string, string>) => 
 const handleFieldValueUpdate = (fieldId: string, value: any, stepIndex: number) => {
   const step = stepsRef.value[stepIndex]
   if (step) {
-    // Use Vue's reactivity system properly
-    step.data = {
-      ...step.data,
-      [fieldId]: value
-    }
-    
-    // CRITICAL: Trigger reactivity for computed properties to re-evaluate
+    step.data = { ...step.data, [fieldId]: value }
     triggerRef(stepsRef)
   }
 }
@@ -338,7 +328,6 @@ const handleNext = async () => {
     await loadStepData(nextIndex)
   }
   
-  // Move to next step
   if (nextStep) {
     stepper.value?.next()
   }
@@ -361,15 +350,12 @@ const handleSubmit = async () => {
   isSubmitting.value = true
   
   try {
-    // Get all data from all steps
     const allData = getAllStepData(stepsRef.value)
     
-    // Call custom submit handler if provided
     if (props.config.onSubmit) {
       await props.config.onSubmit(allData)
     }
     
-    // Emit to parent
     emit('submit', allData)
   } finally {
     isSubmitting.value = false
@@ -393,7 +379,6 @@ const handleStepChange = async (newStepIndex: number) => {
   if (step && step.loadData && !step.formData && !step.isLoading) {
     // Check if can proceed to this step
     if (newStepIndex > 0 && !canProceedFromStep(newStepIndex - 1, stepsRef.value)) {
-      // Go back to previous step
       stepper.value?.goToStep(newStepIndex - 1)
       return
     }
@@ -418,23 +403,17 @@ const loadStepData = async (stepIndex: number) => {
     if (step.formData) {
       step.formData.fields?.forEach(field => {
         if (step.data[field.id] === undefined) {
-          // Initialize with default value if provided
           if (field.default !== undefined) {
             step.data[field.id] = field.default
-          }
-          // Initialize checkbox fields with false for reactivity
-          else if (field.type === 'checkbox') {
+          } else if (field.type === 'checkbox') {
             step.data[field.id] = false
-          }
-          // Initialize checkbox-list fields with empty array for reactivity
-          else if (field.type === 'checkbox-list') {
+          } else if (field.type === 'checkbox-list') {
             step.data[field.id] = []
           }
         }
       })
     }
   } catch (error: any) {
-    // Go back to previous step on error
     if (stepIndex > 0) {
       stepper.value?.goToStep(stepIndex - 1)
     }
@@ -452,22 +431,15 @@ watch(() => props.config.steps, (newSteps) => {
 // Initialize all steps with form data
 watch(() => props.config, (config) => {
   if (config.steps.length > 0) {
-    // Initialize all steps that have formData
-    config.steps.forEach(step => {
+    config.steps.forEach((step) => {
       if (step && step.formData) {
-        // Initialize default values
         step.formData.fields?.forEach(field => {
           if (step.data[field.id] === undefined) {
-            // Initialize with default value if provided
             if (field.default !== undefined) {
               step.data[field.id] = field.default
-            }
-            // Initialize checkbox fields with false for reactivity
-            else if (field.type === 'checkbox') {
+            } else if (field.type === 'checkbox') {
               step.data[field.id] = false
-            }
-            // Initialize checkbox-list fields with empty array for reactivity
-            else if (field.type === 'checkbox-list') {
+            } else if (field.type === 'checkbox-list') {
               step.data[field.id] = []
             }
           }
@@ -475,7 +447,6 @@ watch(() => props.config, (config) => {
       }
     })
     
-    // Trigger reactivity after initialization to ensure validation runs
     triggerRef(stepsRef)
   }
 }, { immediate: true, deep: true })

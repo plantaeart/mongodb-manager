@@ -157,7 +157,7 @@ async def get_form_schema(
             })
         
         # Create a copy of the form schema and populate options
-        form_dict = form_schema.dict(exclude_none=True)
+        form_dict = form_schema.model_dump(exclude_none=True)
         
         # Find the connections field and populate options
         for field in form_dict.get("fields", []):
@@ -176,7 +176,7 @@ async def get_form_schema(
         connections = conn_mgr.list_connections()
         
         # Create a copy of the form schema
-        form_dict = form_schema.dict(exclude_none=True)
+        form_dict = form_schema.model_dump(exclude_none=True)
         
         # Build items array with connection data
         items = []
@@ -213,7 +213,7 @@ async def get_form_schema(
         conn_mgr = ConnectionManager()
         connections = conn_mgr.list_connections()
         
-        form_dict = form_schema.dict(exclude_none=True)
+        form_dict = form_schema.model_dump(exclude_none=True)
         
         # Build options from connections
         options = []
@@ -254,7 +254,7 @@ async def get_form_schema(
         conn_mgr = ConnectionManager()
         connections = conn_mgr.list_connections()
         
-        form_dict = form_schema.dict(exclude_none=True)
+        form_dict = form_schema.model_dump()
         
         # Build connection options for selector
         options = []
@@ -289,8 +289,7 @@ async def get_form_schema(
     
     # Special handling for connect/update/details: Step 2 form (no dynamic data needed here)
     if command_path == "connect/update/details":
-        # This form will be pre-populated by frontend when connection is selected
-        return form_schema.dict(exclude_none=True)
+        return form_schema.model_dump()
     
     # === BACKUP FOLDER FORMS ===
     
@@ -302,7 +301,7 @@ async def get_form_schema(
         conn_mgr = ConnectionManager()
         connections = conn_mgr.list_connections()
         
-        form_dict = form_schema.dict(exclude_none=True)
+        form_dict = form_schema.model_dump()
         
         # Build connection options with masked URI for display
         options = []
@@ -335,7 +334,7 @@ async def get_form_schema(
     
     # Special handling for backup/folder/add/configure: Step 1 form (no dynamic data needed)
     if command_path == "backup/folder/add/configure":
-        return form_schema.dict(exclude_none=True)
+        return form_schema.model_dump()
     
     # Special handling for backup/folder/list: populate filter and folder list
     if command_path == "backup/folder/list":
@@ -344,7 +343,7 @@ async def get_form_schema(
         conn_mgr = ConnectionManager()
         connections = conn_mgr.list_connections()
         
-        form_dict = form_schema.dict(exclude_none=True)
+        form_dict = form_schema.model_dump(exclude_none=True)
         
         # Build connection filter options
         filter_options = [{"value": "all", "label": "All Connections"}]
@@ -386,7 +385,7 @@ async def get_form_schema(
         conn_mgr = ConnectionManager()
         connections = conn_mgr.list_connections()
         
-        form_dict = form_schema.dict(exclude_none=True)
+        form_dict = form_schema.model_dump()
         
         # Build options - only connections with backup paths
         options = []
@@ -420,7 +419,7 @@ async def get_form_schema(
     
     # Special handling for backup/create/configure: Step 2 form (no dynamic data needed)
     if command_path == "backup/create/configure":
-        return form_schema.dict(exclude_none=True)
+        return form_schema.model_dump()
     
     # Special handling for backup/list: populate filter and backup list
     if command_path == "backup/list":
@@ -431,7 +430,7 @@ async def get_form_schema(
         conn_mgr = ConnectionManager()
         connections = conn_mgr.list_connections()
         
-        form_dict = form_schema.dict(exclude_none=True)
+        form_dict = form_schema.model_dump(exclude_none=True)
         
         # Build connection filter options
         filter_options = [{"value": "all", "label": "All Backups"}]
@@ -492,7 +491,7 @@ async def get_form_schema(
         conn_mgr = ConnectionManager()
         connections = conn_mgr.list_connections()
         
-        form_dict = form_schema.dict(exclude_none=True)
+        form_dict = form_schema.model_dump(exclude_none=True)
         
         # Collect all backups with composite key
         options = []
@@ -540,7 +539,7 @@ async def get_form_schema(
         conn_mgr = ConnectionManager()
         connections = conn_mgr.list_connections()
         
-        form_dict = form_schema.dict(exclude_none=True)
+        form_dict = form_schema.model_dump()
         
         # Collect all backups with composite key
         options = []
@@ -618,7 +617,7 @@ async def get_form_schema(
         conn_mgr = ConnectionManager()
         connections = conn_mgr.list_connections()
         
-        form_dict = form_schema.dict(exclude_none=True)
+        form_dict = form_schema.model_dump(exclude_none=True)
         
         # Build connection options
         connection_options = []
@@ -656,7 +655,7 @@ async def get_form_schema(
         return form_dict
     
     # Convert Pydantic model to dict for JSON response
-    return form_schema.dict(exclude_none=True)
+    return form_schema.model_dump(exclude_none=True)
 
 
 def _format_size(size_bytes: int) -> str:

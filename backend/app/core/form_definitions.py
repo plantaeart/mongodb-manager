@@ -68,27 +68,13 @@ class FormAction(BaseModel):
 
 
 class FormSchema(BaseModel):
-    """Single-step form schema"""
+    """Form schema (supports both single-step and multi-step forms)"""
     title: str
     description: Optional[str] = None
+    step: Optional[int] = None  # Step number (1-indexed) for multi-step forms
+    total_steps: Optional[int] = None  # Total steps in multi-step flow
     fields: List[FormField]
     actions: List[FormAction]
-
-
-class FormStep(BaseModel):
-    """Step in multi-step form"""
-    id: str
-    title: str
-    description: Optional[str] = None
-    fields: List[FormField]
-
-
-class FormStepperSchema(BaseModel):
-    """Multi-step form schema"""
-    title: str
-    description: Optional[str] = None
-    steps: List[FormStep]
-    actions: Dict[str, FormAction]  # next, previous, submit, cancel
 
 
 # === FORM DEFINITIONS ===
@@ -266,11 +252,13 @@ CONNECT_TEST_FORM = FormSchema(
 )
 
 
-# Connection Update Form - Step 1: Select Connection
+# Connection Update - Step 1: Select Connection
 # Note: Options are populated dynamically from ConnectionManager.list_connections()
 CONNECT_UPDATE_SELECT_FORM = FormSchema(
-    title="Update MongoDB Connection - Step 1",
+    title="Select Connection",
     description="Select the connection you want to update",
+    step=1,
+    total_steps=2,
     fields=[
         FormField(
             id="connection_name",
@@ -288,11 +276,13 @@ CONNECT_UPDATE_SELECT_FORM = FormSchema(
 )
 
 
-# Connection Update Form - Step 2: Update Details
+# Connection Update - Step 2: Update Details
 # Note: Form fields are pre-populated with existing connection data
 CONNECT_UPDATE_DETAILS_FORM = FormSchema(
-    title="Update MongoDB Connection - Step 2",
+    title="Update Details",
     description="Modify connection details",
+    step=2,
+    total_steps=2,
     fields=[
         
         # Connection Name (can be changed to rename)
@@ -394,30 +384,12 @@ CONNECT_UPDATE_DETAILS_FORM = FormSchema(
 
 # === BACKUP MANAGEMENT FORMS ===
 
-# Backup Folder Add - Step 2: Select Connection
-BACKUP_FOLDER_ADD_SELECT_FORM = FormSchema(
-    title="Add Backup Folder - Step 2",
-    description="Choose which connection this backup folder will be used for",
-    fields=[
-        FormField(
-            id="connection_name",
-            label="Connection",
-            type="select",
-            required=True,
-            help_text="Select the connection to add a backup folder to",
-            options=[]  # Populated dynamically
-        )
-    ],
-    actions=[
-        FormAction(label="Next", style="primary", action="submit"),
-        FormAction(label="Cancel", style="secondary", action="cancel")
-    ]
-)
-
 # Backup Folder Add - Step 1: Configure Folder
 BACKUP_FOLDER_ADD_CONFIGURE_FORM = FormSchema(
-    title="Add Backup Folder - Step 1",
+    title="Configure Folder",
     description="Enter backup folder path and options",
+    step=1,
+    total_steps=2,
     fields=[
         FormField(
             id="folder_path",
@@ -440,6 +412,28 @@ BACKUP_FOLDER_ADD_CONFIGURE_FORM = FormSchema(
             type="checkbox",
             default=True,
             help_text="Use this folder as the default for backups"
+        )
+    ],
+    actions=[
+        FormAction(label="Next", style="primary", action="submit"),
+        FormAction(label="Cancel", style="secondary", action="cancel")
+    ]
+)
+
+# Backup Folder Add - Step 2: Select Connection
+BACKUP_FOLDER_ADD_SELECT_FORM = FormSchema(
+    title="Select Connection",
+    description="Choose which connection this backup folder will be used for",
+    step=2,
+    total_steps=2,
+    fields=[
+        FormField(
+            id="connection_name",
+            label="Connection",
+            type="select",
+            required=True,
+            help_text="Select the connection to add a backup folder to",
+            options=[]  # Populated dynamically
         )
     ],
     actions=[
@@ -488,8 +482,10 @@ BACKUP_FOLDER_LIST_FORM = FormSchema(
 
 # Backup Create - Step 1: Select Connection
 BACKUP_CREATE_SELECT_FORM = FormSchema(
-    title="Create Backup - Step 1",
+    title="Select Connection",
     description="Choose connection to backup",
+    step=1,
+    total_steps=2,
     fields=[
         FormField(
             id="connection_name",
@@ -508,8 +504,10 @@ BACKUP_CREATE_SELECT_FORM = FormSchema(
 
 # Backup Create - Step 2: Configure Backup
 BACKUP_CREATE_CONFIGURE_FORM = FormSchema(
-    title="Create Backup - Step 2",
+    title="Configure Backup",
     description="Enter backup details",
+    step=2,
+    total_steps=2,
     fields=[
         FormField(
             id="backup_name",
@@ -618,8 +616,10 @@ BACKUP_DELETE_FORM = FormSchema(
 
 # Step 1: Select Backup to Restore
 BACKUP_RESTORE_SELECT_FORM = FormSchema(
-    title="Restore Backup - Step 1",
+    title="Select Backup",
     description="Select backup to restore",
+    step=1,
+    total_steps=2,
     fields=[
         FormField(
             id="backup_selector",
@@ -638,8 +638,10 @@ BACKUP_RESTORE_SELECT_FORM = FormSchema(
 
 # Step 2: Select Connection and Configure Restore Options
 BACKUP_RESTORE_CONFIGURE_FORM = FormSchema(
-    title="Restore Backup - Step 2",
+    title="Configure Restore",
     description="Select connection and confirm restore",
+    step=2,
+    total_steps=2,
     fields=[
         FormField(
             id="connection_name",

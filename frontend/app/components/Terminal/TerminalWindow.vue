@@ -89,23 +89,10 @@ const terminalHistory = computed(() =>
     
     // Deep copy form to remove readonly constraints
     if (entry.form) {
-      if (entry.form.type === 'form_request') {
-        newEntry.form = {
-          ...entry.form,
-          fields: [...entry.form.fields],
-          actions: [...entry.form.actions]
-        }
-      } else if (entry.form.type === 'form_stepper') {
-        newEntry.form = {
-          ...entry.form,
-          steps: entry.form.steps.map(step => ({
-            ...step,
-            fields: [...step.fields]
-          })),
-          actions: typeof entry.form.actions === 'object' && !Array.isArray(entry.form.actions)
-            ? { ...entry.form.actions }
-            : entry.form.actions
-        }
+      newEntry.form = {
+        ...entry.form,
+        fields: [...entry.form.fields],
+        actions: [...entry.form.actions]
       }
     }
     

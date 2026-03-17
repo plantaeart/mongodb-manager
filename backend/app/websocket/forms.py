@@ -5,7 +5,7 @@ import uuid
 from typing import Dict, Any, Optional
 from fastapi import WebSocket
 
-from app.core.form_definitions import FormSchema, FormStepperSchema
+from app.core.form_definitions import FormSchema
 
 
 class FormManager:
@@ -17,13 +17,13 @@ class FormManager:
     async def request_form(
         self,
         websocket: WebSocket,
-        form_schema: FormSchema | FormStepperSchema
+        form_schema: FormSchema
     ) -> Optional[Dict[str, Any]]:
         """Send form request to client and wait for response
         
         Args:
             websocket: WebSocket connection
-            form_schema: Form or stepper schema to send
+            form_schema: Form schema to send
             
         Returns:
             Form data dict if submitted, None if cancelled or timeout
@@ -34,17 +34,11 @@ class FormManager:
         future = asyncio.Future()
         self.pending_responses[form_id] = future
         
-        # Determine message type
-        if isinstance(form_schema, FormStepperSchema):
-            message_type = "form_stepper"
-        else:
-            message_type = "form_request"
-        
         # Send form to client
         await websocket.send_json({
-            "type": message_type,
+            "type": "form_request",
             "form_id": form_id,
-            **form_schema.dict(exclude_none=True)
+            **form_schema.model_dump(exclude_none=True)
         })
         
         try:
