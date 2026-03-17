@@ -2,7 +2,7 @@
 
 ## Overview
 
-MongoDB Manager uses semantic versioning (SemVer) for both frontend and backend components. This guide explains how to bump versions and deploy updates.
+MongoDB Manager uses semantic versioning (SemVer) for both frontend and backend components. Both versions are always kept in sync and bumped together using a single script.
 
 ## Semantic Versioning
 
@@ -12,107 +12,50 @@ Version format: `MAJOR.MINOR.PATCH`
 - **MINOR**: New features, backward compatible (e.g., 1.0.0 → 1.1.0)
 - **PATCH**: Bug fixes, backward compatible (e.g., 1.0.0 → 1.0.1)
 
-## Current Versions
+## Version Bump Script
 
-Check current versions:
+All version bumps go through a single script that updates both `frontend/package.json` and `backend/pyproject.toml` atomically:
+
+```bash
+# Bug fixes (1.0.0 → 1.0.1)
+./scripts/version.sh patch
+
+# New features (1.0.0 → 1.1.0)
+./scripts/version.sh minor
+
+# Breaking changes (1.0.0 → 2.0.0)
+./scripts/version.sh major
+```
+
+The script will:
+1. Show the current → new version for both components
+2. Ask for confirmation before making any changes
+3. Update `frontend/package.json` via `npm version`
+4. Update `backend/pyproject.toml` via sed
+5. Print the git commands to commit and tag the release
+
+## Current Versions
 
 ```bash
 # Frontend version
-cat frontend/package.json | grep version
+cat frontend/package.json | grep '"version"'
 
 # Backend version
-cat backend/pyproject.toml | grep version
+cat backend/pyproject.toml | grep '^version'
 ```
 
-## Version Bump Commands
-
-### Frontend (Nuxt/Vue)
-
-The frontend uses npm's built-in version management:
+## Full Release Workflow
 
 ```bash
-# Navigate to frontend directory
-cd frontend
+# 1. Bump both versions
+./scripts/version.sh minor   # or patch / major
 
-# Patch version (bug fixes: 1.0.0 → 1.0.1)
-npm run version:patch
+# 2. Commit and tag
+git add frontend/package.json backend/pyproject.toml
+git commit -m "chore: bump version to X.Y.Z"
+git tag vX.Y.Z
 
-# Minor version (new features: 1.0.0 → 1.1.0)
-npm run version:minor
-
-# Major version (breaking changes: 1.0.0 → 2.0.0)
-npm run version:major
-```
-
-**What it does:**
-- Updates `package.json` version
-- Creates git commit with version change
-- Creates git tag (e.g., `v1.1.0`)
-
-### Backend (Python/FastAPI)
-
-The backend requires manual version update in `pyproject.toml`:
-
-```bash
-# Edit backend version
-nano backend/pyproject.toml
-
-# Find and update the version line:
-version = "0.2.0"  # Change this number
-
-# Commit the change
-git add backend/pyproject.toml
-git commit -m "chore: bump backend version to 0.2.0"
-git tag backend-v0.2.0
-```
-
-## Typical Version Bump Workflow
-
-### For New Features
-
-```bash
-# 1. Navigate to project root
-cd mongodb-manager-app
-
-# 2. Bump frontend version (minor)
-cd frontend
-npm run version:minor
-cd ..
-
-# 3. Bump backend version (manual)
-# Edit backend/pyproject.toml: version = "0.2.0"
-nano backend/pyproject.toml
-
-# 4. Commit backend version
-git add backend/pyproject.toml
-git commit -m "chore: bump backend version to 0.2.0"
-
-# 5. Tag backend version
-git tag backend-v0.2.0
-
-# 6. Push changes and tags
-git push origin main
-git push origin --tags
-```
-
-### For Bug Fixes
-
-```bash
-# 1. Bump frontend version (patch)
-cd frontend
-npm run version:patch
-cd ..
-
-# 2. Bump backend version (manual)
-# Edit backend/pyproject.toml: version = "0.1.1"
-nano backend/pyproject.toml
-
-# 3. Commit and tag
-git add backend/pyproject.toml
-git commit -m "fix: bump backend version to 0.1.1"
-git tag backend-v0.1.1
-
-# 4. Push changes
+# 3. Push changes and tag
 git push origin main
 git push origin --tags
 ```
@@ -148,14 +91,12 @@ git pull origin main
 ./scripts/docker.sh prod logs --tail 50
 ```
 
-## Version History Best Practices
-
-### Git Commit Messages
+## Git Commit Message Convention
 
 Use conventional commit format:
 
-- `feat:` New feature (minor version bump)
-- `fix:` Bug fix (patch version bump)
+- `feat:` New feature → minor version bump
+- `fix:` Bug fix → patch version bump
 - `chore:` Maintenance, version bumps
 - `docs:` Documentation changes
 - `refactor:` Code refactoring
@@ -168,84 +109,17 @@ git commit -m "fix: resolve WebSocket reconnection issue"
 git commit -m "chore: bump version to 1.1.0"
 ```
 
-### Git Tags
+## Managing Git Tags
 
-Tags should match the version format:
-
-- Frontend: `v1.1.0` (npm creates automatically)
-- Backend: `backend-v0.2.0` (manual)
-
-**List all tags:**
 ```bash
+# List all tags
 git tag -l
-```
 
-**Delete tag (if needed):**
-```bash
-# Delete local tag
+# Delete a local tag (if needed)
 git tag -d v1.1.0
 
-# Delete remote tag
+# Delete a remote tag (if needed)
 git push origin --delete v1.1.0
-```
-
-## Version Synchronization
-
-While frontend and backend can have different versions, keep major versions aligned for clarity:
-
-| Component | Version | Notes |
-|-----------|---------|-------|
-| Frontend  | 1.1.0   | Nuxt/Vue application |
-| Backend   | 0.2.0   | FastAPI/Python API |
-
-**Recommendation**: When making breaking changes, bump both major versions together.
-
-## Changelog Maintenance
-
-Keep a `CHANGELOG.md` file (optional but recommended):
-
-```bash
-# Create changelog
-cat > CHANGELOG.md << 'EOF'
-# Changelog
-
-## [1.1.0] - 2024-02-16
-
-### Added
-- Interactive connection removal with table display
-- Double confirmation for safe deletion
-- Password masking in connection URIs
-
-### Fixed
-- Connection removal error handling
-
-## [1.0.0] - 2024-01-20
-
-### Added
-- Initial release
-- MongoDB connection management
-- Backup/restore operations
-- WebSocket terminal interface
-EOF
-```
-
-## Quick Reference
-
-```bash
-# Frontend version bump (new feature)
-cd frontend && npm run version:minor && cd ..
-
-# Backend version bump (manual)
-# 1. Edit backend/pyproject.toml
-# 2. git commit -m "chore: bump backend to X.Y.Z"
-# 3. git tag backend-vX.Y.Z
-
-# Restart dev stack
-./scripts/docker.sh dev down && ./scripts/docker.sh dev up -d --build
-
-# Deploy to production
-git push origin main --tags
-./scripts/docker.sh prod down && ./scripts/docker.sh prod up -d --build
 ```
 
 ## Related Documentation
