@@ -35,7 +35,7 @@
         :class="{ active: index === selectedSuggestionIndex }"
         @click="applySuggestion(suggestion)"
       >
-        <span class="suggestion-command">{{ suggestion }}</span>
+        <span class="suggestion-command" v-html="highlightMatch(suggestion, currentCommand)"></span>
       </div>
     </div>
   </div>
@@ -43,6 +43,9 @@
 
 <script setup lang="ts">
 import { TerminalCommand } from '~/enums'
+
+// Max number of suggestions shown in the dropdown
+const MAX_SUGGESTIONS = 10
 
 interface Props {
   isExecuting?: boolean
@@ -77,27 +80,53 @@ const isNavigatingSuggestions = ref(false)
 const availableCommands = props.suggestions
 
 // Compute suggestions based on current input
+// Priority: prefix matches first, then substring-only matches
 const computedSuggestions = computed(() => {
   if (!currentCommand.value) return []
-  
+
   const input = currentCommand.value.toLowerCase()
-  
-  // Filter commands that start with input BUT exclude exact matches
-  const matches: string[] = availableCommands.filter(cmd => {
+
+  // Prefix matches (start with input, not exact)
+  const prefixMatches = availableCommands.filter(cmd => {
     const cmdLower = cmd.toLowerCase()
     return cmdLower.startsWith(input) && cmdLower !== input
   })
-  
-  // Also include favorites that match (but not exact matches)
-  const favoriteMatches = props.favorites.filter(fav => {
-    const favLower = fav.toLowerCase()
-    return favLower.startsWith(input) && 
-           favLower !== input && 
-           !matches.includes(fav)
+
+  // Substring-only matches (contain input but don't start with it)
+  const substringMatches = availableCommands.filter(cmd => {
+    const cmdLower = cmd.toLowerCase()
+    return cmdLower.includes(input) && !cmdLower.startsWith(input)
   })
-  
-  return [...matches, ...favoriteMatches].slice(0, 5)
+
+  // Favorite matches: same two-tier logic, deduplicated against command matches
+  const existingMatches = new Set([...prefixMatches, ...substringMatches])
+  const favPrefixMatches = props.favorites.filter(fav => {
+    const favLower = fav.toLowerCase()
+    return favLower.startsWith(input) && favLower !== input && !existingMatches.has(fav)
+  })
+  const favSubstringMatches = props.favorites.filter(fav => {
+    const favLower = fav.toLowerCase()
+    return favLower.includes(input) && !favLower.startsWith(input) && !existingMatches.has(fav)
+  })
+
+  return [
+    ...prefixMatches,
+    ...favPrefixMatches,
+    ...substringMatches,
+    ...favSubstringMatches
+  ].slice(0, MAX_SUGGESTIONS)
 })
+
+// Highlight the matched substring within a suggestion
+const highlightMatch = (suggestion: string, input: string): string => {
+  if (!input) return suggestion
+  const idx = suggestion.toLowerCase().indexOf(input.toLowerCase())
+  if (idx === -1) return suggestion
+  const before = suggestion.slice(0, idx)
+  const match = suggestion.slice(idx, idx + input.length)
+  const after = suggestion.slice(idx + input.length)
+  return `${before}<mark>${match}</mark>${after}`
+}
 
 // Watch command input to show/hide suggestions
 watch(currentCommand, (value) => {
@@ -327,5 +356,18 @@ onMounted(() => {
 
 .suggestion-item.active .suggestion-command {
   color: var(--gb-yellow);
+}
+
+.suggestion-command :deep(mark) {
+  background: transparent !important;
+  color: var(--gb-yellow-bright);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.suggestion-item.active .suggestion-command :deep(mark) {
+  background: transparent !important;
+  color: var(--gb-aqua);
 }
 </style>
