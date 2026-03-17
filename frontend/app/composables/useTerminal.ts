@@ -106,6 +106,7 @@ class TerminalService {
           '',
           '  Backup Folder Management:',
           `    ${TerminalCommand.BACKUP_FOLDER_ADD}         - Add backup folder to connection`,
+          `    ${TerminalCommand.BACKUP_FOLDER_DELETE}      - Delete a backup folder`,
           `    ${TerminalCommand.BACKUP_FOLDER_LIST}        - List backup folders`,
           '',
           '  Backup Operations:',

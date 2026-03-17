@@ -50,6 +50,7 @@ services:
       - TZ=${TZ:-UTC}
       - PYTHONUNBUFFERED=1
       - NODE_ENV=${NODE_ENV:-production}
+      - BACKUP_BASE_DIR=/backups_mongodb_manager
       # MongoDB connection components (auto-generated URI in backend)
       - NUXT_MONGODB_USERNAME=${NUXT_MONGODB_USERNAME}
       - NUXT_MONGODB_PASSWORD=${NUXT_MONGODB_PASSWORD}

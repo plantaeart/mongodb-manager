@@ -447,9 +447,98 @@ async def execute_command(
                 exit_code=1
             )
     
+    # Special handling for 'backup folder delete' — remove folder from DB and delete from disk
+    if request.command.strip() == "backup folder delete":
+        
+        connection_name = request.params.get("connection_name")
+        folder_path = request.params.get("folder_path")
+        confirmation = request.params.get("confirmation", False)
+        
+        if not connection_name:
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error="Connection name is required",
+                exit_code=1
+            )
+        
+        if not folder_path:
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error="Folder path is required",
+                exit_code=1
+            )
+        
+        if not confirmation:
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error="You must confirm the deletion",
+                exit_code=1
+            )
+        
+        from app.core.connection_ops import ConnectionManager
+        from pathlib import Path
+        import shutil
+        
+        conn_mgr = ConnectionManager()
+        
+        # Verify connection and folder registration
+        connection = conn_mgr.get_connection(connection_name)
+        if not connection:
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error=f"Connection '{connection_name}' not found",
+                exit_code=1
+            )
+        
+        backup_paths = connection.get("backup_paths", [])
+        if folder_path not in backup_paths:
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error=f"Folder '{folder_path}' is not registered for connection '{connection_name}'",
+                exit_code=1
+            )
+        
+        # Remove from DB
+        if not conn_mgr.remove_backup_path(connection_name, folder_path):
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error="Failed to remove backup folder from connection",
+                exit_code=1
+            )
+        
+        # Delete physical directory
+        path_obj = Path(folder_path)
+        if not path_obj.is_absolute():
+            path_obj = Path.cwd() / path_obj
+        path_obj = path_obj.resolve()
+
+        if path_obj.exists():
+            try:
+                shutil.rmtree(path_obj)
+            except Exception as e:
+                return CommandExecuteResponse(
+                    success=False,
+                    output="",
+                    error=f"Folder removed from config but failed to delete from disk: {str(e)}",
+                    exit_code=1
+                )
+        
+        return CommandExecuteResponse(
+            success=True,
+            output=f"✓ Backup folder '{folder_path}' deleted successfully",
+            error=None,
+            exit_code=0
+        )
+    
     # Special handling for 'backup create' with connection and backup configuration
     if request.command.strip() == "backup create":
-        
+
         # Get parameters
         connection_name = request.params.get("connection_name")
         backup_name = request.params.get("backup_name")

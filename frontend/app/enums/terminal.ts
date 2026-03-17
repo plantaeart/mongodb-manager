@@ -16,6 +16,7 @@ export enum TerminalCommand {
   
   // Backup folder management
   BACKUP_FOLDER_ADD = 'backup folder add',
+  BACKUP_FOLDER_DELETE = 'backup folder delete',
   BACKUP_FOLDER_LIST = 'backup folder list',
   
   // Backup operations

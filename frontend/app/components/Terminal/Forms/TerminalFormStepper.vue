@@ -122,6 +122,7 @@ import TerminalNumberField from './Fields/TerminalNumberField.vue'
 import TerminalCheckboxField from './Fields/TerminalCheckboxField.vue'
 import TerminalCheckboxListField from './Fields/TerminalCheckboxListField.vue'
 import TerminalSelectField from './Fields/TerminalSelectField.vue'
+import TerminalReadonlyField from './Fields/TerminalReadonlyField.vue'
 import TerminalCustomStepper from './TerminalCustomStepper.vue'
 import CommandsConnectUpdateSelectConnection from '~/components/Commands/Connect/Update/SelectConnection.vue'
 import CommandsConnectUpdateUpdateDetails from '~/components/Commands/Connect/Update/UpdateDetails.vue'
@@ -245,6 +246,8 @@ const getFieldComponent = (field: FormField) => {
       return TerminalCheckboxListField
     case 'select':
       return TerminalSelectField
+    case 'readonly':
+      return TerminalReadonlyField
     default:
       return TerminalTextField
   }

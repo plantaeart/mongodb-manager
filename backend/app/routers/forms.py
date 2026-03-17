@@ -10,6 +10,8 @@ from app.core.form_definitions import (
     CONNECT_UPDATE_DETAILS_FORM,
     BACKUP_FOLDER_ADD_SELECT_FORM,
     BACKUP_FOLDER_ADD_CONFIGURE_FORM,
+    BACKUP_FOLDER_DELETE_SELECT_FORM,
+    BACKUP_FOLDER_DELETE_CONFIRM_FORM,
     BACKUP_FOLDER_LIST_FORM,
     BACKUP_CREATE_SELECT_FORM,
     BACKUP_CREATE_CONFIGURE_FORM,
@@ -34,6 +36,8 @@ FORM_REGISTRY = {
     # Backup management forms (multi-step)
     "backup/folder/add/select": BACKUP_FOLDER_ADD_SELECT_FORM,
     "backup/folder/add/configure": BACKUP_FOLDER_ADD_CONFIGURE_FORM,
+    "backup/folder/delete/select": BACKUP_FOLDER_DELETE_SELECT_FORM,
+    "backup/folder/delete/confirm": BACKUP_FOLDER_DELETE_CONFIRM_FORM,
     "backup/folder/list": BACKUP_FOLDER_LIST_FORM,
     "backup/create/select": BACKUP_CREATE_SELECT_FORM,
     "backup/create/configure": BACKUP_CREATE_CONFIGURE_FORM,
@@ -334,6 +338,46 @@ async def get_form_schema(
     
     # Special handling for backup/folder/add/configure: Step 1 form (no dynamic data needed)
     if command_path == "backup/folder/add/configure":
+        return form_schema.model_dump()
+    
+    # === BACKUP FOLDER DELETE FORMS ===
+    
+    # Special handling for backup/folder/delete/select: populate connections that have backup folders (Step 1)
+    if command_path == "backup/folder/delete/select":
+        from app.core.connection_ops import ConnectionManager
+        
+        conn_mgr = ConnectionManager()
+        connections = conn_mgr.list_connections()
+        
+        form_dict = form_schema.model_dump()
+        
+        # Only include connections that have at least one backup folder
+        options = []
+        for conn in connections:
+            backup_paths = conn.get("backup_paths", [])
+            if backup_paths:
+                folder_count = len(backup_paths)
+                options.append({
+                    "value": conn["name"],
+                    "label": conn["name"],
+                    "description": f"{folder_count} backup folder(s)",
+                    "metadata": {
+                        "backup_paths": backup_paths,
+                        "description": conn.get("description", "")
+                    }
+                })
+        
+        # Update connection selector field
+        for field in form_dict.get("fields", []):
+            if field["id"] == "connection_name":
+                field["options"] = options
+                break
+        
+        return form_dict
+    
+    # Special handling for backup/folder/delete/confirm: Step 2 form (no dynamic data needed here)
+    # Folder options are populated by the frontend stepper from step 1 metadata
+    if command_path == "backup/folder/delete/confirm":
         return form_schema.model_dump()
     
     # Special handling for backup/folder/list: populate filter and folder list
@@ -755,6 +799,89 @@ async def submit_backup_folder_add(
         return {
             "success": True,
             "message": f"Backup folder added: {folder_path}"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/backup/folder/delete/confirm")
+async def submit_backup_folder_delete(
+    form_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete a backup folder from a connection (removes DB record + physical directory)
+    
+    Args:
+        form_data: Form submission data with connection_name, folder_path, confirmation
+        
+    Returns:
+        Success message or error
+    """
+    from app.core.connection_ops import ConnectionManager
+    import shutil
+    from pathlib import Path
+    
+    try:
+        connection_name = form_data.get("connection_name")
+        folder_path = form_data.get("folder_path")
+        confirmation = form_data.get("confirmation", False)
+        
+        if not connection_name or not folder_path:
+            raise HTTPException(status_code=400, detail="Missing required fields")
+        
+        if not confirmation:
+            raise HTTPException(
+                status_code=400,
+                detail="You must confirm the deletion"
+            )
+        
+        # Verify connection exists and folder is registered
+        conn_mgr = ConnectionManager()
+        connection = conn_mgr.get_connection(connection_name)
+        
+        if not connection:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Connection '{connection_name}' not found"
+            )
+        
+        backup_paths = connection.get("backup_paths", [])
+        if folder_path not in backup_paths:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Folder '{folder_path}' is not registered for connection '{connection_name}'"
+            )
+        
+        # Remove from connection's backup_paths in DB
+        success = conn_mgr.remove_backup_path(connection_name, folder_path)
+        if not success:
+            raise HTTPException(
+                status_code=400,
+                detail="Failed to remove backup folder from connection"
+            )
+        
+        # Delete physical directory if it exists
+        # Resolve to absolute path relative to current working directory
+        path_obj = Path(folder_path)
+        if not path_obj.is_absolute():
+            path_obj = Path.cwd() / path_obj
+        path_obj = path_obj.resolve()
+
+        if path_obj.exists():
+            try:
+                shutil.rmtree(path_obj)
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Folder removed from config but failed to delete from disk: {str(e)}"
+                )
+        
+        return {
+            "success": True,
+            "message": f"Backup folder '{folder_path}' deleted successfully"
         }
         
     except HTTPException:

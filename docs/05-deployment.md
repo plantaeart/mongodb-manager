@@ -2,17 +2,19 @@
 
 ## Restart Dev Stack
 
-### With cache (fast, use after most code changes)
+The app runs inside Docker Compose. Always restart after code changes.
+
+### Default (most code changes)
 ```bash
 ./scripts/docker.sh dev restart --cache
 ```
 
-### Without cache (clean rebuild, use after dependency changes)
+### Without cache (big changes only)
 ```bash
 ./scripts/docker.sh dev restart --no-cache
 ```
 
-> Use `--no-cache` when `package.json` or `requirements.txt` changed, or after a version bump.
+> Use `--no-cache` only when `package.json` or `requirements.txt` changed, or after a version bump.
 
 ## Related Documentation
 

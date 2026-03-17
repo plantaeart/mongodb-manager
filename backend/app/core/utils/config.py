@@ -16,8 +16,10 @@ load_dotenv()
 BACKUP_FOLDER_SUFFIX = "_mongodb_manager"
 """Suffix automatically appended to all backup folder paths"""
 
-BACKUP_BASE_DIR = "mongodb-manager-backups"
-"""Base directory for all MongoDB backups"""
+BACKUP_BASE_DIR = os.getenv("BACKUP_BASE_DIR", "/backups_mongodb_manager")
+"""Base directory for all MongoDB backups.
+Defaults to /backups_mongodb_manager (the Docker volume mount point).
+Override via BACKUP_BASE_DIR env var if needed."""
 
 
 def get_env_var(key: str, default: str = "") -> str:

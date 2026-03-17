@@ -405,13 +405,6 @@ BACKUP_FOLDER_ADD_CONFIGURE_FORM = FormSchema(
             type="checkbox",
             default=True,
             help_text="Automatically create the folder if not found"
-        ),
-        FormField(
-            id="set_as_active",
-            label="Set as active backup folder",
-            type="checkbox",
-            default=True,
-            help_text="Use this folder as the default for backups"
         )
     ],
     actions=[
@@ -438,6 +431,67 @@ BACKUP_FOLDER_ADD_SELECT_FORM = FormSchema(
     ],
     actions=[
         FormAction(label="Add Folder", style="primary", action="submit"),
+        FormAction(label="Cancel", style="secondary", action="cancel")
+    ]
+)
+
+
+# Backup Folder Delete - Step 1: Select Connection
+# Note: Options are populated dynamically (only connections with backup folders)
+BACKUP_FOLDER_DELETE_SELECT_FORM = FormSchema(
+    title="Select Connection",
+    description="Choose which connection's backup folder you want to delete",
+    step=1,
+    total_steps=2,
+    fields=[
+        FormField(
+            id="connection_name",
+            label="Connection",
+            type="select",
+            required=True,
+            help_text="Select the connection whose backup folder you want to remove",
+            options=[]  # Populated dynamically (only connections with backup_paths)
+        )
+    ],
+    actions=[
+        FormAction(label="Next", style="primary", action="submit"),
+        FormAction(label="Cancel", style="secondary", action="cancel")
+    ]
+)
+
+# Backup Folder Delete - Step 2: Select Folder & Confirm
+# Note: Options are populated dynamically from the connection selected in step 1
+BACKUP_FOLDER_DELETE_CONFIRM_FORM = FormSchema(
+    title="Delete Backup Folder",
+    description="Select the folder to remove and confirm",
+    step=2,
+    total_steps=2,
+    fields=[
+        FormField(
+            id="folder_path",
+            label="Backup Folder",
+            type="select",
+            required=True,
+            help_text="Select the backup folder to permanently delete",
+            options=[]  # Populated dynamically from selected connection's backup_paths
+        ),
+        FormField(
+            id="warning",
+            label="",
+            type="readonly",
+            content="⚠️ WARNING: This will permanently delete the folder and ALL backup files inside it. This action cannot be undone.",
+            help_text=""
+        ),
+        FormField(
+            id="confirmation",
+            label="I understand this will permanently delete the folder and all its backups",
+            type="checkbox",
+            required=True,
+            help_text="You must confirm to proceed with deletion"
+        )
+    ],
+    actions=[
+        FormAction(label="Delete Folder", style="danger", action="submit"),
         FormAction(label="Cancel", style="secondary", action="cancel")
     ]
 )

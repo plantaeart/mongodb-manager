@@ -29,6 +29,7 @@ export const COMMAND_TO_API_PATH: Record<string, string> = {
   
   // Backup Folder Management Commands (multi-step)
   'backup folder add': 'backup/folder/add/configure',  // Step 1: Configure folder path
+  'backup folder delete': 'backup/folder/delete/select',  // Step 1: Select connection
   'backup folder list': 'backup/folder/list',
   
   // Backup Operation Commands (multi-step)
@@ -55,6 +56,7 @@ export const COMMAND_TO_POST_API_PATH: Record<string, string> = {
   
   // Multi-step forms (final step POST endpoint)
   'backup folder add': 'backup/folder/add/configure',  // Step 2 POST
+  'backup folder delete': 'backup/folder/delete/confirm',  // Step 2 POST
   'backup create': 'backup/create/configure',  // Step 2 POST
   'backup restore': 'backup/restore/configure',  // Step 2 POST
 }

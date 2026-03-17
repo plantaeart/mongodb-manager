@@ -51,6 +51,7 @@ services:
       - PYTHONUNBUFFERED=1
       - WATCHFILES_FORCE_POLLING=true
       - NODE_ENV=${NODE_ENV:-development}
+      - BACKUP_BASE_DIR=/backups_mongodb_manager
       # MongoDB connection components (auto-generated URI in backend)
       - NUXT_MONGODB_USERNAME=${NUXT_MONGODB_USERNAME:-mongodb_manager_admin}
       - NUXT_MONGODB_PASSWORD=${NUXT_MONGODB_PASSWORD:-changeme123}
