@@ -118,6 +118,7 @@ import { ref, computed, watch, triggerRef } from 'vue'
 import TerminalTextField from './Fields/TerminalTextField.vue'
 import TerminalPasswordField from './Fields/TerminalPasswordField.vue'
 import TerminalNumberField from './Fields/TerminalNumberField.vue'
+import TerminalCheckboxField from './Fields/TerminalCheckboxField.vue'
 import TerminalCheckboxListField from './Fields/TerminalCheckboxListField.vue'
 import TerminalSelectField from './Fields/TerminalSelectField.vue'
 import TerminalCustomStepper from './TerminalCustomStepper.vue'
@@ -241,6 +242,8 @@ const getFieldComponent = (field: FormField) => {
       return TerminalPasswordField
     case 'number':
       return TerminalNumberField
+    case 'checkbox':
+      return TerminalCheckboxField
     case 'checkbox-list':
       return TerminalCheckboxListField
     case 'select':
@@ -419,6 +422,10 @@ const loadStepData = async (stepIndex: number) => {
           if (field.default !== undefined) {
             step.data[field.id] = field.default
           }
+          // Initialize checkbox fields with false for reactivity
+          else if (field.type === 'checkbox') {
+            step.data[field.id] = false
+          }
           // Initialize checkbox-list fields with empty array for reactivity
           else if (field.type === 'checkbox-list') {
             step.data[field.id] = []
@@ -454,6 +461,10 @@ watch(() => props.config, (config) => {
             // Initialize with default value if provided
             if (field.default !== undefined) {
               step.data[field.id] = field.default
+            }
+            // Initialize checkbox fields with false for reactivity
+            else if (field.type === 'checkbox') {
+              step.data[field.id] = false
             }
             // Initialize checkbox-list fields with empty array for reactivity
             else if (field.type === 'checkbox-list') {

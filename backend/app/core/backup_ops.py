@@ -131,28 +131,64 @@ class BackupManager:
     def restore_backup(
         self, 
         backup_path: Path, 
-        connection_uri: str, 
+        connection_uri: str,
+        target_database: str = None,
         drop: bool = False
     ):
         """Restore MongoDB using mongorestore
         
         Args:
-            backup_path: Path to backup folder
+            backup_path: Path to backup folder (contains database subdirectories)
             connection_uri: MongoDB connection URI to restore to
+            target_database: Target database name to restore to (required)
             drop: Whether to drop existing collections before restore
             
         Raises:
-            Exception: If mongorestore fails
+            Exception: If mongorestore fails or database not found in backup
         """
-        # Note: --oplogReplay is removed as it only works with backups that have oplog
+        # Find database folders in backup
+        db_folders = [d for d in backup_path.iterdir() if d.is_dir() and not d.name.startswith('.')]
+        
+        if not db_folders:
+            raise Exception(f"No database folders found in backup: {backup_path}")
+        
+        # If target_database specified, find matching database in backup
+        # Otherwise, restore the first (or only) database found
+        source_db_path = None
+        if target_database:
+            # Look for exact match first
+            for db_folder in db_folders:
+                if db_folder.name == target_database:
+                    source_db_path = db_folder
+                    break
+            
+            # If no exact match, use the first database and restore to target_database
+            if not source_db_path and db_folders:
+                source_db_path = db_folders[0]
+        else:
+            # No target specified, restore first database
+            source_db_path = db_folders[0]
+        
+        if not source_db_path:
+            raise Exception(f"Database not found in backup: {backup_path}")
+        
+        # Build mongorestore command
+        # Format: mongorestore --uri=... --db=target_db --drop source_db_folder/
         cmd = [
             "mongorestore",
             f"--uri={connection_uri}",
-            str(backup_path),
         ]
         
+        # Add --db to specify target database
+        if target_database:
+            cmd.append(f"--db={target_database}")
+        
+        # Add --drop to drop existing collections before restore
         if drop:
             cmd.append("--drop")
+        
+        # Add source database path
+        cmd.append(str(source_db_path))
         
         result = subprocess.run(cmd, capture_output=True, text=True)
         

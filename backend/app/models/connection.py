@@ -1,6 +1,6 @@
 """MongoDB Connection Model"""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from pydantic import BaseModel, Field
 
@@ -20,8 +20,8 @@ class ConnectionDocument(BaseModel):
     database: Optional[str] = Field(default=None, description="Default database")
     auth_source: str = Field(default="admin", description="Authentication database")
     description: str = Field(default="", description="Connection description")
-    added_at: datetime = Field(default_factory=datetime.utcnow, description="When connection was created")
-    updated_at: datetime = Field(default_factory=datetime.utcnow, description="When connection was last updated")
+    added_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="When connection was created")
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="When connection was last updated")
     backup_paths: list[str] = Field(default_factory=list, description="List of backup folder paths")
     active_backup_path: Optional[str] = Field(default=None, description="Currently active backup path")
     created_by: str = Field(default="admin", description="User who created this connection")

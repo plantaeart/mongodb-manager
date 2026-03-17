@@ -7,6 +7,7 @@ import type { StepperFormConfig } from '~/types/stepper'
 import { createConnectUpdateStepper } from './steppers/connectUpdate'
 import { createBackupFolderAddStepper } from './steppers/backupFolderAdd'
 import { createBackupCreateStepper } from './steppers/backupCreate'
+import { createBackupRestoreStepper } from './steppers/backupRestore'
 
 /**
  * Get stepper configuration for a command
@@ -24,6 +25,9 @@ export function getStepperConfig(command: string, formId: string): StepperFormCo
     
     case 'backup create':
       return createBackupCreateStepper(formId)
+    
+    case 'backup restore':
+      return createBackupRestoreStepper(formId)
     
     default:
       return null

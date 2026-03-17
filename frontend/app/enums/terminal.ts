@@ -22,6 +22,7 @@ export enum TerminalCommand {
   BACKUP_CREATE = 'backup create',
   BACKUP_LIST = 'backup list',
   BACKUP_DELETE = 'backup delete',
+  BACKUP_RESTORE = 'backup restore',
   
   // Authentication
   AUTH_CHANGE_PASSWORD = 'auth change-password',

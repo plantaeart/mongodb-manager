@@ -1,6 +1,6 @@
 import type { TerminalEntry, WebSocketMessage, FormRequestMessage, FormSubmitRequest, FormCancelRequest } from '~/types/terminal'
 import { CommandStatus, TerminalCommand, WebSocketMessageType, StorageKey } from '~/enums'
-import { getApiPathForCommand } from '~/config/terminalForms'
+import { getApiPathForCommand, getPostApiPathForCommand } from '~/config/terminalForms'
 
 /**
  * TerminalService - True Singleton
@@ -112,6 +112,7 @@ class TerminalService {
           `    ${TerminalCommand.BACKUP_CREATE}             - Create a new backup`,
           `    ${TerminalCommand.BACKUP_LIST}               - List all backups`,
           `    ${TerminalCommand.BACKUP_DELETE}             - Delete a backup`,
+          `    ${TerminalCommand.BACKUP_RESTORE}            - Restore from backup`,
           '',
           '  Authentication:',
           `    ${TerminalCommand.AUTH_CHANGE_PASSWORD}      - Change your password`,
@@ -319,8 +320,8 @@ class TerminalService {
       const dataToSubmit = { ...data }
       const processedData = decodeConnectionData(dataToSubmit, formEntry.command)
 
-      // Get API path for this command
-      const apiPath = getApiPathForCommand(formEntry.command)
+      // Get POST API path for this command (final step for multi-step forms)
+      const postApiPath = getPostApiPathForCommand(formEntry.command)
       
       // Determine which endpoint to use
       // Commands with dedicated form submission endpoints should use /api/forms/{path}
@@ -328,8 +329,8 @@ class TerminalService {
       const config = useRuntimeConfig()
       const backendUrl = config.public.backendUrl || 'http://localhost:9000'
       
-      const hasFormEndpoint = apiPath && this.shouldUseFormEndpoint(formEntry.command)
-      const endpoint = hasFormEndpoint ? `${backendUrl}/api/forms/${apiPath}` : `${backendUrl}/api/commands/execute`
+      const hasFormEndpoint = postApiPath && this.shouldUseFormEndpoint(formEntry.command)
+      const endpoint = hasFormEndpoint ? `${backendUrl}/api/forms/${postApiPath}` : `${backendUrl}/api/commands/execute`
       const requestBody = hasFormEndpoint ? processedData : { command: formEntry.command, params: processedData }
       
       const response = await fetch(endpoint, {
@@ -372,6 +373,7 @@ class TerminalService {
     // Commands that have dedicated form submission endpoints
     const formEndpointCommands = [
       'backup delete',
+      'backup restore',
       // Add more commands here as they get form endpoints
     ]
     

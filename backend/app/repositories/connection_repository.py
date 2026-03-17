@@ -3,7 +3,7 @@
 This repository provides all database operations for managing connections.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from pymongo.database import Database
 from pymongo.errors import DuplicateKeyError
@@ -62,8 +62,8 @@ class ConnectionRepository:
                 database=database,
                 auth_source=auth_source,
                 description=description,
-                added_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
+                added_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
                 backup_paths=[],
                 active_backup_path=None,
                 created_by=created_by
@@ -133,7 +133,7 @@ class ConnectionRepository:
                 return False
         
         # Build update document
-        update_doc = {"updated_at": datetime.utcnow()}
+        update_doc = {"updated_at": datetime.now(timezone.utc)}
         
         if new_name and new_name != name:
             update_doc["name"] = new_name
@@ -223,7 +223,7 @@ class ConnectionRepository:
             {"name": connection_name},
             {
                 "$push": {"backup_paths": path},
-                "$set": {"updated_at": datetime.utcnow()}
+                "$set": {"updated_at": datetime.now(timezone.utc)}
             }
         )
         
@@ -251,7 +251,7 @@ class ConnectionRepository:
         # Remove path
         update_ops = {
             "$pull": {"backup_paths": path},
-            "$set": {"updated_at": datetime.utcnow()}
+            "$set": {"updated_at": datetime.now(timezone.utc)}
         }
         
         # If this was the active path, clear it
@@ -290,7 +290,7 @@ class ConnectionRepository:
             {
                 "$set": {
                     "active_backup_path": path,
-                    "updated_at": datetime.utcnow()
+                    "updated_at": datetime.now(timezone.utc)
                 }
             }
         )
@@ -324,7 +324,7 @@ class ConnectionRepository:
         
         # Update path in array
         update_ops = {
-            "$set": {"updated_at": datetime.utcnow()}
+            "$set": {"updated_at": datetime.now(timezone.utc)}
         }
         
         # Pull old path and push new path

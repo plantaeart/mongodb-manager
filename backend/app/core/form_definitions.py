@@ -612,3 +612,61 @@ BACKUP_DELETE_FORM = FormSchema(
         FormAction(label="Cancel", style="secondary", action="cancel")
     ]
 )
+
+
+# Backup Restore Forms (Multi-step)
+
+# Step 1: Select Backup to Restore
+BACKUP_RESTORE_SELECT_FORM = FormSchema(
+    title="Restore Backup - Step 1",
+    description="Select backup to restore",
+    fields=[
+        FormField(
+            id="backup_selector",
+            label="Select Backup to Restore",
+            type="select",
+            required=True,
+            help_text="Choose the backup to restore",
+            options=[]  # Populated with format: "folder_path|backup_name"
+        )
+    ],
+    actions=[
+        FormAction(label="Next", style="primary", action="next"),
+        FormAction(label="Cancel", style="secondary", action="cancel")
+    ]
+)
+
+# Step 2: Select Connection and Configure Restore Options
+BACKUP_RESTORE_CONFIGURE_FORM = FormSchema(
+    title="Restore Backup - Step 2",
+    description="Select connection and confirm restore",
+    fields=[
+        FormField(
+            id="connection_name",
+            label="Restore to Connection",
+            type="select",
+            required=True,
+            help_text="Target connection for restore",
+            options=[]  # Populated with connections
+        ),
+        FormField(
+            id="drop_collections",
+            label="Drop existing collections before restore",
+            type="checkbox",
+            required=False,
+            default=True,
+            help_text="If checked, existing collections will be dropped before restore (recommended). If unchecked, backup data will be merged with existing data."
+        ),
+        FormField(
+            id="confirmation",
+            label="I understand this will modify data in the selected connection",
+            type="checkbox",
+            required=True,
+            help_text="Please confirm you want to proceed with the restore operation"
+        )
+    ],
+    actions=[
+        FormAction(label="Restore Backup", style="primary", action="submit"),
+        FormAction(label="Cancel", style="secondary", action="cancel")
+    ]
+)

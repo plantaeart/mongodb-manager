@@ -1,6 +1,6 @@
 """HTTP API endpoints for form management"""
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from app.core.form_definitions import (
     CONNECT_ADD_FORM, 
     CONNECT_REMOVE_FORM, 
@@ -14,7 +14,9 @@ from app.core.form_definitions import (
     BACKUP_CREATE_SELECT_FORM,
     BACKUP_CREATE_CONFIGURE_FORM,
     BACKUP_LIST_FORM,
-    BACKUP_DELETE_FORM
+    BACKUP_DELETE_FORM,
+    BACKUP_RESTORE_SELECT_FORM,
+    BACKUP_RESTORE_CONFIGURE_FORM
 )
 from app.middleware.auth import get_current_user
 
@@ -37,6 +39,8 @@ FORM_REGISTRY = {
     "backup/create/configure": BACKUP_CREATE_CONFIGURE_FORM,
     "backup/list": BACKUP_LIST_FORM,
     "backup/delete": BACKUP_DELETE_FORM,
+    "backup/restore/select": BACKUP_RESTORE_SELECT_FORM,
+    "backup/restore/configure": BACKUP_RESTORE_CONFIGURE_FORM,
 }
 
 
@@ -83,6 +87,7 @@ async def get_connection_details(
 @router.get("/{command_path:path}")
 async def get_form_schema(
     command_path: str,
+    request: Request,
     current_user: dict = Depends(get_current_user)
 ):
     """Get form schema for a command
@@ -526,6 +531,130 @@ async def get_form_schema(
         
         return form_dict
     
+    # Special handling for backup/restore/select: populate backup selector (Step 1)
+    if command_path == "backup/restore/select":
+        from app.core.connection_ops import ConnectionManager
+        from app.core.backup_ops import BackupManager
+        from pathlib import Path
+        
+        conn_mgr = ConnectionManager()
+        connections = conn_mgr.list_connections()
+        
+        form_dict = form_schema.dict(exclude_none=True)
+        
+        # Collect all backups with composite key
+        options = []
+        for conn in connections:
+            backup_paths = conn.get("backup_paths", [])
+            for backup_path in backup_paths:
+                backup_mgr = BackupManager(Path(backup_path))
+                backups = backup_mgr.list_backups()
+                
+                for backup in backups:
+                    backup_name = backup.get("backup_name", backup["name"])
+                    created_at = backup.get("created_at", "")
+                    size = backup.get("size", 0)
+                    databases = backup.get("databases", [])
+                    
+                    # Composite key: folder_path|backup_name
+                    composite_key = f"{backup_path}|{backup_name}"
+                    
+                    # Format label with details
+                    size_str = _format_size(size) if size else "Unknown"
+                    db_count = len(databases) if isinstance(databases, list) else 0
+                    
+                    options.append({
+                        "value": composite_key,
+                        "label": f"{backup_name} ({conn['name']}) - {size_str}",
+                        "description": f"Created: {created_at} | {db_count} database(s)",
+                        "metadata": {
+                            "folder_path": backup_path,
+                            "backup_name": backup_name,
+                            "connection_name": conn["name"],
+                            "size": size,
+                            "databases": databases,
+                            "created_at": created_at
+                        }
+                    })
+        
+        # Sort by creation date (newest first)
+        options.sort(key=lambda x: x["metadata"].get("created_at", ""), reverse=True)
+        
+        # Update backup selector field
+        for field in form_dict.get("fields", []):
+            if field["id"] == "backup_selector":
+                field["options"] = options
+                break
+        
+        return form_dict
+    
+    # Special handling for backup/restore/configure: populate connection selector (Step 2)
+    if command_path == "backup/restore/configure":
+        from app.core.connection_ops import ConnectionManager
+        from app.core.backup_ops import BackupManager
+        from app.core.utils.uri_builder import build_mongodb_uri_masked
+        from pathlib import Path
+        
+        # Get backup_selector from query params
+        backup_selector = request.query_params.get("backup_selector")
+        if not backup_selector:
+            raise HTTPException(status_code=400, detail="backup_selector query parameter required")
+        
+        # Parse composite key
+        try:
+            folder_path, backup_name = backup_selector.split("|", 1)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid backup_selector format")
+        
+        # Get backup metadata
+        backup_mgr = BackupManager(Path(folder_path))
+        backups = backup_mgr.list_backups()
+        backup_info = next((b for b in backups if b.get("backup_name", b["name"]) == backup_name), None)
+        
+        if not backup_info:
+            raise HTTPException(status_code=404, detail="Backup not found")
+        
+        # Get connections
+        conn_mgr = ConnectionManager()
+        connections = conn_mgr.list_connections()
+        
+        form_dict = form_schema.dict(exclude_none=True)
+        
+        # Build connection options
+        connection_options = []
+        original_connection = backup_info.get("connection_name")
+        
+        for conn in connections:
+            masked_uri = build_mongodb_uri_masked(
+                host=conn.get("host", "localhost"),
+                port=conn.get("port", 27017),
+                username=conn.get("username"),
+                database=conn.get("database"),
+                auth_source=conn.get("auth_source", "admin")
+            )
+            
+            connection_options.append({
+                "value": conn["name"],
+                "label": f"{conn['name']} ({masked_uri})",
+                "description": conn.get("description", ""),
+                "metadata": {
+                    "is_original": conn["name"] == original_connection
+                }
+            })
+        
+        # Sort: original connection first, then alphabetically
+        connection_options.sort(key=lambda x: (not x["metadata"]["is_original"], x["label"]))
+        
+        # Update form fields
+        for field in form_dict.get("fields", []):
+            if field["id"] == "connection_name":
+                field["options"] = connection_options
+                # Set default to original connection if available
+                if original_connection:
+                    field["default"] = original_connection
+        
+        return form_dict
+    
     # Convert Pydantic model to dict for JSON response
     return form_schema.dict(exclude_none=True)
 
@@ -766,6 +895,104 @@ async def submit_backup_delete(
         return {
             "success": True,
             "message": f"Backup '{backup_name}' deleted successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/backup/restore/configure")
+async def submit_backup_restore(
+    form_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Restore a backup to a connection
+    
+    Args:
+        form_data: Form submission data with backup_selector, connection_name, drop_collections, confirmation
+        
+    Returns:
+        Success message or error
+    """
+    from app.core.backup_ops import BackupManager
+    from app.core.connection_ops import ConnectionManager
+    from app.core.utils.uri_builder import build_mongodb_uri
+    from pathlib import Path
+    
+    try:
+        backup_selector = form_data.get("backup_selector")
+        connection_name = form_data.get("connection_name")
+        drop_collections = form_data.get("drop_collections", True)  # Default to True for proper restore
+        confirmation = form_data.get("confirmation", False)
+        
+        if not backup_selector:
+            raise HTTPException(status_code=400, detail="No backup selected")
+        
+        if not connection_name:
+            raise HTTPException(status_code=400, detail="No connection selected")
+        
+        if not confirmation:
+            raise HTTPException(
+                status_code=400,
+                detail="You must confirm the restore operation"
+            )
+        
+        # Parse composite key: folder_path|backup_name
+        try:
+            folder_path, backup_name = backup_selector.split("|", 1)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid backup selector format"
+            )
+        
+        # Get backup path
+        backup_mgr = BackupManager(Path(folder_path))
+        backups = backup_mgr.list_backups()
+        backup_info = next((b for b in backups if b.get("backup_name", b["name"]) == backup_name), None)
+        
+        if not backup_info:
+            raise HTTPException(status_code=404, detail="Backup not found")
+        
+        backup_path = backup_info["path"]
+        
+        # Get connection and build URI
+        conn_mgr = ConnectionManager()
+        connection = conn_mgr.get_connection(connection_name)
+        
+        if not connection:
+            raise HTTPException(status_code=404, detail="Connection not found")
+        
+        # Get database name from connection
+        target_database = connection.get("database")
+        
+        if not target_database:
+            raise HTTPException(
+                status_code=400, 
+                detail="Connection must have a database specified for restore"
+            )
+        
+        connection_uri = build_mongodb_uri(
+            host=connection.get("host", "localhost"),
+            port=connection.get("port", 27017),
+            username=connection.get("username"),
+            password=connection.get("password"),
+            database=target_database,
+            auth_source=connection.get("auth_source", "admin")
+        )
+        
+        # Perform restore
+        try:
+            backup_mgr.restore_backup(backup_path, connection_uri, target_database, drop_collections)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Restore failed: {str(e)}")
+        
+        drop_msg = " (with --drop flag)" if drop_collections else ""
+        return {
+            "success": True,
+            "message": f"Backup '{backup_name}' restored successfully to '{connection_name}'{drop_msg}"
         }
         
     except HTTPException:

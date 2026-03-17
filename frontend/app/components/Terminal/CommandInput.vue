@@ -303,7 +303,7 @@ onMounted(() => {
   background: var(--gb-bg);
   border: 1px solid var(--gb-gray);
   border-bottom: none;
-  max-height: 200px;
+  max-height: none;
   overflow-y: auto;
   z-index: 10;
 }

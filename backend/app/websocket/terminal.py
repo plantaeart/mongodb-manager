@@ -1,7 +1,7 @@
 """WebSocket terminal handler for command execution"""
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
-from datetime import datetime
+from datetime import datetime, timezone
 import asyncio
 import json
 import sys
@@ -100,7 +100,7 @@ class WebSocketOutputStream:
             await self.websocket.send_json({
                 "type": "output",
                 "line": prefix + line,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             })
             
         except Exception:

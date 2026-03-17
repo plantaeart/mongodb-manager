@@ -539,6 +539,103 @@ async def execute_command(
                 exit_code=1
             )
     
+    # Special handling for 'backup restore' with backup and connection configuration
+    if request.command.strip() == "backup restore":
+        
+        # Get parameters
+        backup_selector = request.params.get("backup_selector")
+        connection_name = request.params.get("connection_name")
+        drop_collections = request.params.get("drop_collections", False)
+        confirmation = request.params.get("confirmation", False)
+        
+        if not backup_selector:
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error="Backup selector is required",
+                exit_code=1
+            )
+        
+        if not connection_name:
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error="Connection name is required",
+                exit_code=1
+            )
+        
+        if not confirmation:
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error="You must confirm the restore operation",
+                exit_code=1
+            )
+        
+        # Parse composite key: folder_path|backup_name
+        try:
+            folder_path, backup_name = backup_selector.split("|", 1)
+        except ValueError:
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error="Invalid backup selector format",
+                exit_code=1
+            )
+        
+        # Restore backup using BackupManager directly
+        from app.core.connection_ops import ConnectionManager
+        from app.core.backup_ops import BackupManager
+        from pathlib import Path
+        
+        conn_mgr = ConnectionManager()
+        
+        # Get backup info
+        backup_mgr = BackupManager(Path(folder_path))
+        backups = backup_mgr.list_backups()
+        backup_info = next((b for b in backups if b.get("backup_name", b["name"]) == backup_name), None)
+        
+        if not backup_info:
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error=f"Backup '{backup_name}' not found",
+                exit_code=1
+            )
+        
+        backup_path = backup_info["path"]
+        
+        # Get connection and build URI
+        connection = conn_mgr.get_connection(connection_name)
+        if not connection:
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error=f"Connection '{connection_name}' not found",
+                exit_code=1
+            )
+        
+        connection_uri = conn_mgr.repository.build_uri_from_connection(connection)
+        
+        # Perform restore
+        try:
+            backup_mgr.restore_backup(backup_path, connection_uri, drop_collections)
+            
+            drop_msg = " (with --drop flag)" if drop_collections else ""
+            return CommandExecuteResponse(
+                success=True,
+                output=f"✓ Backup '{backup_name}' restored successfully to '{connection_name}'{drop_msg}",
+                error=None,
+                exit_code=0
+            )
+        except Exception as e:
+            return CommandExecuteResponse(
+                success=False,
+                output="",
+                error=f"Restore failed: {str(e)}",
+                exit_code=1
+            )
+    
     # Build CLI arguments from command and params
     cmd_parts = request.command.strip().split()
     
