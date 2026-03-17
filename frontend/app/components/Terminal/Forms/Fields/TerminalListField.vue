@@ -40,18 +40,8 @@
                       :key="listIndex" 
                       class="path-item"
                     >
-                      <span class="path-indicator">
-                        {{ isActiveItem(item, listItem, fieldConfig.badge_key) ? '✓' : '•' }}
-                      </span>
-                      <span :class="{ 'active-path': isActiveItem(item, listItem, fieldConfig.badge_key) }">
-                        {{ listItem }}
-                      </span>
-                      <span 
-                        v-if="isActiveItem(item, listItem, fieldConfig.badge_key)" 
-                        class="active-badge"
-                      >
-                        Active
-                      </span>
+                      <span class="path-indicator">•</span>
+                      <span>{{ listItem }}</span>
                     </div>
                   </div>
                 </template>
@@ -143,12 +133,6 @@ const hasValue = (item: any, key: string): boolean => {
   if (typeof value === 'string' && value.trim() === '') return false
   if (Array.isArray(value) && value.length === 0) return false
   return true
-}
-
-// Check if a list item is the active one
-const isActiveItem = (item: any, listItem: string, badgeKey?: string): boolean => {
-  if (!badgeKey) return false
-  return item[badgeKey] === listItem
 }
 
 // Format date for display
@@ -312,23 +296,6 @@ emit('valid')
   font-weight: bold;
   width: 16px;
   flex-shrink: 0;
-}
-
-.active-path {
-  color: var(--color-success, #b8bb26);
-  font-weight: 500;
-}
-
-.active-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  background: var(--color-success-dim, rgba(184, 187, 38, 0.2));
-  color: var(--color-success, #b8bb26);
-  border-radius: 3px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 @media (max-width: 768px) {

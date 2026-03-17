@@ -738,10 +738,11 @@ def backup(
     
     # Determine backup path
     if backup_path is None:
-        # Check if connection has active backup path
-        active_path = conn_mgr.get_active_backup_path(connection_name)
+        # Check if connection has backup paths configured
+        conn_data = conn_mgr.get_connection(connection_name)
+        backup_paths = conn_data.get("backup_paths", []) if conn_data else []
         
-        if not active_path:
+        if not backup_paths:
             # AUTO-PROMPT: No backup folder configured
             console.print(f"[yellow]No backup folder configured for connection '{connection_name}'[/yellow]")
             console.print("Let's set one up now...\n")
@@ -750,12 +751,13 @@ def backup(
             _add_backup_folder(conn_mgr, connection_name)
             
             # Re-check after interactive flow
-            active_path = conn_mgr.get_active_backup_path(connection_name)
-            if not active_path:
+            conn_data = conn_mgr.get_connection(connection_name)
+            backup_paths = conn_data.get("backup_paths", []) if conn_data else []
+            if not backup_paths:
                 console.print("[red]Backup cancelled. No folder configured.[/red]")
                 return
         
-        backup_path = Path(active_path)
+        backup_path = Path(backup_paths[0])
     
     backup_mgr = BackupManager(backup_path)
     
@@ -790,10 +792,11 @@ def list_backups(
     
     # Determine backup path
     if backup_path is None and connection:
-        # Use connection's active backup path
-        active_path = conn_mgr.get_active_backup_path(connection)
-        if active_path:
-            backup_path = Path(active_path)
+        # Use connection's first backup path
+        conn_data = conn_mgr.get_connection(connection)
+        backup_paths = conn_data.get("backup_paths", []) if conn_data else []
+        if backup_paths:
+            backup_path = Path(backup_paths[0])
         else:
             backup_path = DEFAULT_BACKUP_PATH
     elif backup_path is None:
@@ -955,8 +958,8 @@ def create_backup_folder(
         raise typer.Exit(1)
     
     # Get existing backup paths
-    backup_paths = conn_mgr.get_backup_paths(connection_name)
-    active_path = conn_mgr.get_active_backup_path(connection_name)
+    conn_data = conn_mgr.get_connection(connection_name) or {}
+    backup_paths = conn_data.get("backup_paths", [])
     
     while True:
         console.print(f"\n[cyan]Backup Folders for connection '{connection_name}':[/cyan]")
@@ -965,15 +968,13 @@ def create_backup_folder(
             console.print("[yellow]No backup folders configured[/yellow]")
         else:
             for i, path in enumerate(backup_paths, 1):
-                active_marker = " [green](active)[/green]" if path == active_path else ""
-                console.print(f"  {i}. {path}{active_marker}")
+                console.print(f"  {i}. {path}")
         
         # Show menu
         choices = []
         if backup_paths:
             choices.extend([
                 "View details",
-                "Set active folder",
                 "Edit folder path",
                 "Delete folder",
             ])
@@ -995,20 +996,17 @@ def create_backup_folder(
             _add_backup_folder(conn_mgr, connection_name)
         
         elif action == "View details":
-            _view_backup_folder_details(backup_paths, active_path)
-        
-        elif action == "Set active folder":
-            _set_active_backup_folder(conn_mgr, connection_name, backup_paths)
+            _view_backup_folder_details(backup_paths)
         
         elif action == "Edit folder path":
-            _edit_backup_folder(conn_mgr, connection_name, backup_paths, active_path)
+            _edit_backup_folder(conn_mgr, connection_name, backup_paths)
         
         elif action == "Delete folder":
             _delete_backup_folder(conn_mgr, connection_name, backup_paths)
         
         # Refresh backup paths for next iteration
-        backup_paths = conn_mgr.get_backup_paths(connection_name)
-        active_path = conn_mgr.get_active_backup_path(connection_name)
+        conn_data = conn_mgr.get_connection(connection_name)
+        backup_paths = conn_data.get("backup_paths", []) if conn_data else []
 
 
 def _add_backup_folder(conn_mgr: ConnectionManager, connection_name: str):
@@ -1072,26 +1070,19 @@ def _add_backup_folder(conn_mgr: ConnectionManager, connection_name: str):
     # Add to connection
     if conn_mgr.add_backup_path(connection_name, path):
         console.print(f"[green]OK[/green] Added backup folder: {path}")
-        
-        # Set as active if it's the first one
-        backup_paths = conn_mgr.get_backup_paths(connection_name)
-        if len(backup_paths) == 1:
-            conn_mgr.set_active_backup_path(connection_name, path)
-            console.print(f"[green]OK[/green] Set as active backup folder")
     else:
         console.print(f"[yellow]Folder already exists in list[/yellow]")
 
 
-def _view_backup_folder_details(backup_paths: list[str], active_path: str | None):
+def _view_backup_folder_details(backup_paths: list[str]):
     """View details of backup folders"""
     console.print("\n[cyan]Backup Folder Details:[/cyan]")
     for i, path in enumerate(backup_paths, 1):
         path_obj = Path(path)
         exists = path_obj.exists()
         writable = os.access(path, os.W_OK) if exists else False
-        active_marker = " [green](active)[/green]" if path == active_path else ""
         
-        console.print(f"\n{i}. {path}{active_marker}")
+        console.print(f"\n{i}. {path}")
         console.print(f"   Exists: {'Yes' if exists else '[red]No[/red]'}")
         console.print(f"   Writable: {'Yes' if writable else '[red]No[/red]'}")
         
@@ -1104,28 +1095,7 @@ def _view_backup_folder_details(backup_paths: list[str], active_path: str | None
                 console.print(f"   Backups: [yellow]Unable to read[/yellow]")
 
 
-def _set_active_backup_folder(conn_mgr: ConnectionManager, connection_name: str, backup_paths: list[str]):
-    """Set active backup folder"""
-    if not backup_paths:
-        console.print("[yellow]No backup folders available[/yellow]")
-        return
-    
-    console.print("\n[cyan]Select Active Backup Folder:[/cyan]")
-    selected = questionary.select(
-        "Choose folder:",
-        choices=backup_paths
-    ).ask()
-    
-    if not selected:
-        return
-    
-    if conn_mgr.set_active_backup_path(connection_name, selected):
-        console.print(f"[green]OK[/green] Active backup folder set to: {selected}")
-    else:
-        console.print(f"[red]ERROR[/red] Failed to set active folder")
-
-
-def _edit_backup_folder(conn_mgr: ConnectionManager, connection_name: str, backup_paths: list[str], active_path: str | None):
+def _edit_backup_folder(conn_mgr: ConnectionManager, connection_name: str, backup_paths: list[str]):
     """Edit a backup folder path"""
     if not backup_paths:
         console.print("[yellow]No backup folders to edit[/yellow]")

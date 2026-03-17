@@ -203,18 +203,6 @@ class ConnectionManager:
         """
         return self.repository.remove_backup_path(connection_name, path)
     
-    def set_active_backup_path(self, connection_name: str, path: str) -> bool:
-        """Set the active backup path for a connection
-        
-        Args:
-            connection_name: Name of the connection
-            path: Backup folder path to set as active
-            
-        Returns:
-            True if set successfully, False if connection not found or path not in backup_paths
-        """
-        return self.repository.set_active_backup_path(connection_name, path)
-    
     def update_backup_path(
         self, 
         connection_name: str, 

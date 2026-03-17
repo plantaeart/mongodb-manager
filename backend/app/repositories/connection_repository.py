@@ -65,7 +65,6 @@ class ConnectionRepository:
                 added_at=datetime.now(timezone.utc),
                 updated_at=datetime.now(timezone.utc),
                 backup_paths=[],
-                active_backup_path=None,
                 created_by=created_by
             )
             
@@ -249,49 +248,11 @@ class ConnectionRepository:
             return False
         
         # Remove path
-        update_ops = {
-            "$pull": {"backup_paths": path},
-            "$set": {"updated_at": datetime.now(timezone.utc)}
-        }
-        
-        # If this was the active path, clear it
-        if connection.get("active_backup_path") == path:
-            update_ops["$set"]["active_backup_path"] = None
-        
-        result = self.collection.update_one(
-            {"name": connection_name},
-            update_ops
-        )
-        
-        return result.modified_count > 0
-    
-    def set_active_backup_path(self, connection_name: str, path: str) -> bool:
-        """Set the active backup path for a connection
-        
-        Args:
-            connection_name: Connection name
-            path: Backup folder path to set as active
-            
-        Returns:
-            True if set, False if connection not found or path not in backup_paths
-        """
-        # Check if connection exists
-        connection = self.get_connection(connection_name)
-        if not connection:
-            return False
-        
-        # Check if path is in backup_paths
-        if path not in connection.get("backup_paths", []):
-            return False
-        
-        # Set active path
         result = self.collection.update_one(
             {"name": connection_name},
             {
-                "$set": {
-                    "active_backup_path": path,
-                    "updated_at": datetime.now(timezone.utc)
-                }
+                "$pull": {"backup_paths": path},
+                "$set": {"updated_at": datetime.now(timezone.utc)}
             }
         )
         
@@ -340,13 +301,6 @@ class ConnectionRepository:
                 "$set": update_ops["$set"]
             }
         )
-        
-        # If old_path was active, update to new_path
-        if connection.get("active_backup_path") == old_path:
-            self.collection.update_one(
-                {"name": connection_name},
-                {"$set": {"active_backup_path": new_path}}
-            )
         
         return result.modified_count > 0
 

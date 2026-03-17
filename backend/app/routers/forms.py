@@ -357,14 +357,12 @@ async def get_form_schema(
         folders_items = []
         for conn in connections:
             backup_paths = conn.get("backup_paths", [])
-            active_path = conn.get("active_backup_path")
             
             if backup_paths:
                 folders_items.append({
                     "connection_name": conn["name"],
                     "description": conn.get("description", ""),
-                    "backup_paths": backup_paths,
-                    "active_backup_path": active_path
+                    "backup_paths": backup_paths
                 })
         
         # Update form fields
@@ -391,21 +389,16 @@ async def get_form_schema(
         options = []
         for conn in connections:
             backup_paths = conn.get("backup_paths", [])
-            active_path = conn.get("active_backup_path")
             
             if backup_paths:
-                # Show active path in description if available
-                description = f"Backup paths: {len(backup_paths)}"
-                if active_path:
-                    description += f" (Active: {active_path})"
+                description = f"Backup folders: {len(backup_paths)}"
                 
                 options.append({
                     "value": conn["name"],
                     "label": conn["name"],
                     "description": description,
                     "metadata": {
-                        "backup_paths": backup_paths,
-                        "active_backup_path": active_path
+                        "backup_paths": backup_paths
                     }
                 })
         
@@ -685,7 +678,7 @@ async def submit_backup_folder_add(
     """Add a backup folder to a connection (Step 2 submission)
     
     Args:
-        form_data: Form submission data with connection_name, folder_path, create_if_missing, set_as_active
+        form_data: Form submission data with connection_name, folder_path, create_if_missing
         
     Returns:
         Success message or error
@@ -699,7 +692,6 @@ async def submit_backup_folder_add(
         connection_name = form_data.get("connection_name")
         folder_path_input = form_data.get("folder_path")
         create_if_missing = form_data.get("create_if_missing", True)
-        set_as_active = form_data.get("set_as_active", True)
         
         if not connection_name or not folder_path_input:
             raise HTTPException(status_code=400, detail="Missing required fields")
@@ -759,11 +751,6 @@ async def submit_backup_folder_add(
                 status_code=400,
                 detail="Failed to add backup path (may already exist or connection not found)"
             )
-        
-        # Set as active if requested or if it's the first path
-        connection = conn_mgr.get_connection(connection_name)
-        if connection and (set_as_active or len(connection.get("backup_paths", [])) == 1):
-            conn_mgr.set_active_backup_path(connection_name, folder_path)
         
         return {
             "success": True,

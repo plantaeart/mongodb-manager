@@ -78,27 +78,17 @@ export function createBackupCreateStepper(formId: string): StepperFormConfig {
         const options = step1?.formData?.fields?.find((f: any) => f.id === 'connection_name')?.options || []
         const selectedOption = options.find((opt: any) => opt.value === connectionName)
         const backupPaths = selectedOption?.metadata?.backup_paths || []
-        const activeBackupPath = selectedOption?.metadata?.active_backup_path
         
         // Populate backup_location dropdown with backup paths
         const locationField = currentStep.formData?.fields?.find((f: any) => f.id === 'backup_location')
         if (locationField && backupPaths.length > 0) {
           locationField.options = backupPaths.map((path: string) => ({
             value: path,
-            label: path,
-            description: path === activeBackupPath ? 'Active backup folder' : undefined
+            label: path
           }))
           
-          // Set default to active path if available
-          if (activeBackupPath) {
-            currentStep.data = {
-              connection_name: connectionName,
-              backup_location: activeBackupPath
-            }
-          } else {
-            currentStep.data = {
-              connection_name: connectionName
-            }
+          currentStep.data = {
+            connection_name: connectionName
           }
         } else {
           // Store connection_name for submission

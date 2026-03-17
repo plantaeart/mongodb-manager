@@ -468,7 +468,7 @@ BACKUP_FOLDER_LIST_FORM = FormSchema(
                 fields=[
                     ListItemField(key="connection_name", label="Connection", primary=True),
                     ListItemField(key="description", label="Description", icon="📝", type="text"),
-                    ListItemField(key="backup_paths", label="Backup Paths", icon="📂", type="list", badge_key="active_backup_path")
+                    ListItemField(key="backup_paths", label="Backup Paths", icon="📂", type="list")
                 ],
                 count_label="connection(s)"
             )
@@ -492,8 +492,8 @@ BACKUP_CREATE_SELECT_FORM = FormSchema(
             label="Connection",
             type="select",
             required=True,
-            help_text="Select connection (must have an active backup folder)",
-            options=[]  # Populated with connections that have active_backup_path
+            help_text="Select connection (must have at least one backup folder)",
+            options=[]  # Populated with connections that have backup_paths
         )
     ],
     actions=[

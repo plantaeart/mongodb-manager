@@ -361,7 +361,6 @@ async def execute_command(
         # Get folder configuration (from step 2)
         folder_path = request.params.get("folder_path")
         create_if_missing = request.params.get("create_if_missing", True)
-        set_as_active = request.params.get("set_as_active", True)
         
         if not folder_path:
             return CommandExecuteResponse(
@@ -388,8 +387,17 @@ async def execute_command(
                 exit_code=1
             )
         
-        # Process folder path
-        folder_path = folder_path.strip()
+        # Process folder path — enforce base dir + suffix (same logic as forms.py)
+        from app.core.utils.config import BACKUP_BASE_DIR, BACKUP_FOLDER_SUFFIX
+        clean_path = folder_path.strip().strip('/')
+        if clean_path.startswith(BACKUP_BASE_DIR):
+            clean_path = clean_path[len(BACKUP_BASE_DIR):].strip('/')
+        folder_path_base = f"{BACKUP_BASE_DIR}/{clean_path}"
+        if not folder_path_base.endswith(BACKUP_FOLDER_SUFFIX):
+            folder_path = f"{folder_path_base}{BACKUP_FOLDER_SUFFIX}"
+        else:
+            folder_path = folder_path_base
+
         path_obj = Path(folder_path)
         
         # Check if path exists
@@ -424,11 +432,6 @@ async def execute_command(
         # Add to connection
         if conn_mgr.add_backup_path(connection_name, folder_path):
             output_msg = f"✓ Added backup folder: {folder_path}"
-            
-            # Set as active if requested
-            if set_as_active:
-                conn_mgr.set_active_backup_path(connection_name, folder_path)
-                output_msg += f"\n✓ Set as active backup folder"
             
             return CommandExecuteResponse(
                 success=True,

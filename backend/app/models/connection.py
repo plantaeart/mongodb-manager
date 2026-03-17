@@ -23,7 +23,6 @@ class ConnectionDocument(BaseModel):
     added_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="When connection was created")
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="When connection was last updated")
     backup_paths: list[str] = Field(default_factory=list, description="List of backup folder paths")
-    active_backup_path: Optional[str] = Field(default=None, description="Currently active backup path")
     created_by: str = Field(default="admin", description="User who created this connection")
     
     class Config:
@@ -40,7 +39,6 @@ class ConnectionDocument(BaseModel):
                 "added_at": "2024-01-20T10:00:00",
                 "updated_at": "2024-01-20T10:00:00",
                 "backup_paths": ["/backups/prod"],
-                "active_backup_path": "/backups/prod",
                 "created_by": "admin"
             }
         }
