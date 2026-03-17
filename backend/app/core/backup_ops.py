@@ -117,6 +117,9 @@ class BackupManager:
                     "databases": []
                 }
             
+            # Calculate total size of backup directory
+            size = sum(f.stat().st_size for f in backup_dir.rglob("*") if f.is_file())
+
             backups.append({
                 "name": backup_dir.name,
                 "path": backup_dir,
@@ -124,6 +127,7 @@ class BackupManager:
                 "timestamp": metadata.get("timestamp", ""),
                 "created_at": metadata.get("created_at", ""),
                 "databases": metadata.get("databases", []),
+                "size": size,
             })
         
         return backups
