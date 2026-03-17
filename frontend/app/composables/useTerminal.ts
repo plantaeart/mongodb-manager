@@ -13,6 +13,7 @@ class TerminalService {
   private currentCommandId = 0
   private messageCleanup: (() => void) | null = null
   private favoritesWatchCleanup: (() => void) | null = null
+  private historyWatchCleanup: (() => void) | null = null
   private isInitialized = false
   private sendCommandFn: ((command: string) => boolean) | null = null
   private sendMessageFn: ((message: any) => boolean) | null = null
@@ -49,10 +50,20 @@ class TerminalService {
     // Load favorites from localStorage
     this.loadFavoritesFromStorage()
 
+    // Load command history from localStorage
+    this.loadHistoryFromStorage()
+
     // Watch favorites and save to localStorage
     this.favoritesWatchCleanup = watch(
       this._favorites,
       () => this.saveFavoritesToStorage(),
+      { deep: true }
+    )
+
+    // Watch history and save to localStorage
+    this.historyWatchCleanup = watch(
+      this._commandHistory,
+      () => this.saveHistoryToStorage(),
       { deep: true }
     )
 
@@ -73,6 +84,10 @@ class TerminalService {
     if (this.favoritesWatchCleanup) {
       this.favoritesWatchCleanup()
       this.favoritesWatchCleanup = null
+    }
+    if (this.historyWatchCleanup) {
+      this.historyWatchCleanup()
+      this.historyWatchCleanup = null
     }
     this.isInitialized = false
   }
@@ -270,6 +285,9 @@ class TerminalService {
    */
   clearHistory() {
     this._commandHistory.value = []
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(StorageKey.TERMINAL_HISTORY)
+    }
   }
 
   /**
@@ -429,6 +447,49 @@ class TerminalService {
   }
 
   /**
+   * Load command history from localStorage
+   * Only restores completed entries (SUCCESS or ERROR) — skips active forms
+   */
+  private loadHistoryFromStorage() {
+    if (typeof window === 'undefined') return // SSR guard
+
+    const saved = localStorage.getItem(StorageKey.TERMINAL_HISTORY)
+    if (!saved) return
+
+    try {
+      const parsed: TerminalEntry[] = JSON.parse(saved)
+      this._commandHistory.value = parsed.map(e => {
+        const entry = { ...e, timestamp: new Date(e.timestamp), form: undefined }
+        // Any entry that was still running (active form) gets marked as interrupted
+        if (entry.status === CommandStatus.RUNNING) {
+          entry.status = CommandStatus.ERROR
+          entry.output = ['Session interrupted — please re-run the command']
+        }
+        return entry
+      })
+    } catch {
+      // Corrupt data — silently discard
+      localStorage.removeItem(StorageKey.TERMINAL_HISTORY)
+    }
+  }
+
+  /**
+   * Save command history to localStorage
+   * Only persists completed entries (SUCCESS or ERROR), capped at 50 most recent
+   */
+  private saveHistoryToStorage() {
+    if (typeof window === 'undefined') return // SSR guard
+
+    // Persist all entries (including RUNNING ones so they can be marked interrupted on reload)
+    // Strip the live form object — it cannot be serialized meaningfully
+    const toSave = this._commandHistory.value
+      .slice(-50) // Keep last 50 entries
+      .map(e => ({ ...e, form: undefined }))
+
+    localStorage.setItem(StorageKey.TERMINAL_HISTORY, JSON.stringify(toSave))
+  }
+
+  /**
    * Handle incoming WebSocket messages
    */
   private handleWebSocketMessage(message: WebSocketMessage) {
@@ -500,6 +561,7 @@ export const useTerminal = () => {
     hasActiveForm: computed(() => terminalService.hasActiveForm),
     favorites: terminalService.favorites,
     executeCommand: (cmd: string) => terminalService.executeCommand(cmd),
+    clearHistory: () => terminalService.clearHistory(),
     addFavorite: (cmd: string) => terminalService.addFavorite(cmd),
     removeFavorite: (cmd: string) => terminalService.removeFavorite(cmd),
     submitForm: (formId: string, data: Record<string, any>) => terminalService.submitForm(formId, data),
