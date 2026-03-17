@@ -10,8 +10,18 @@
     @cancel="handleCancel"
   />
   
-  <!-- Regular Form (single-step forms) -->
-  <div v-else class="terminal-form" :class="{ 'readonly': isReadonly }">
+  <!-- Compact submitted/cancelled state for regular forms -->
+  <div v-else-if="isReadonly" class="form-submitted-state">
+    <span v-if="status === CommandStatus.ERROR" class="status-cancelled">
+      ✗ Cancelled
+    </span>
+    <span v-else-if="status === CommandStatus.SUCCESS" class="status-submitted">
+      ✓ Submitted
+    </span>
+  </div>
+
+  <!-- Regular Form (single-step forms, active only) -->
+  <div v-else class="terminal-form">
     <!-- Header -->
     <div class="form-header">
       <div class="form-header-title">
@@ -40,25 +50,14 @@
       />
     </div>
     
-    <!-- Actions (hidden in readonly) -->
+    <!-- Actions -->
     <TerminalFormActions
-      v-if="!isReadonly"
       :actions="formData.actions"
       :can-submit="canSubmit"
       :is-submitting="isSubmitting"
       @submit="handleSubmit"
       @cancel="handleCancel"
     />
-    
-    <!-- Status (shown in readonly) -->
-    <div v-if="isReadonly" class="form-status">
-      <span v-if="status === CommandStatus.ERROR" class="status-cancelled">
-        ✗ Cancelled
-      </span>
-      <span v-else-if="status === CommandStatus.SUCCESS" class="status-submitted">
-        ✓ Submitted
-      </span>
-    </div>
   </div>
 </template>
 
@@ -400,7 +399,13 @@ onUnmounted(() => {
 }
 
 @media (max-width: 768px) {
-  .terminal-form {
+.form-submitted-state {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 13px;
+  padding: 4px 0;
+}
+
+.terminal-form {
     padding: 12px;
   }
 }

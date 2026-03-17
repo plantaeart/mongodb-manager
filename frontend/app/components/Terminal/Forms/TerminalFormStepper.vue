@@ -1,5 +1,16 @@
 <template>
-  <div class="terminal-form-stepper-generic" :class="{ 'readonly': isReadonly }">
+  <!-- Compact submitted/cancelled state — hides full form UI -->
+  <div v-if="isReadonly" class="form-submitted-state">
+    <span v-if="status === CommandStatus.ERROR" class="status-cancelled">
+      ✗ Cancelled
+    </span>
+    <span v-else-if="status === CommandStatus.SUCCESS" class="status-submitted">
+      ✓ Submitted
+    </span>
+  </div>
+
+  <!-- Full stepper UI (only while active) -->
+  <div v-else class="terminal-form-stepper-generic">
     <!-- Custom Stepper Component -->
     <TerminalCustomStepper 
       ref="stepper" 
@@ -57,7 +68,7 @@
     </TerminalCustomStepper>
 
     <!-- Navigation Buttons -->
-    <div v-if="!isReadonly" class="stepper-actions">
+    <div class="stepper-actions">
       <!-- Previous Button -->
       <button
         type="button"
@@ -99,16 +110,6 @@
       >
         Cancel
       </button>
-    </div>
-
-    <!-- Status (shown in readonly) -->
-    <div v-if="isReadonly" class="form-status">
-      <span v-if="status === CommandStatus.ERROR" class="status-cancelled">
-        ✗ Cancelled
-      </span>
-      <span v-else-if="status === CommandStatus.SUCCESS" class="status-submitted">
-        ✓ Submitted
-      </span>
     </div>
   </div>
 </template>
@@ -552,7 +553,13 @@ watch(() => props.config, (config) => {
 }
 
 @media (max-width: 768px) {
-  .terminal-form-stepper-generic {
+.form-submitted-state {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 13px;
+  padding: 4px 0;
+}
+
+.terminal-form-stepper-generic {
     padding: 12px;
   }
 }
