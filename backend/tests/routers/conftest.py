@@ -3,16 +3,25 @@
 Fixtures here are auto-discovered by pytest for all files under tests/routers/.
 No imports needed in individual test files.
 
-Two fixtures are provided:
+Fixtures provided:
   - mock_cli_app             : patches the CLI dispatcher used by Path B commands
                                (connect list, connect add) and Path A multi-connection
                                commands (connect remove, connect test)
   - mock_connection_manager  : patches ConnectionManager used by Path A direct-dispatch
                                commands (connect update, backup folder add/delete, etc.)
                                Pre-wired with sensible defaults; override per test as needed.
+  - mock_backup_manager      : patches BackupManager used by backup create/restore commands.
+                               Pre-wired with sensible defaults; override per test as needed.
+  - mock_path_exists         : patches pathlib.Path.exists() inside app.routers.commands
+                               (backup folder add/delete filesystem checks)
+  - mock_os_access           : patches os.access() inside app.routers.commands
+                               (backup folder add writability check)
+  - mock_shutil_rmtree       : patches shutil.rmtree() inside app.routers.commands
+                               (backup folder delete disk deletion)
 """
 
 import pytest
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 
@@ -70,5 +79,93 @@ def mock_connection_manager():
         instance.remove_backup_path.return_value = True
         instance.repository = MagicMock()
         instance.repository.build_uri_from_connection.return_value = "mongodb://localhost:27017"
+
+        yield instance
+
+
+@pytest.fixture
+def mock_path_exists():
+    """Patch pathlib.Path.exists() inside app.routers.commands.
+
+    Defaults to True (path exists). Override per test:
+
+        def test_something(mock_path_exists):
+            mock_path_exists.return_value = False
+    """
+    with patch("pathlib.Path.exists", return_value=True) as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_path_mkdir():
+    """Patch pathlib.Path.mkdir() inside app.routers.commands.
+
+    Defaults to a no-op (directory created successfully). Override to raise:
+
+        def test_something(mock_path_mkdir):
+            mock_path_mkdir.side_effect = PermissionError("denied")
+    """
+    with patch("pathlib.Path.mkdir") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_os_access():
+    """Patch os.access() inside app.routers.commands.
+
+    Defaults to True (path is writable). Override per test:
+
+        def test_something(mock_os_access):
+            mock_os_access.return_value = False
+    """
+    with patch("os.access", return_value=True) as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_shutil_rmtree():
+    """Patch shutil.rmtree() inside app.routers.commands.
+
+    Defaults to a no-op (deletion succeeded). Override to raise:
+
+        def test_something(mock_shutil_rmtree):
+            mock_shutil_rmtree.side_effect = OSError("permission denied")
+    """
+    with patch("shutil.rmtree") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_backup_manager():
+    """Patch app.core.backup_ops.BackupManager for the duration of one test.
+
+    Yields the *instance* mock (MockBM.return_value) pre-wired with safe defaults:
+      - list_backups()    → one sample backup dict with name, backup_name, and path
+      - create_backup()   → Path("/backups/test-conn-backups/my-backup")
+      - restore_backup()  → None (success)
+
+    Override any attribute before calling the endpoint:
+
+        def test_something(client, auth_headers, mock_backup_manager):
+            mock_backup_manager.create_backup.side_effect = ValueError("already exists")
+            mock_backup_manager.list_backups.return_value = []
+    """
+    with patch("app.core.backup_ops.BackupManager") as MockBM:
+        instance = MockBM.return_value
+
+        instance.list_backups.return_value = [
+            {
+                "name": "my-backup",
+                "backup_name": "my-backup",
+                "path": Path("/backups/test-conn-backups/my-backup"),
+                "connection_name": "test-conn",
+                "timestamp": "20260322_120000",
+                "created_at": "2026-03-22T12:00:00",
+                "databases": ["testdb"],
+                "size": 1024,
+            }
+        ]
+        instance.create_backup.return_value = Path("/backups/test-conn-backups/my-backup")
+        instance.restore_backup.return_value = None
 
         yield instance

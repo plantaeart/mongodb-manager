@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ConnectionDocument(BaseModel):
@@ -25,8 +25,8 @@ class ConnectionDocument(BaseModel):
     backup_paths: list[str] = Field(default_factory=list, description="List of backup folder paths")
     created_by: str = Field(default="admin", description="User who created this connection")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "production-db",
                 "host": "localhost",
@@ -42,6 +42,7 @@ class ConnectionDocument(BaseModel):
                 "created_by": "admin"
             }
         }
+    )
 
 
 class ConnectionCreate(BaseModel):
