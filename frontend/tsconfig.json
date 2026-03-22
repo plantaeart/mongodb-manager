@@ -2,6 +2,14 @@
   "extends": "./.nuxt/tsconfig.json",
   "compilerOptions": {
     "strict": true,
-    "types": ["@nuxt/ui"]
-  }
+    "types": ["@nuxt/ui"],
+    "paths": {
+      "~/*": ["./app/*"]
+    }
+  },
+  "include": [
+    ".nuxt/nuxt.d.ts",
+    "app/**/*",
+    "tests/**/*"
+  ]
 }
