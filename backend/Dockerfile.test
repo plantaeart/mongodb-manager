@@ -1,0 +1,22 @@
+# Test Dockerfile for Backend
+# Slim image — no MongoDB tools, no uvicorn
+# Used by docker-compose.test.yml to run pytest without the dev stack
+
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Install uv for fast package management
+RUN pip install uv
+
+# Copy dependency files needed for install
+COPY pyproject.toml uv.lock* README.md ./
+
+# Install all dependencies including dev extras (pytest, httpx, freezegun, etc.)
+RUN uv pip install --system -e ".[dev]"
+
+# Source code is mounted as a volume at runtime — not copied here
+
+ENV PYTHONUNBUFFERED=1
+
+# No CMD — the command is set in docker-compose.test.yml

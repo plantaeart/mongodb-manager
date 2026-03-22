@@ -60,6 +60,17 @@ Welcome to the MongoDB Manager documentation. This directory contains comprehens
    - Field types and validation patterns
    - Troubleshooting and best practices
 
+10. **[10 - Stepper Forms](10-stepper-forms.md)**
+    - Stepper form architecture
+    - Step definitions and validation
+    - Data flow between steps
+
+11. **[11 - Testing Guide](11-testing.md)**
+    - Backend (pytest) and frontend (vitest) test setup
+    - Running tests via `./scripts/test.sh`
+    - What each test file covers
+    - Coverage reports and Docker integration
+
 ### Specialized Topics
 
 #### Backend Deep Dives
@@ -120,6 +131,9 @@ Welcome to the MongoDB Manager documentation. This directory contains comprehens
 
 **Bump version after changes**
 → See [06 - Version Management](06-version-management.md)
+
+**Run or write tests**
+→ See [11 - Testing Guide](11-testing.md)
 
 ## Document Structure
 
@@ -183,4 +197,4 @@ When adding new documentation:
 
 ---
 
-**Last Updated**: March 2026
+**Last Updated**: 2026-03-22

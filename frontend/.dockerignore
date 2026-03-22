@@ -15,3 +15,8 @@ dist
 # Exclude lock file - let Docker generate it for Linux platform
 package-lock.json
 npm-debug.log*
+
+# Test files
+tests
+vitest.config.ts
+coverage

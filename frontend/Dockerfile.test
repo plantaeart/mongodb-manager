@@ -1,0 +1,17 @@
+# Test Dockerfile for Frontend
+# Slim image — no Nuxt dev server
+# Used by docker-compose.test.yml to run vitest without the dev stack
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package.json and install all dependencies (including vitest dev deps)
+COPY package.json ./
+RUN npm install
+
+# Source code is mounted as a volume at runtime — not copied here
+
+ENV NODE_ENV=test
+
+# No CMD — the command is set in docker-compose.test.yml

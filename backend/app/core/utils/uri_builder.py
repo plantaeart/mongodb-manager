@@ -151,34 +151,3 @@ def build_mongodb_uri_masked(
         uri_parts.append("?" + "&".join(query_params))
     
     return "".join(uri_parts)
-    
-    try:
-        # Parse the URI
-        parsed = urlparse(uri)
-        
-        # Extract components
-        username = parsed.username or None
-        host = parsed.hostname or "localhost"
-        port = parsed.port or 27017
-        database = parsed.path.lstrip("/") if parsed.path else None
-        
-        # Extract auth_source from query params
-        query_params = parse_qs(parsed.query)
-        auth_source = query_params.get("authSource", ["admin"])[0] if query_params.get("authSource") else "admin"
-        
-        # Extract other options (excluding authSource)
-        other_options = {k: v[0] for k, v in query_params.items() if k != "authSource"}
-        
-        # Rebuild URI with masked password
-        return build_mongodb_uri_with_masked_password(
-            host=host,
-            port=port,
-            username=username,
-            database=database,
-            auth_source=auth_source if username else None,
-            options=other_options if other_options else None
-        )
-        
-    except Exception:
-        # If parsing fails, return original URI
-        return uri

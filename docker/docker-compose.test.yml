@@ -1,0 +1,45 @@
+name: mongodb-manager-test
+
+services:
+  # Backend test runner — runs pytest then exits
+  backend-test:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.test
+    volumes:
+      # Mount source code so tests pick up latest changes without rebuilding
+      - ../backend:/app
+      # Isolate the installed packages from the host mount
+      - /app/.venv
+      - /app/__pycache__
+      - /app/.pytest_cache
+    environment:
+      - PYTHONUNBUFFERED=1
+      # env vars read by app code at import time; MongoClient is mocked so no
+      # real connection is made, but the variables must be present to avoid
+      # missing-env errors in config.py
+      - NUXT_JWT_SECRET=test-secret-for-ci
+      - NUXT_ADMIN_PASSWORD=test-admin
+      - NUXT_MONGODB_USERNAME=test
+      - NUXT_MONGODB_PASSWORD=test
+      - NUXT_MONGODB_HOST=localhost
+      - NUXT_MONGODB_PORT=27017
+      - NUXT_MONGODB_DATABASE=test_db
+    # Default command — overridden by docker compose run args when needed
+    command: pytest
+
+  # Frontend test runner — runs vitest then exits
+  frontend-test:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile.test
+    volumes:
+      # Mount source code so tests pick up latest changes without rebuilding
+      - ../frontend:/app
+      # Isolate the installed node_modules from the host mount
+      - /app/node_modules
+      - /app/.nuxt
+    environment:
+      - NODE_ENV=test
+    # Default command — overridden by docker compose run args when needed
+    command: npm test
