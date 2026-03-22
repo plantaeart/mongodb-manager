@@ -6,10 +6,13 @@ from jose import jwt, JWTError
 from datetime import datetime, timedelta, timezone
 import os
 
+from app.enums import JwtConfig
+
 # JWT Configuration
 SECRET_KEY = os.getenv("NUXT_JWT_SECRET", "change-me-in-production-please-use-strong-secret")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_HOURS = 24
+# Re-exported for backward compatibility with tests
+ACCESS_TOKEN_EXPIRE_HOURS = JwtConfig.EXPIRE_HOURS
 
 security = HTTPBearer()
 
@@ -24,7 +27,7 @@ def create_access_token(data: dict) -> str:
         JWT token string
     """
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
+    expire = datetime.now(timezone.utc) + timedelta(hours=JwtConfig.EXPIRE_HOURS)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt

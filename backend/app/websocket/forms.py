@@ -2,23 +2,23 @@
 
 import asyncio
 import uuid
-from typing import Dict, Any, Optional
+from typing import Any
 from fastapi import WebSocket
 
-from app.core.form_definitions import FormSchema
+from app.core.forms.models import FormSchema
 
 
 class FormManager:
     """Manage WebSocket form interactions"""
     
     def __init__(self):
-        self.pending_responses: Dict[str, asyncio.Future] = {}
+        self.pending_responses: dict[str, asyncio.Future] = {}
     
     async def request_form(
         self,
         websocket: WebSocket,
         form_schema: FormSchema
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Send form request to client and wait for response
         
         Args:
@@ -58,7 +58,7 @@ class FormManager:
             if form_id in self.pending_responses:
                 del self.pending_responses[form_id]
     
-    def handle_form_submit(self, form_id: str, data: Dict[str, Any]):
+    def handle_form_submit(self, form_id: str, data: dict[str, Any]):
         """Handle form submission from client
         
         Args:

@@ -42,7 +42,10 @@ def mock_cli_app():
 
 @pytest.fixture
 def mock_connection_manager():
-    """Patch app.routers.commands.ConnectionManager for the duration of one test.
+    """Patch ConnectionManager at every router module that imports it at module level.
+
+    Since Phase 5.2 moved imports from deferred (inside functions) to module-level,
+    we must patch the name at each binding site so tests intercept the right class.
 
     Yields the *instance* mock (MockCM.return_value) pre-wired with safe defaults:
       - get_connection()                        → sample connection dict
@@ -58,7 +61,11 @@ def mock_connection_manager():
             mock_connection_manager.get_connection.return_value = None
             response = client.post(...)
     """
-    with patch("app.core.connection_ops.ConnectionManager") as MockCM:
+    # Patch all three module-level binding sites (one shared instance mock)
+    with patch("app.routers.commands.connect.ConnectionManager") as MockCM, \
+         patch("app.routers.commands.backup_folder.ConnectionManager", MockCM), \
+         patch("app.routers.commands.backup_ops.ConnectionManager", MockCM):
+
         instance = MockCM.return_value
 
         # Default connection returned by get_connection()
@@ -137,7 +144,10 @@ def mock_shutil_rmtree():
 
 @pytest.fixture
 def mock_backup_manager():
-    """Patch app.core.backup_ops.BackupManager for the duration of one test.
+    """Patch BackupManager at the router module that imports it at module level.
+
+    Since Phase 5.2 moved the import to module-level in backup_ops.py,
+    we patch the binding site there so tests intercept the right class.
 
     Yields the *instance* mock (MockBM.return_value) pre-wired with safe defaults:
       - list_backups()    → one sample backup dict with name, backup_name, and path
@@ -150,7 +160,7 @@ def mock_backup_manager():
             mock_backup_manager.create_backup.side_effect = ValueError("already exists")
             mock_backup_manager.list_backups.return_value = []
     """
-    with patch("app.core.backup_ops.BackupManager") as MockBM:
+    with patch("app.routers.commands.backup_ops.BackupManager") as MockBM:
         instance = MockBM.return_value
 
         instance.list_backups.return_value = [

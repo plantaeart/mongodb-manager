@@ -6,6 +6,7 @@ import shutil
 from pathlib import Path
 
 from .utils import get_current_time, get_backup_timestamp
+from app.enums import MongoTool
 
 
 class BackupManager:
@@ -55,7 +56,7 @@ class BackupManager:
         # Note: --oplog is removed as it only works with replica sets
         # and full dumps (no --db specified)
         cmd = [
-            "mongodump",
+            MongoTool.MONGODUMP,
             f"--uri={connection_uri}",
             f"--out={backup_path}",
         ]
@@ -179,7 +180,7 @@ class BackupManager:
         # Build mongorestore command
         # Format: mongorestore --uri=... --db=target_db --drop source_db_folder/
         cmd = [
-            "mongorestore",
+            MongoTool.MONGORESTORE,
             f"--uri={connection_uri}",
         ]
         

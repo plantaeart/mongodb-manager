@@ -16,6 +16,7 @@ from .utils import (
     ConfigManager,
     ensure_directory_exists,
 )
+from app.enums import SessionConfig
 
 console = Console()
 
@@ -25,7 +26,6 @@ class AuthManager:
     
     DEFAULT_USERNAME = "admin"
     DEFAULT_PASSWORD = os.getenv("NUXT_ADMIN_PASSWORD", "admin123")
-    SESSION_DURATION_HOURS = 24
     
     def __init__(self, session_dir: Path | None = None):
         """Initialize authentication manager with MongoDB backend
@@ -72,6 +72,10 @@ class AuthManager:
             self.users_collection.insert_one(user_data)
             console.print(f"[yellow]Default admin user created (username: {self.DEFAULT_USERNAME}, password: {self.DEFAULT_PASSWORD})[/yellow]")
     
+    def _resolve_username(self, username: str | None) -> str:
+        """Return username, falling back to DEFAULT_USERNAME if None."""
+        return username if username is not None else self.DEFAULT_USERNAME
+
     def get_user(self, username: str) -> dict | None:
         """Get user from database
         
@@ -131,8 +135,7 @@ class AuthManager:
         Returns:
             True if session exists and not expired, False otherwise
         """
-        if username is None:
-            username = self.DEFAULT_USERNAME
+        username = self._resolve_username(username)
             
         try:
             # Find any session for this user that hasn't expired yet
@@ -155,11 +158,10 @@ class AuthManager:
         """
         import uuid
         
-        if username is None:
-            username = self.DEFAULT_USERNAME
+        username = self._resolve_username(username)
         
         now = get_current_time()
-        expires = add_hours(now, self.SESSION_DURATION_HOURS)
+        expires = add_hours(now, SessionConfig.DURATION_HOURS)
         
         session_data = {
             'username': username,
@@ -184,8 +186,7 @@ class AuthManager:
         Returns:
             True if password matches hash, False otherwise
         """
-        if username is None:
-            username = self.DEFAULT_USERNAME
+        username = self._resolve_username(username)
             
         user = self.get_user(username)
         if not user:
@@ -225,8 +226,7 @@ class AuthManager:
         Returns:
             True if successful, False if failed
         """
-        if username is None:
-            username = self.DEFAULT_USERNAME
+        username = self._resolve_username(username)
             
         new_password = questionary.password("Enter new password:").ask()
         if not new_password:
@@ -267,8 +267,7 @@ class AuthManager:
         Returns:
             True if authentication successful, False otherwise
         """
-        if username is None:
-            username = self.DEFAULT_USERNAME
+        username = self._resolve_username(username)
             
         password = questionary.password("Enter password:").ask()
         
@@ -308,8 +307,7 @@ class AuthManager:
         Returns:
             True if successful, False otherwise
         """
-        if username is None:
-            username = self.DEFAULT_USERNAME
+        username = self._resolve_username(username)
             
         # Verify current password first
         current_password = questionary.password("Enter current password:").ask()
@@ -331,8 +329,7 @@ class AuthManager:
         Args:
             username: Username to logout (defaults to admin, None means all)
         """
-        if username is None:
-            username = self.DEFAULT_USERNAME
+        username = self._resolve_username(username)
         self.sessions_collection.delete_many({"username": username})
     
     def get_session_info(self, username: str = None) -> dict | None:
@@ -344,8 +341,7 @@ class AuthManager:
         Returns:
             Session info dict or None if no valid session
         """
-        if username is None:
-            username = self.DEFAULT_USERNAME
+        username = self._resolve_username(username)
             
         try:
             # Find active session for this user

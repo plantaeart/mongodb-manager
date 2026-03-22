@@ -1,9 +1,9 @@
 [project]
 name = "mongodb-manager-app"
-version = "1.5.4"
+version = "1.6.0"
 description = "CLI tool for MongoDB backup/restore management using mongodump/mongorestore"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 authors = [
     { name = "MongoDB Manager", email = "admin@example.com" }
 ]
@@ -12,7 +12,7 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Topic :: Database",
-    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 
 dependencies = [
@@ -61,7 +61,7 @@ packages = ["app"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py313"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]

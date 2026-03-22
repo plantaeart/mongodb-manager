@@ -2,7 +2,7 @@
 # Slim image — no MongoDB tools, no uvicorn
 # Used by docker-compose.test.yml to run pytest without the dev stack
 
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 

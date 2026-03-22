@@ -1,10 +1,10 @@
 """MongoDB connection management"""
 
-from typing import Optional
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, OperationFailure
 
 from app.repositories.connection_repository import ConnectionRepository, get_connection_repository
+from app.enums import MongoDefault, MongoTool
 
 
 class ConnectionManager:
@@ -13,7 +13,7 @@ class ConnectionManager:
     This class now uses MongoDB storage via ConnectionRepository instead of JSON files.
     """
     
-    def __init__(self, repository: Optional[ConnectionRepository] = None):
+    def __init__(self, repository: ConnectionRepository | None = None):
         """Initialize connection manager
         
         Args:
@@ -26,9 +26,9 @@ class ConnectionManager:
         name: str,
         host: str,
         port: int = 27017,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        database: Optional[str] = None,
+        username: str | None = None,
+        password: str | None = None,
+        database: str | None = None,
         auth_source: str = "admin",
         description: str = ""
     ) -> bool:
@@ -72,14 +72,14 @@ class ConnectionManager:
     def update_connection(
         self, 
         name: str, 
-        new_name: Optional[str] = None,
-        host: Optional[str] = None,
-        port: Optional[int] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        database: Optional[str] = None,
-        auth_source: Optional[str] = None,
-        description: Optional[str] = None
+        new_name: str | None = None,
+        host: str | None = None,
+        port: int | None = None,
+        username: str | None = None,
+        password: str | None = None,
+        database: str | None = None,
+        auth_source: str | None = None,
+        description: str | None = None
     ) -> bool:
         """Update an existing MongoDB connection
         
@@ -145,9 +145,9 @@ class ConnectionManager:
         uri = self.repository.build_uri_from_connection(conn)
         
         try:
-            client = MongoClient(uri, serverSelectionTimeoutMS=5000)
+            client = MongoClient(uri, serverSelectionTimeoutMS=MongoDefault.SERVER_TIMEOUT_MS)
             # Test connection
-            client.admin.command('ping')
+            client.admin.command(MongoTool.PING)
             
             # Get server info
             server_info = client.server_info()

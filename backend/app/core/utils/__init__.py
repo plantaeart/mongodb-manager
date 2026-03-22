@@ -24,6 +24,9 @@ from .tips import (
     list_all_tips,
     TIPS_REGISTRY,
 )
+from .paths import normalize_backup_folder_path
+from .backup_utils import parse_backup_selector, collect_all_backups
+from .fs import delete_directory_if_exists
 
 __all__ = [
     # Timezone utilities
@@ -47,4 +50,11 @@ __all__ = [
     'get_tip_message',
     'list_all_tips',
     'TIPS_REGISTRY',
+    # Path utilities
+    'normalize_backup_folder_path',
+    # Backup utilities
+    'parse_backup_selector',
+    'collect_all_backups',
+    # Filesystem utilities
+    'delete_directory_if_exists',
 ]

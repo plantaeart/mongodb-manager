@@ -1,7 +1,6 @@
 """MongoDB Connection Model"""
 
 from datetime import datetime, timezone
-from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -15,9 +14,9 @@ class ConnectionDocument(BaseModel):
     name: str = Field(..., description="Unique connection name")
     host: str = Field(..., description="MongoDB server hostname or IP")
     port: int = Field(default=27017, description="MongoDB server port")
-    username: Optional[str] = Field(default=None, description="Username for authentication")
-    password: Optional[str] = Field(default=None, description="Password for authentication")
-    database: Optional[str] = Field(default=None, description="Default database")
+    username: str | None = Field(default=None, description="Username for authentication")
+    password: str | None = Field(default=None, description="Password for authentication")
+    database: str | None = Field(default=None, description="Default database")
     auth_source: str = Field(default="admin", description="Authentication database")
     description: str = Field(default="", description="Connection description")
     added_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="When connection was created")
@@ -50,20 +49,20 @@ class ConnectionCreate(BaseModel):
     name: str
     host: str
     port: int = 27017
-    username: Optional[str] = None
-    password: Optional[str] = None
-    database: Optional[str] = None
+    username: str | None = None
+    password: str | None = None
+    database: str | None = None
     auth_source: str = "admin"
     description: str = ""
 
 
 class ConnectionUpdate(BaseModel):
     """Model for updating an existing connection"""
-    new_name: Optional[str] = None
-    host: Optional[str] = None
-    port: Optional[int] = None
-    username: Optional[str] = None
-    password: Optional[str] = None
-    database: Optional[str] = None
-    auth_source: Optional[str] = None
-    description: Optional[str] = None
+    new_name: str | None = None
+    host: str | None = None
+    port: int | None = None
+    username: str | None = None
+    password: str | None = None
+    database: str | None = None
+    auth_source: str | None = None
+    description: str | None = None

@@ -4,7 +4,7 @@ This repository provides all database operations for managing connections.
 """
 
 from datetime import datetime, timezone
-from typing import Optional
+from functools import lru_cache
 from pymongo.database import Database
 from pymongo.errors import DuplicateKeyError
 
@@ -15,7 +15,7 @@ from app.models.connection import ConnectionDocument
 class ConnectionRepository:
     """Repository for connection CRUD operations"""
     
-    def __init__(self, db: Optional[Database] = None):
+    def __init__(self, db: Database | None = None):
         """Initialize repository
         
         Args:
@@ -29,9 +29,9 @@ class ConnectionRepository:
         name: str,
         host: str,
         port: int = 27017,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        database: Optional[str] = None,
+        username: str | None = None,
+        password: str | None = None,
+        database: str | None = None,
         auth_source: str = "admin",
         description: str = "",
         created_by: str = "admin"
@@ -75,7 +75,7 @@ class ConnectionRepository:
             # Connection name already exists
             return False
     
-    def get_connection(self, name: str) -> Optional[dict]:
+    def get_connection(self, name: str) -> dict | None:
         """Get a connection by name
         
         Args:
@@ -97,14 +97,14 @@ class ConnectionRepository:
     def update_connection(
         self,
         name: str,
-        new_name: Optional[str] = None,
-        host: Optional[str] = None,
-        port: Optional[int] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        database: Optional[str] = None,
-        auth_source: Optional[str] = None,
-        description: Optional[str] = None
+        new_name: str | None = None,
+        host: str | None = None,
+        port: int | None = None,
+        username: str | None = None,
+        password: str | None = None,
+        database: str | None = None,
+        auth_source: str | None = None,
+        description: str | None = None
     ) -> bool:
         """Update an existing connection
         
@@ -305,17 +305,8 @@ class ConnectionRepository:
         return result.modified_count > 0
 
 
-# Global repository instance
-_repository: Optional[ConnectionRepository] = None
-
-
+# Singleton via lru_cache — avoids mutable global state
+@lru_cache(maxsize=1)
 def get_connection_repository() -> ConnectionRepository:
-    """Get the global connection repository instance
-    
-    Returns:
-        ConnectionRepository instance
-    """
-    global _repository
-    if _repository is None:
-        _repository = ConnectionRepository()
-    return _repository
+    """Get the global connection repository instance (created once, cached)."""
+    return ConnectionRepository()

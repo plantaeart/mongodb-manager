@@ -4,17 +4,16 @@ Constructs MongoDB connection URIs from components with proper encoding.
 """
 
 from urllib.parse import quote_plus
-from typing import Optional
 
 
 def build_mongodb_uri(
     host: str,
     port: int = 27017,
-    username: Optional[str] = None,
-    password: Optional[str] = None,
-    database: Optional[str] = None,
+    username: str | None = None,
+    password: str | None = None,
+    database: str | None = None,
     auth_source: str = "admin",
-    options: Optional[dict] = None
+    options: dict | None = None
 ) -> str:
     """
     Construct MongoDB URI from components
@@ -94,10 +93,10 @@ def build_mongodb_uri(
 def build_mongodb_uri_masked(
     host: str,
     port: int = 27017,
-    username: Optional[str] = None,
-    database: Optional[str] = None,
+    username: str | None = None,
+    database: str | None = None,
     auth_source: str = "admin",
-    options: Optional[dict] = None
+    options: dict | None = None
 ) -> str:
     """
     Build MongoDB URI from components with masked password for display

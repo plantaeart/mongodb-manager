@@ -6,7 +6,6 @@ and mapping IP addresses to container identities.
 """
 
 import logging
-from typing import Optional
 import docker
 from docker.errors import DockerException
 
@@ -18,7 +17,7 @@ class DockerService:
     
     def __init__(self):
         """Initialize Docker client with error handling"""
-        self.client: Optional[docker.DockerClient] = None
+        self.client: docker.DockerClient | None = None
         self.available = False
         
         try:
@@ -32,7 +31,7 @@ class DockerService:
         except Exception as e:
             pass
     
-    def get_container_name_by_ip(self, ip_address: str) -> Optional[str]:
+    def get_container_name_by_ip(self, ip_address: str) -> str | None:
         """
         Look up container name by IP address
         
@@ -66,7 +65,7 @@ class DockerService:
         except Exception as e:
             return None
     
-    def get_container_info_by_ip(self, ip_address: str) -> Optional[dict]:
+    def get_container_info_by_ip(self, ip_address: str) -> dict | None:
         """
         Get detailed container information by IP address
         
@@ -117,7 +116,7 @@ class DockerService:
 
 
 # Global singleton instance
-_docker_service: Optional[DockerService] = None
+_docker_service: DockerService | None = None
 
 
 def get_docker_service() -> DockerService:

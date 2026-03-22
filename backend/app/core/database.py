@@ -5,19 +5,20 @@ where connections and other application data are stored.
 """
 
 import os
-from typing import Optional
 from urllib.parse import quote_plus
 from pymongo import MongoClient
 from pymongo.database import Database
 from pymongo.errors import ConnectionFailure
 
+from app.enums import MongoDefault, MongoTool
+
 
 class DatabaseClient:
     """Singleton MongoDB client for manager database"""
     
-    _instance: Optional['DatabaseClient'] = None
-    _client: Optional[MongoClient] = None
-    _database: Optional[Database] = None
+    _instance: 'DatabaseClient | None' = None
+    _client: MongoClient | None = None
+    _database: Database | None = None
     
     def __new__(cls):
         if cls._instance is None:
@@ -51,9 +52,9 @@ class DatabaseClient:
                 uri = f"mongodb://{host}:{port}/{database}"
         
         try:
-            self._client = MongoClient(uri, serverSelectionTimeoutMS=5000)
+            self._client = MongoClient(uri, serverSelectionTimeoutMS=MongoDefault.SERVER_TIMEOUT_MS)
             # Test connection
-            self._client.admin.command('ping')
+            self._client.admin.command(MongoTool.PING)
             
             # Extract database name from URI or use default
             if '/' in uri:
