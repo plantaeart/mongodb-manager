@@ -8,7 +8,10 @@
           <span class="control minimize"></span>
           <span class="control maximize"></span>
         </div>
-        <h1 class="terminal-title">MongoDB Manager <span class="version-badge">{{ versionString }}</span></h1>
+        <h1 class="terminal-title">
+          <img src="/logo/logo.png" alt="MongoDB Manager" class="terminal-logo" />
+          MongoDB Manager <span class="version-badge">{{ versionString }}</span>
+        </h1>
       </div>
     </div>
 
@@ -150,6 +153,12 @@ const handleLogout = async () => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.terminal-logo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }
 
 .version-badge {
