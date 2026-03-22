@@ -11,8 +11,8 @@
 
   <!-- Full stepper UI (only while active) -->
   <div v-else class="terminal-form-stepper-generic">
-    <!-- Custom Stepper Component -->
-    <TerminalCustomStepper 
+    <!-- Stepper Progress Component -->
+    <StepperProgress 
       ref="stepper" 
       :steps="stepperSteps" 
       @step-change="handleStepChange"
@@ -65,7 +65,7 @@
           </div>
         </div>
       </template>
-    </TerminalCustomStepper>
+    </StepperProgress>
 
     <!-- Navigation Buttons -->
     <div class="stepper-actions">
@@ -116,19 +116,12 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, triggerRef } from 'vue'
-import TerminalTextField from './Fields/TerminalTextField.vue'
-import TerminalPasswordField from './Fields/TerminalPasswordField.vue'
-import TerminalNumberField from './Fields/TerminalNumberField.vue'
-import TerminalCheckboxField from './Fields/TerminalCheckboxField.vue'
-import TerminalCheckboxListField from './Fields/TerminalCheckboxListField.vue'
-import TerminalSelectField from './Fields/TerminalSelectField.vue'
-import TerminalReadonlyField from './Fields/TerminalReadonlyField.vue'
-import TerminalCustomStepper from './TerminalCustomStepper.vue'
+import StepperProgress from './StepperProgress.vue'
 import CommandsConnectUpdateSelectConnection from '~/components/Commands/Connect/Update/SelectConnection.vue'
 import CommandsConnectUpdateUpdateDetails from '~/components/Commands/Connect/Update/UpdateDetails.vue'
 import type { StepperFormConfig, StepContext } from '~/types/stepper'
-import { isStepValid, canProceedFromStep, getAllStepData } from '~/types/stepper'
-import type { FormField } from '~/types/terminal'
+import { isStepValid, canProceedFromStep, getAllStepData } from '~/utils/stepperHelpers'
+import { getFieldComponent } from '~/composables/useFieldComponent'
 import { CommandStatus } from '~/enums'
 import { useAuthStore } from '~/stores/auth'
 
@@ -232,26 +225,6 @@ const canSubmit = computed(() => {
   const lastStep = stepsRef.value[stepsRef.value.length - 1]
   return lastStep && isStepValid(lastStep, stepsRef.value) && !isSubmitting.value
 })
-
-// Get appropriate component for field type
-const getFieldComponent = (field: FormField) => {
-  switch (field.type) {
-    case 'password':
-      return TerminalPasswordField
-    case 'number':
-      return TerminalNumberField
-    case 'checkbox':
-      return TerminalCheckboxField
-    case 'checkbox-list':
-      return TerminalCheckboxListField
-    case 'select':
-      return TerminalSelectField
-    case 'readonly':
-      return TerminalReadonlyField
-    default:
-      return TerminalTextField
-  }
-}
 
 // Create step context for handlers
 const createStepContext = (): StepContext => {

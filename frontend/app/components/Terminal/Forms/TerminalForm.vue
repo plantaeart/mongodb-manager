@@ -63,19 +63,12 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import TerminalTextField from './Fields/TerminalTextField.vue'
-import TerminalPasswordField from './Fields/TerminalPasswordField.vue'
-import TerminalNumberField from './Fields/TerminalNumberField.vue'
-import TerminalCheckboxField from './Fields/TerminalCheckboxField.vue'
-import TerminalCheckboxListField from './Fields/TerminalCheckboxListField.vue'
-import TerminalReadonlyField from './Fields/TerminalReadonlyField.vue'
-import TerminalListField from './Fields/TerminalListField.vue'
-import TerminalSelectField from './Fields/TerminalSelectField.vue'
 import TerminalFormActions from './TerminalFormActions.vue'
 import TerminalFormStepper from './TerminalFormStepper.vue'
-import type { FormRequestMessage, FormField } from '~/types/terminal'
-import { CommandStatus } from '~/enums'
+import type { FormRequestMessage } from '~/types/terminal'
+import { CommandStatus, FormTimeout, TerminalConfig, TerminalCommand } from '~/enums'
 import { getStepperConfig } from '~/config/stepperRegistry'
+import { getFieldComponent } from '~/composables/useFieldComponent'
 
 interface Props {
   formData: FormRequestMessage
@@ -130,7 +123,7 @@ const isReadOnlyForm = computed(() => {
 
 // Two-column layout for forms with many fields
 const shouldUseTwoColumns = computed(() => {
-  return props.formData.fields.length > 4
+  return props.formData.fields.length > TerminalConfig.TWO_COLUMN_THRESHOLD
 })
 
 // Show all fields (no filtering)
@@ -138,34 +131,9 @@ const displayedFields = computed(() => {
   return props.formData.fields
 })
 
-// Get appropriate component for field type
-const getFieldComponent = (field: FormField) => {
-  switch (field.type) {
-    case 'password':
-      return TerminalPasswordField
-    case 'number':
-      return TerminalNumberField
-    case 'checkbox':
-      return TerminalCheckboxField
-    case 'checkbox-list':
-      return TerminalCheckboxListField
-    case 'readonly':
-      return TerminalReadonlyField
-    case 'list':
-      return TerminalListField
-    case 'textarea':
-      // TODO: Create TerminalTextAreaField when needed
-      return TerminalTextField
-    case 'select':
-      return TerminalSelectField
-    default:
-      return TerminalTextField
-  }
-}
-
-// Timeout warning (5 min timeout, warn at 4 min = 240 seconds)
-const FORM_TIMEOUT = 300 * 1000 // 5 minutes in ms
-const WARNING_TIME = 240 * 1000 // 4 minutes in ms
+// Timeout warning — uses FormTimeout constants
+const FORM_TIMEOUT = FormTimeout.TOTAL_MS
+const WARNING_TIME = FormTimeout.WARNING_MS
 let timeoutWarningTimer: NodeJS.Timeout | null = null
 
 // Initialize field values with defaults
@@ -245,11 +213,10 @@ const getSubmitButtonText = (): string => {
   if (!stepperConfig.value) return 'Submit'
   
   const command = stepperConfig.value.command
-  if (command === 'connect update') {
+  if (command === TerminalCommand.CONNECT_UPDATE) {
     return 'Update Connection'
   }
   
-  // Add more command-specific labels here
   return 'Submit'
 }
 

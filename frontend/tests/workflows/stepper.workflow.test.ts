@@ -27,7 +27,7 @@ import {
   getAllStepData,
   isStepValid,
   canProceedFromStep,
-} from '~/types/stepper'
+} from '~/utils/stepperHelpers'
 import type { StepDefinition, StepperFormConfig } from '~/types/stepper'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

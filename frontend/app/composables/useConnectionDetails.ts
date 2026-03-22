@@ -1,22 +1,10 @@
 /**
- * Connection details response from API
- */
-export interface ConnectionDetails {
-  name: string
-  uri: string
-  description: string
-  host: string
-  port: number
-  username: string
-  password: string
-  database: string
-  auth_source: string
-}
-
-/**
  * Composable for fetching connection details
  * Used in Step 2 of connect update stepper to pre-populate form
  */
+
+import type { ConnectionDetails } from '~/types/connection'
+
 export const useConnectionDetails = () => {
   const config = useRuntimeConfig()
   const baseUrl = config.public.apiUrl

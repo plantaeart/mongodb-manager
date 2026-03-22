@@ -77,7 +77,7 @@
 </template>
 
 <script setup lang="ts">
-import { ToastColor, ToastDuration } from '~/enums'
+import { ToastColor, ToastDuration, PasswordChangeDelay } from '~/enums'
 import type { PasswordChangeResult } from '~/types/auth'
 
 interface Props {
@@ -151,7 +151,7 @@ const handleChangePassword = async () => {
       // Close modal after brief delay
       setTimeout(() => {
         emit('success')
-      }, 800)
+      }, PasswordChangeDelay.SUCCESS_MS)
     } else {
       emit('error', result.error || 'Unable to change password')
       
@@ -212,69 +212,25 @@ const handleChangePassword = async () => {
   gap: 1rem;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-}
-
-.terminal-input {
-  background: var(--gb-bg);
-  border: 1px solid var(--gb-gray);
-  color: var(--gb-fg);
-  padding: 0.75rem;
-  border-radius: 4px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 14px;
-  transition: border-color 0.2s;
-}
-
+/* Change password inputs use yellow focus to match the modal's yellow theme */
 .terminal-input:focus {
-  outline: none;
   border-color: var(--gb-yellow);
 }
 
-.terminal-input:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
+/* Change password button uses yellow theme */
 .terminal-button {
   background: var(--gb-yellow);
   color: var(--gb-bg-hard);
-  padding: 0.75rem;
-  border: none;
-  border-radius: 4px;
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
 }
 
 .terminal-button:hover:not(:disabled) {
   background: var(--gb-yellow-bright);
-  transform: translateY(-1px);
-}
-
-.terminal-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .button-group {
   display: flex;
   gap: 0.5rem;
   margin-top: 0.5rem;
-}
-
-.error-message {
-  background: rgba(251, 73, 52, 0.1);
-  border: 1px solid var(--gb-red);
-  color: var(--gb-red);
-  padding: 0.75rem;
-  border-radius: 4px;
-  font-size: 14px;
-  font-family: 'JetBrains Mono', monospace;
 }
 
 .success-message {

@@ -12,6 +12,22 @@
  * This file only maintains the command→API path mapping.
  */
 
+import { TerminalCommand } from '~/enums'
+
+/**
+ * Base path for all form API endpoints
+ */
+export const API_FORM_BASE = '/api/forms'
+
+/**
+ * Commands that use a dedicated form submission endpoint (/api/forms/...)
+ * instead of the generic /api/commands/execute endpoint.
+ */
+export const FORM_ENDPOINT_COMMANDS = new Set<TerminalCommand>([
+  TerminalCommand.BACKUP_DELETE,
+  TerminalCommand.BACKUP_RESTORE
+])
+
 /**
  * Command to API Path Registry
  * 
@@ -19,24 +35,24 @@
  * When a user runs a command that requires a form, the frontend
  * fetches the form schema from: /api/forms/{apiPath}
  */
-export const COMMAND_TO_API_PATH: Record<string, string> = {
+export const COMMAND_TO_API_PATH: Partial<Record<TerminalCommand, string>> = {
   // Connection Management Commands
-  'connect add': 'connect/add',
-  'connect remove': 'connect/remove',
-  'connect list': 'connect/list',
-  'connect test': 'connect/test',
-  'connect update': 'connect/update/select',  // Step 1 of multi-step
-  
+  [TerminalCommand.CONNECT_ADD]: 'connect/add',
+  [TerminalCommand.CONNECT_REMOVE]: 'connect/remove',
+  [TerminalCommand.CONNECT_LIST]: 'connect/list',
+  [TerminalCommand.CONNECT_TEST]: 'connect/test',
+  [TerminalCommand.CONNECT_UPDATE]: 'connect/update/select',  // Step 1 of multi-step
+
   // Backup Folder Management Commands (multi-step)
-  'backup folder add': 'backup/folder/add/configure',  // Step 1: Configure folder path
-  'backup folder delete': 'backup/folder/delete/select',  // Step 1: Select connection
-  'backup folder list': 'backup/folder/list',
-  
+  [TerminalCommand.BACKUP_FOLDER_ADD]: 'backup/folder/add/configure',  // Step 1
+  [TerminalCommand.BACKUP_FOLDER_DELETE]: 'backup/folder/delete/select',  // Step 1
+  [TerminalCommand.BACKUP_FOLDER_LIST]: 'backup/folder/list',
+
   // Backup Operation Commands (multi-step)
-  'backup create': 'backup/create/select',  // Step 1
-  'backup list': 'backup/list',
-  'backup delete': 'backup/delete',
-  'backup restore': 'backup/restore/select',  // Step 1
+  [TerminalCommand.BACKUP_CREATE]: 'backup/create/select',  // Step 1
+  [TerminalCommand.BACKUP_LIST]: 'backup/list',
+  [TerminalCommand.BACKUP_DELETE]: 'backup/delete',
+  [TerminalCommand.BACKUP_RESTORE]: 'backup/restore/select',  // Step 1
 }
 
 /**
@@ -45,30 +61,30 @@ export const COMMAND_TO_API_PATH: Record<string, string> = {
  * Maps terminal commands to their POST endpoints for form submission.
  * For multi-step forms, this should point to the FINAL step's POST endpoint.
  */
-export const COMMAND_TO_POST_API_PATH: Record<string, string> = {
+export const COMMAND_TO_POST_API_PATH: Partial<Record<TerminalCommand, string>> = {
   // Single-step forms (same as GET)
-  'connect add': 'connect/add',
-  'connect remove': 'connect/remove',
-  'connect test': 'connect/test',
-  'backup folder list': 'backup/folder/list',
-  'backup list': 'backup/list',
-  'backup delete': 'backup/delete',
-  
+  [TerminalCommand.CONNECT_ADD]: 'connect/add',
+  [TerminalCommand.CONNECT_REMOVE]: 'connect/remove',
+  [TerminalCommand.CONNECT_TEST]: 'connect/test',
+  [TerminalCommand.BACKUP_FOLDER_LIST]: 'backup/folder/list',
+  [TerminalCommand.BACKUP_LIST]: 'backup/list',
+  [TerminalCommand.BACKUP_DELETE]: 'backup/delete',
+
   // Multi-step forms (final step POST endpoint)
-  'backup folder add': 'backup/folder/add/configure',  // Step 2 POST
-  'backup folder delete': 'backup/folder/delete/confirm',  // Step 2 POST
-  'backup create': 'backup/create/configure',  // Step 2 POST
-  'backup restore': 'backup/restore/configure',  // Step 2 POST
+  [TerminalCommand.BACKUP_FOLDER_ADD]: 'backup/folder/add/configure',  // Step 2 POST
+  [TerminalCommand.BACKUP_FOLDER_DELETE]: 'backup/folder/delete/confirm',  // Step 2 POST
+  [TerminalCommand.BACKUP_CREATE]: 'backup/create/configure',  // Step 2 POST
+  [TerminalCommand.BACKUP_RESTORE]: 'backup/restore/configure',  // Step 2 POST
 }
 
 /**
  * Get API path for a given command
  * 
- * @param command - Terminal command (e.g., 'connect add')
+ * @param command - Terminal command
  * @returns API path (e.g., 'connect/add') or undefined if not found
  */
 export function getApiPathForCommand(command: string): string | undefined {
-  return COMMAND_TO_API_PATH[command]
+  return COMMAND_TO_API_PATH[command as TerminalCommand]
 }
 
 /**
@@ -77,11 +93,11 @@ export function getApiPathForCommand(command: string): string | undefined {
  * For multi-step forms, returns the FINAL step's POST endpoint.
  * For single-step forms, returns the same as getApiPathForCommand.
  * 
- * @param command - Terminal command (e.g., 'backup restore')
- * @returns POST API path (e.g., 'backup/restore/configure') or undefined if not found
+ * @param command - Terminal command
+ * @returns POST API path or undefined if not found
  */
 export function getPostApiPathForCommand(command: string): string | undefined {
-  return COMMAND_TO_POST_API_PATH[command] || COMMAND_TO_API_PATH[command]
+  return COMMAND_TO_POST_API_PATH[command as TerminalCommand] ?? COMMAND_TO_API_PATH[command as TerminalCommand]
 }
 
 /**
@@ -91,45 +107,37 @@ export function getPostApiPathForCommand(command: string): string | undefined {
  * @returns True if command has a form API endpoint
  */
 export function hasForm(command: string): boolean {
-  return command in COMMAND_TO_API_PATH
+  return (command as TerminalCommand) in COMMAND_TO_API_PATH
 }
 
 /**
  * Extract command from form title
  * 
  * @param title - Form title (e.g., "Select Connection - Step 1 of 2")
- * @returns Command string (e.g., "connect update") or null
+ * @returns Command string or null
  */
 export function getCommandFromFormTitle(title: string): string | null {
-  // Check if title contains "Step 1"
   if (!title.includes('Step 1')) {
     return null
   }
-  
-  // Try to match title patterns to commands
+
   const titleLower = title.toLowerCase()
-  
-  // Match "Update MongoDB Connection - Step 1" or similar
+
   if (titleLower.includes('update') && titleLower.includes('connection')) {
-    return 'connect update'
+    return TerminalCommand.CONNECT_UPDATE
   }
-  
-  // Match "Add Backup Folder - Step 1"
+
   if (titleLower.includes('add') && titleLower.includes('backup') && titleLower.includes('folder')) {
-    return 'backup folder add'
+    return TerminalCommand.BACKUP_FOLDER_ADD
   }
-  
-  // Match "Create Backup - Step 1"
+
   if (titleLower.includes('create') && titleLower.includes('backup')) {
-    return 'backup create'
+    return TerminalCommand.BACKUP_CREATE
   }
-  
-  // Match "Restore Backup - Step 1"
+
   if (titleLower.includes('restore') && titleLower.includes('backup')) {
-    return 'backup restore'
+    return TerminalCommand.BACKUP_RESTORE
   }
-  
-  // Add more title patterns here as needed
-  
+
   return null
 }

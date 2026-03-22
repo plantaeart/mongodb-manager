@@ -5,7 +5,8 @@
  */
 
 import type { StepDefinition, StepperFormConfig } from '~/types/stepper'
-import { createStep } from '~/types/stepper'
+import { createStep } from '~/utils/stepperHelpers'
+import { loadStepSchema } from '~/composables/useStepLoader'
 
 /**
  * Create stepper configuration for 'backup restore' command
@@ -21,16 +22,9 @@ export function createBackupRestoreStepper(formId: string): StepperFormConfig {
     ),
     loadData: async (allSteps, context) => {
       // Fetch form schema for Step 1
-      const formSchema = await $fetch(`${context.baseUrl}/api/forms/backup/restore/select`, {
-        headers: {
-          'Authorization': `Bearer ${context.token}`
-        }
-      })
-      
-      // Update step formData
       const currentStep = allSteps[0]
       if (currentStep) {
-        currentStep.formData = formSchema as any
+        await loadStepSchema(`${context.baseUrl}/api/forms/backup/restore/select`, context.token, currentStep)
       }
     },
     validate: (data, allSteps) => {
@@ -64,7 +58,7 @@ export function createBackupRestoreStepper(formId: string): StepperFormConfig {
       // Fetch form schema for Step 2 with backup_selector query param
       const formSchema = await $fetch(`${context.baseUrl}/api/forms/backup/restore/configure`, {
         headers: {
-          'Authorization': `Bearer ${context.token}`
+          Authorization: `Bearer ${context.token}`
         },
         params: {
           backup_selector: backupSelector

@@ -5,7 +5,8 @@
  */
 
 import type { StepDefinition, StepperFormConfig } from '~/types/stepper'
-import { createStep } from '~/types/stepper'
+import { createStep } from '~/utils/stepperHelpers'
+import { loadStepSchema } from '~/composables/useStepLoader'
 
 /**
  * Create stepper configuration for 'backup folder add' command
@@ -20,16 +21,9 @@ export function createBackupFolderAddStepper(formId: string): StepperFormConfig 
       'i-lucide-folder-plus'
     ),
     loadData: async (allSteps, context) => {
-      const formSchema = await $fetch(`${context.baseUrl}/api/forms/backup/folder/add/configure`, {
-        headers: {
-          'Authorization': `Bearer ${context.token}`
-        }
-      })
-
-      // Update step formData
       const currentStep = allSteps[0]
       if (currentStep) {
-        currentStep.formData = formSchema as any
+        await loadStepSchema(`${context.baseUrl}/api/forms/backup/folder/add/configure`, context.token, currentStep)
 
         // Initialize with default values
         currentStep.data = {
@@ -58,16 +52,9 @@ export function createBackupFolderAddStepper(formId: string): StepperFormConfig 
       'i-lucide-database'
     ),
     loadData: async (allSteps, context) => {
-      const formSchema = await $fetch(`${context.baseUrl}/api/forms/backup/folder/add/select`, {
-        headers: {
-          'Authorization': `Bearer ${context.token}`
-        }
-      })
-
-      // Update step formData
       const currentStep = allSteps[1]
       if (currentStep) {
-        currentStep.formData = formSchema as any
+        await loadStepSchema(`${context.baseUrl}/api/forms/backup/folder/add/select`, context.token, currentStep)
       }
     },
     validate: (data, allSteps) => {

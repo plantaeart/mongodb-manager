@@ -5,7 +5,8 @@
  */
 
 import type { StepDefinition, StepperFormConfig } from '~/types/stepper'
-import { createStep } from '~/types/stepper'
+import { createStep } from '~/utils/stepperHelpers'
+import { loadStepSchema } from '~/composables/useStepLoader'
 
 /**
  * Create stepper configuration for 'backup folder delete' command
@@ -20,16 +21,9 @@ export function createBackupFolderDeleteStepper(formId: string): StepperFormConf
       'i-lucide-database'
     ),
     loadData: async (allSteps, context) => {
-      const formSchema = await $fetch(`${context.baseUrl}/api/forms/backup/folder/delete/select`, {
-        headers: {
-          'Authorization': `Bearer ${context.token}`
-        }
-      })
-
-      // Update step formData
       const currentStep = allSteps[0]
       if (currentStep) {
-        currentStep.formData = formSchema as any
+        await loadStepSchema(`${context.baseUrl}/api/forms/backup/folder/delete/select`, context.token, currentStep)
       }
     },
     validate: (data, allSteps) => {
@@ -60,16 +54,9 @@ export function createBackupFolderDeleteStepper(formId: string): StepperFormConf
         throw new Error('No connection selected')
       }
 
-      const formSchema = await $fetch(`${context.baseUrl}/api/forms/backup/folder/delete/confirm`, {
-        headers: {
-          'Authorization': `Bearer ${context.token}`
-        }
-      })
-
-      // Update step formData
       const currentStep = allSteps[1]
       if (currentStep) {
-        currentStep.formData = formSchema as any
+        await loadStepSchema(`${context.baseUrl}/api/forms/backup/folder/delete/confirm`, context.token, currentStep)
 
         // Populate folder_path options from step 1 metadata (backup_paths of selected connection)
         const step1 = allSteps[0]

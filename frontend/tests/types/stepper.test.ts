@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { createStep, getAllStepData, isStepValid, canProceedFromStep } from '~/types/stepper'
+import { createStep, getAllStepData, isStepValid, canProceedFromStep } from '~/utils/stepperHelpers'
 import type { StepDefinition } from '~/types/stepper'
 
 // ── Helpers ────────────────────────────────────────────────────────────────

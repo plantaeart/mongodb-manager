@@ -5,7 +5,8 @@
  */
 
 import type { StepDefinition, StepperFormConfig } from '~/types/stepper'
-import { createStep } from '~/types/stepper'
+import { createStep } from '~/utils/stepperHelpers'
+import { loadStepSchema } from '~/composables/useStepLoader'
 
 /**
  * Create stepper configuration for 'backup create' command
@@ -21,16 +22,9 @@ export function createBackupCreateStepper(formId: string): StepperFormConfig {
     ),
     loadData: async (allSteps, context) => {
       // Fetch form schema for Step 1
-      const formSchema = await $fetch(`${context.baseUrl}/api/forms/backup/create/select`, {
-        headers: {
-          'Authorization': `Bearer ${context.token}`
-        }
-      })
-      
-      // Update step formData
       const currentStep = allSteps[0]
       if (currentStep) {
-        currentStep.formData = formSchema as any
+        await loadStepSchema(`${context.baseUrl}/api/forms/backup/create/select`, context.token, currentStep)
       }
     },
     validate: (data, allSteps) => {
@@ -62,16 +56,9 @@ export function createBackupCreateStepper(formId: string): StepperFormConfig {
       }
 
       // Fetch form schema for Step 2
-      const formSchema = await $fetch(`${context.baseUrl}/api/forms/backup/create/configure`, {
-        headers: {
-          'Authorization': `Bearer ${context.token}`
-        }
-      })
-
-      // Update step formData
       const currentStep = allSteps[1]
       if (currentStep) {
-        currentStep.formData = formSchema as any
+        await loadStepSchema(`${context.baseUrl}/api/forms/backup/create/configure`, context.token, currentStep)
         
         // Get backup_paths from step 1 metadata
         const step1 = allSteps[0]

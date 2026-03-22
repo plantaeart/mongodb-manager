@@ -13,12 +13,7 @@
     >
       <!-- Command prompt -->
       <div v-if="entry.command" class="command-line">
-        <span class="prompt-user">admin</span>
-        <span class="prompt-separator">@</span>
-        <span class="prompt-host">mongodb-manager</span>
-        <span class="prompt-path">~</span>
-        <span class="prompt-symbol">$</span>
-        <span class="command-text">{{ entry.command }}</span>
+        <TerminalPrompt :command="entry.command" />
       </div>
 
       <!-- Form rendering -->
@@ -166,35 +161,6 @@ const handleFormCancel = (formId: string | number) => {
 .command-line {
   margin-bottom: 0.5rem;
   user-select: none;
-}
-
-.prompt-user {
-  color: var(--gb-green);
-  font-weight: 600;
-}
-
-.prompt-separator {
-  color: var(--gb-fg-dim);
-  margin: 0 0.25rem;
-}
-
-.prompt-host {
-  color: var(--gb-blue);
-  font-weight: 600;
-}
-
-.prompt-path {
-  color: var(--gb-purple);
-  margin: 0 0.5rem;
-}
-
-.prompt-symbol {
-  color: var(--gb-fg);
-  margin-right: 0.5rem;
-}
-
-.command-text {
-  color: var(--gb-yellow);
 }
 
 .output-lines {

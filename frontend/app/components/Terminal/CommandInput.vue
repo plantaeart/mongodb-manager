@@ -2,13 +2,7 @@
   <div class="command-input-container">
     <div class="input-wrapper">
       <!-- Command prompt -->
-      <div class="prompt">
-        <span class="prompt-user">admin</span>
-        <span class="prompt-separator">@</span>
-        <span class="prompt-host">mongodb-manager</span>
-        <span class="prompt-path">~</span>
-        <span class="prompt-symbol">$</span>
-      </div>
+      <TerminalPrompt class="prompt" />
 
       <!-- Input field -->
       <input
@@ -42,10 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { TerminalCommand } from '~/enums'
-
-// Max number of suggestions shown in the dropdown
-const MAX_SUGGESTIONS = 10
+import { TerminalCommand, TerminalConfig } from '~/enums'
 
 interface Props {
   isExecuting?: boolean
@@ -114,7 +105,7 @@ const computedSuggestions = computed(() => {
     ...favPrefixMatches,
     ...substringMatches,
     ...favSubstringMatches
-  ].slice(0, MAX_SUGGESTIONS)
+  ].slice(0, TerminalConfig.MAX_SUGGESTIONS)
 })
 
 // Highlight the matched substring within a suggestion
@@ -137,7 +128,6 @@ watch(currentCommand, (value) => {
 
 // Watch isExecuting to refocus input when command completes
 watch(() => props.isExecuting, (newValue, oldValue) => {
-  // When execution completes (true → false), refocus input
   if (oldValue === true && newValue === false) {
     nextTick(() => {
       inputField.value?.focus()
@@ -150,21 +140,18 @@ const handleSubmit = async () => {
 
   const command = currentCommand.value.trim()
   
-  // Add to local history
+  // Add to local history (capped at MAX_LOCAL_INPUT_HISTORY)
   localHistory.value.unshift(command)
-  if (localHistory.value.length > 50) {
-    localHistory.value = localHistory.value.slice(0, 50)
+  if (localHistory.value.length > TerminalConfig.MAX_LOCAL_INPUT_HISTORY) {
+    localHistory.value = localHistory.value.slice(0, TerminalConfig.MAX_LOCAL_INPUT_HISTORY)
   }
   
-  // Emit command execution
   emit('executeCommand', command)
   
-  // Clear input and reset history index
   currentCommand.value = ''
   historyIndex.value = -1
   showSuggestions.value = false
   
-  // Keep input focused for next command
   await nextTick()
   inputField.value?.focus()
 }
@@ -190,41 +177,34 @@ const navigateHistory = (direction: 'up' | 'down') => {
 
 const handleArrowUp = () => {
   if (showSuggestions.value && computedSuggestions.value.length > 0) {
-    // Navigate suggestions (move selection up with wrapping)
     isNavigatingSuggestions.value = true
     selectedSuggestionIndex.value = selectedSuggestionIndex.value > 0 
       ? selectedSuggestionIndex.value - 1 
       : computedSuggestions.value.length - 1
   } else {
-    // Navigate command history (existing behavior)
     navigateHistory('up')
   }
 }
 
 const handleArrowDown = () => {
   if (showSuggestions.value && computedSuggestions.value.length > 0) {
-    // Navigate suggestions (move selection down with wrapping)
     isNavigatingSuggestions.value = true
     selectedSuggestionIndex.value = selectedSuggestionIndex.value < computedSuggestions.value.length - 1
       ? selectedSuggestionIndex.value + 1
       : 0
   } else {
-    // Navigate command history (existing behavior)
     navigateHistory('down')
   }
 }
 
 const handleEnterKey = () => {
-  // If suggestions visible and user has selected one, apply it
   if (showSuggestions.value && computedSuggestions.value.length > 0) {
     const suggestion = computedSuggestions.value[selectedSuggestionIndex.value]
     if (suggestion) {
       applySuggestion(suggestion)
-      return // Don't execute, just apply
+      return
     }
   }
-  
-  // Otherwise, execute the typed command
   handleSubmit()
 }
 
@@ -251,7 +231,6 @@ const applySuggestion = (suggestion: string) => {
   inputField.value?.focus()
 }
 
-// Focus input on mount
 onMounted(() => {
   inputField.value?.focus()
 })
@@ -273,34 +252,6 @@ onMounted(() => {
 
 .prompt {
   flex-shrink: 0;
-  user-select: none;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 14px;
-}
-
-.prompt-user {
-  color: var(--gb-green);
-  font-weight: 600;
-}
-
-.prompt-separator {
-  color: var(--gb-fg-dim);
-  margin: 0 0.25rem;
-}
-
-.prompt-host {
-  color: var(--gb-blue);
-  font-weight: 600;
-}
-
-.prompt-path {
-  color: var(--gb-purple);
-  margin: 0 0.5rem;
-}
-
-.prompt-symbol {
-  color: var(--gb-fg);
-  margin-right: 0.5rem;
 }
 
 .command-input {

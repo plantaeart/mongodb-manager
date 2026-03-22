@@ -3,9 +3,12 @@
  * 
  * This module defines types for building multi-step forms where each step
  * can have its own form schema, validation rules, and data loading logic.
+ *
+ * Helper functions (createStep, getAllStepData, isStepValid, canProceedFromStep)
+ * have been moved to ~/utils/stepperHelpers.ts
  */
 
-import type { FormRequestMessage, FormField } from './terminal'
+import type { FormRequestMessage } from './terminal'
 
 /**
  * Step configuration for stepper UI
@@ -79,69 +82,4 @@ export interface StepperFormConfig {
   onSubmit?: (allData: Record<string, any>) => Promise<void>
   /** Custom cancel handler */
   onCancel?: () => void
-}
-
-/**
- * Helper to create a basic step definition
- */
-export function createStep(
-  id: string,
-  title: string,
-  description: string,
-  icon?: string
-): StepDefinition {
-  return {
-    id,
-    config: {
-      title,
-      description,
-      icon,
-      disabled: false
-    },
-    data: {},
-    errors: {},
-    isLoading: false
-  }
-}
-
-/**
- * Helper to get all form data from all steps
- */
-export function getAllStepData(steps: StepDefinition[]): Record<string, any> {
-  return steps.reduce((acc, step) => {
-    return { ...acc, ...step.data }
-  }, {})
-}
-
-/**
- * Helper to check if a step is valid
- */
-export function isStepValid(step: StepDefinition, allSteps: StepDefinition[]): boolean {
-  // ALWAYS call custom validation if it exists
-  if (step.validate) {
-    const customValid = step.validate(step.data, allSteps)
-    
-    // If custom validation fails, return false immediately
-    if (!customValid) {
-      return false
-    }
-  }
-  
-  // Then check for field-level validation errors
-  const hasErrors = Object.keys(step.errors).length > 0
-  
-  return !hasErrors
-}
-
-/**
- * Helper to check if can proceed to next step
- */
-export function canProceedFromStep(stepIndex: number, steps: StepDefinition[]): boolean {
-  const step = steps[stepIndex]
-  
-  if (!step) {
-    return false
-  }
-  
-  return isStepValid(step, steps) && !step.isLoading
 }

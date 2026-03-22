@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./auth-modals.css";
 
 :root {
   /* Gruvbox color palette */

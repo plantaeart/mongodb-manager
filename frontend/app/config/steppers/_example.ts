@@ -12,7 +12,7 @@
  */
 
 import type { StepDefinition, StepperFormConfig } from '~/types/stepper'
-import { createStep } from '~/types/stepper'
+import { createStep } from '~/utils/stepperHelpers'
 
 /**
  * EXAMPLE: Create a 3-step backup creation form

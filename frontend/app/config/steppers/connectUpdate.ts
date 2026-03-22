@@ -6,7 +6,8 @@
 
 import type { StepDefinition, StepperFormConfig } from '~/types/stepper'
 import type { ConnectionDetails } from '~/types/connection'
-import { createStep } from '~/types/stepper'
+import { createStep } from '~/utils/stepperHelpers'
+import { loadStepSchema } from '~/composables/useStepLoader'
 
 /**
  * Create stepper configuration for 'connect update' command
@@ -23,16 +24,9 @@ export function createConnectUpdateStepper(formId: string): StepperFormConfig {
     component: 'CommandsConnectUpdateSelectConnection',  // Use custom component
     loadData: async (allSteps, context) => {
       // Fetch form schema for Step 1 (connection list)
-      const formSchema = await $fetch(`${context.baseUrl}/api/forms/connect/update/select`, {
-        headers: {
-          'Authorization': `Bearer ${context.token}`
-        }
-      })
-      
-      // Update step formData
       const currentStep = allSteps[0]
       if (currentStep) {
-        currentStep.formData = formSchema as any
+        await loadStepSchema(`${context.baseUrl}/api/forms/connect/update/select`, context.token, currentStep)
       }
     },
     validate: (data, allSteps) => {
@@ -72,40 +66,31 @@ export function createConnectUpdateStepper(formId: string): StepperFormConfig {
       }
 
       // Fetch form schema for Step 2
-      const formSchema = await $fetch(`${context.baseUrl}/api/forms/connect/update/details`, {
-        headers: {
-          'Authorization': `Bearer ${context.token}`
-        }
-      })
-
-      // Update step formData
       const currentStep = allSteps[1]
       if (currentStep) {
-        currentStep.formData = formSchema as any
-      }
+        await loadStepSchema(`${context.baseUrl}/api/forms/connect/update/details`, context.token, currentStep)
 
-      // Fetch connection details to pre-populate
-      const connectionDetails = await $fetch<ConnectionDetails>(`${context.baseUrl}/api/forms/connection-details/${connectionName}`, {
-        headers: {
-          'Authorization': `Bearer ${context.token}`
+        // Fetch connection details to pre-populate
+        const connectionDetails = await $fetch<ConnectionDetails>(`${context.baseUrl}/api/forms/connection-details/${connectionName}`, {
+          headers: {
+            Authorization: `Bearer ${context.token}`
+          }
+        })
+
+        // Decode password if it contains URL encoding artifacts
+        let decodedPassword = connectionDetails.password
+        // Note: Backend now handles URL-decoding, so this is just a safety check
+        try {
+          // Check if password contains % encoding (like %40, %3F, etc.)
+          if (decodedPassword && decodedPassword.includes('%')) {
+            decodedPassword = decodeURIComponent(decodedPassword)
+          }
+        } catch (error) {
+          // Keep original if decode fails
         }
-      })
 
-      // Decode password if it contains URL encoding artifacts
-      let decodedPassword = connectionDetails.password
-      // Note: Backend now handles URL-decoding, so this is just a safety check
-      try {
-        // Check if password contains % encoding (like %40, %3F, etc.)
-        if (decodedPassword && decodedPassword.includes('%')) {
-          decodedPassword = decodeURIComponent(decodedPassword)
-        }
-      } catch (error) {
-        // Keep original if decode fails
-      }
-
-      // Pre-populate step data with components ONLY
-      // NO URI building - backend will handle URI construction when needed
-      if (currentStep) {
+        // Pre-populate step data with components ONLY
+        // NO URI building - backend will handle URI construction when needed
         currentStep.data = {
           name: connectionDetails.name,
           description: connectionDetails.description,

@@ -5,13 +5,9 @@
  * Each module can create its own logger instance with a custom prefix.
  */
 
-export enum LogLevel {
-  DEBUG = 0,
-  INFO = 1,
-  WARN = 2,
-  ERROR = 3,
-  NONE = 4
-}
+import { LogLevel } from '~/enums'
+
+export { LogLevel }
 
 export interface LoggerConfig {
   /** Module name/prefix for logs */

@@ -1,44 +1,12 @@
+/**
+ * Tests for fieldHelpers.ts (previously formHelpers.ts).
+ *
+ * Note: getFieldComponentName() was removed during the Phase 4 refactor because
+ * it was dead code — component resolution at runtime uses component references
+ * via useFieldComponent.ts, not string names. Those tests have been removed.
+ */
 import { describe, it, expect } from 'vitest'
-import { getFieldComponentName, decodeConnectionData } from '~/utils/formHelpers'
-
-// ── getFieldComponentName ──────────────────────────────────────────────────
-describe('getFieldComponentName', () => {
-  it('returns TerminalPasswordField for "password"', () => {
-    expect(getFieldComponentName('password')).toBe('TerminalPasswordField')
-  })
-
-  it('returns TerminalNumberField for "number"', () => {
-    expect(getFieldComponentName('number')).toBe('TerminalNumberField')
-  })
-
-  it('returns TerminalCheckboxListField for "checkbox-list"', () => {
-    expect(getFieldComponentName('checkbox-list')).toBe('TerminalCheckboxListField')
-  })
-
-  it('returns TerminalReadonlyField for "readonly"', () => {
-    expect(getFieldComponentName('readonly')).toBe('TerminalReadonlyField')
-  })
-
-  it('returns TerminalListField for "list"', () => {
-    expect(getFieldComponentName('list')).toBe('TerminalListField')
-  })
-
-  it('returns TerminalTextField for "textarea"', () => {
-    expect(getFieldComponentName('textarea')).toBe('TerminalTextField')
-  })
-
-  it('returns TerminalTextField for "select"', () => {
-    expect(getFieldComponentName('select')).toBe('TerminalTextField')
-  })
-
-  it('returns TerminalTextField for unknown type', () => {
-    expect(getFieldComponentName('unknown-type')).toBe('TerminalTextField')
-  })
-
-  it('returns TerminalTextField for empty string', () => {
-    expect(getFieldComponentName('')).toBe('TerminalTextField')
-  })
-})
+import { decodeConnectionData } from '~/utils/fieldHelpers'
 
 // ── decodeConnectionData ───────────────────────────────────────────────────
 describe('decodeConnectionData', () => {

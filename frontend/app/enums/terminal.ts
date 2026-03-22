@@ -1,4 +1,20 @@
 /**
+ * Terminal configuration constants
+ */
+export const TerminalConfig = {
+  /** Maximum number of history entries kept in memory */
+  MAX_HISTORY: 100,
+  /** Maximum number of history entries persisted to localStorage */
+  PERSIST_HISTORY: 50,
+  /** Maximum number of local input history entries */
+  MAX_LOCAL_INPUT_HISTORY: 50,
+  /** Maximum number of autocomplete suggestions shown */
+  MAX_SUGGESTIONS: 10,
+  /** Field count threshold for switching to two-column layout */
+  TWO_COLUMN_THRESHOLD: 4
+} as const
+
+/**
  * Terminal command strings
  * All available commands in the terminal interface
  */
