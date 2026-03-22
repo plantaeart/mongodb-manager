@@ -96,7 +96,15 @@ async def execute_command(
                 if port_value.strip() == '':
                     request.params["port"] = 27017
                 else:
-                    request.params["port"] = int(port_value)
+                    try:
+                        request.params["port"] = int(port_value)
+                    except (ValueError, TypeError):
+                        return CommandExecuteResponse(
+                            success=False,
+                            output="",
+                            error=f"Invalid port value: {port_value}",
+                            exit_code=1
+                        )
             elif port_value is None:
                 request.params["port"] = 27017
         else:
