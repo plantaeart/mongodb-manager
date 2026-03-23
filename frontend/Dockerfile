@@ -42,8 +42,8 @@ RUN mkdir -p /app/.nuxt /app/node_modules/.cache && \
 # Set environment variables for build
 ENV NODE_ENV=production
 
-# Build the application
-RUN npm run build
+# Build the application (increase Node heap to prevent OOM in constrained build envs)
+RUN NODE_OPTIONS="--max-old-space-size=2048" npm run build
 
 # ====================
 # Stage 3: Production Runtime
