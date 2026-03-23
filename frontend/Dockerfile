@@ -19,6 +19,13 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Accept public env vars at build time — Nuxt bakes NUXT_PUBLIC_* into the
+# client bundle during `npm run build`, so they must be available here.
+ARG NUXT_PUBLIC_API_URL
+ARG NUXT_PUBLIC_WS_URL
+ENV NUXT_PUBLIC_API_URL=$NUXT_PUBLIC_API_URL
+ENV NUXT_PUBLIC_WS_URL=$NUXT_PUBLIC_WS_URL
+
 # Copy only package.json (lock file excluded via .dockerignore)
 COPY package.json ./
 
