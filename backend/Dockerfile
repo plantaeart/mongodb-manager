@@ -1,19 +1,18 @@
 FROM python:3.14-slim
 
-# Install MongoDB tools
-# Uses the OS codename dynamically to support both bookworm (3.13) and trixie (3.14)
+# Install system dependencies required by MongoDB binaries (libgssapi, libssl)
 RUN apt-get update && \
-    apt-get install -y wget gnupg curl ca-certificates && \
-    DEBIAN_CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME") && \
-    MONGO_CODENAME=$([ "$DEBIAN_CODENAME" = "trixie" ] && echo "bookworm" || echo "$DEBIAN_CODENAME") && \
-    curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
-    gpg --dearmor -o /usr/share/keyrings/mongodb-archive-keyring.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/mongodb-archive-keyring.gpg] http://repo.mongodb.org/apt/debian ${MONGO_CODENAME}/mongodb-org/7.0 main" | \
-    tee /etc/apt/sources.list.d/mongodb-org-7.0.list && \
-    apt-get update && \
-    apt-get install -y mongodb-org-tools mongodb-mongosh && \
+    apt-get install -y libgssapi-krb5-2 libssl3 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# Copy MongoDB tools directly from the official MongoDB image
+# This avoids any apt repo or CDN network issues entirely
+COPY --from=mongo:7.0 /usr/bin/mongodump /usr/local/bin/
+COPY --from=mongo:7.0 /usr/bin/mongorestore /usr/local/bin/
+COPY --from=mongo:7.0 /usr/bin/mongoexport /usr/local/bin/
+COPY --from=mongo:7.0 /usr/bin/mongoimport /usr/local/bin/
+COPY --from=mongo:7.0 /usr/bin/mongosh /usr/local/bin/
 
 # Install UV
 RUN pip install --no-cache-dir uv
