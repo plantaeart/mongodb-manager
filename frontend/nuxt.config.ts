@@ -16,7 +16,9 @@ export default defineNuxtConfig({
   modules: ['@nuxt/ui', '@pinia/nuxt'],
   
   typescript: {
-    typeCheck: true,
+    // Type checking disabled during Docker build (too slow + env interference)
+    // Run `nuxt typecheck` locally or in CI instead
+    typeCheck: process.env.NUXT_TYPECHECK === 'true',
     strict: true, 
   },
 
