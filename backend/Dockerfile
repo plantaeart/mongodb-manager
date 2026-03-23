@@ -1,11 +1,14 @@
 FROM python:3.14-slim
 
 # Install MongoDB tools
+# Uses the OS codename dynamically to support both bookworm (3.13) and trixie (3.14)
 RUN apt-get update && \
-    apt-get install -y wget gnupg curl && \
+    apt-get install -y wget gnupg curl ca-certificates && \
+    DEBIAN_CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME") && \
+    MONGO_CODENAME=$([ "$DEBIAN_CODENAME" = "trixie" ] && echo "bookworm" || echo "$DEBIAN_CODENAME") && \
     curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
     gpg --dearmor -o /usr/share/keyrings/mongodb-archive-keyring.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/mongodb-archive-keyring.gpg] http://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main" | \
+    echo "deb [signed-by=/usr/share/keyrings/mongodb-archive-keyring.gpg] http://repo.mongodb.org/apt/debian ${MONGO_CODENAME}/mongodb-org/7.0 main" | \
     tee /etc/apt/sources.list.d/mongodb-org-7.0.list && \
     apt-get update && \
     apt-get install -y mongodb-org-tools mongodb-mongosh && \
