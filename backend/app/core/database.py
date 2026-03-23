@@ -5,12 +5,19 @@ where connections and other application data are stored.
 """
 
 import os
+import time
+import logging
 from urllib.parse import quote_plus
 from pymongo import MongoClient
 from pymongo.database import Database
 from pymongo.errors import ConnectionFailure
 
 from app.enums import MongoDefault, MongoTool
+
+logger = logging.getLogger(__name__)
+
+CONNECT_RETRIES = 10
+CONNECT_RETRY_DELAY = 3  # seconds between retries
 
 
 class DatabaseClient:
@@ -31,7 +38,7 @@ class DatabaseClient:
             self._connect()
     
     def _connect(self):
-        """Establish connection to manager database"""
+        """Establish connection to manager database with retry logic"""
         # Try to get URI from environment
         uri = os.getenv('MANAGER_DB_URI')
         
@@ -44,30 +51,33 @@ class DatabaseClient:
             password = os.getenv('NUXT_MONGODB_PASSWORD')
             
             if username and password:
-                # URL-encode username and password to handle special characters
                 username_encoded = quote_plus(username)
                 password_encoded = quote_plus(password)
                 uri = f"mongodb://{username_encoded}:{password_encoded}@{host}:{port}/{database}?authSource=admin"
             else:
                 uri = f"mongodb://{host}:{port}/{database}"
         
-        try:
-            self._client = MongoClient(uri, serverSelectionTimeoutMS=MongoDefault.SERVER_TIMEOUT_MS)
-            # Test connection
-            self._client.admin.command(MongoTool.PING)
-            
-            # Extract database name from URI or use default
-            if '/' in uri:
-                db_name = uri.split('/')[-1].split('?')[0]
-            else:
-                db_name = os.getenv('NUXT_MONGODB_DATABASE', 'mongodb_manager')
-            
-            self._database = self._client[db_name]
-            
-        except ConnectionFailure as e:
-            raise
-        except Exception as e:
-            raise
+        # Extract database name from URI
+        if '/' in uri:
+            db_name = uri.split('/')[-1].split('?')[0]
+        else:
+            db_name = os.getenv('NUXT_MONGODB_DATABASE', 'mongodb_manager')
+
+        # Retry loop
+        for attempt in range(1, CONNECT_RETRIES + 1):
+            try:
+                client = MongoClient(uri, serverSelectionTimeoutMS=MongoDefault.SERVER_TIMEOUT_MS)
+                client.admin.command(MongoTool.PING)
+                self._client = client
+                self._database = client[db_name]
+                logger.info(f"MongoDB connected successfully (attempt {attempt}/{CONNECT_RETRIES})")
+                return
+            except Exception as e:
+                logger.warning(f"MongoDB connection attempt {attempt}/{CONNECT_RETRIES} failed: {e}")
+                if attempt < CONNECT_RETRIES:
+                    time.sleep(CONNECT_RETRY_DELAY)
+
+        raise ConnectionFailure(f"Could not connect to MongoDB after {CONNECT_RETRIES} attempts")
     
     def get_database(self) -> Database:
         """Get the manager database instance
