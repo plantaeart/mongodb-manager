@@ -1,8 +1,8 @@
 FROM python:3.14-slim
 
-# Install system dependencies required by MongoDB binaries (libgssapi, libssl)
+# Install system dependencies required by MongoDB binaries (libgssapi, libssl) + curl for healthcheck
 RUN apt-get update && \
-    apt-get install -y libgssapi-krb5-2 libssl3 && \
+    apt-get install -y libgssapi-krb5-2 libssl3 curl && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
