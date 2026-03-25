@@ -4,7 +4,6 @@ services:
   # Internal MongoDB for app session storage
   manager-mongodb:
     image: mongo:7.0
-    container_name: manager-mongodb-prod
     restart: always
     environment:
       - MONGO_INITDB_ROOT_USERNAME=${NUXT_MONGODB_USERNAME}
@@ -32,7 +31,6 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     image: mongodb-manager-prod-backend:latest
-    container_name: mongodb-manager-backend-prod
     restart: always
     ports:
       - "${BACKEND_PORT:-8000}:8000"
@@ -93,7 +91,6 @@ services:
         - NUXT_PUBLIC_API_URL=${NUXT_PUBLIC_API_URL}
         - NUXT_PUBLIC_WS_URL=${NUXT_PUBLIC_WS_URL}
     image: mongodb-manager-prod-frontend:latest
-    container_name: mongodb-manager-frontend-prod
     restart: always
     ports:
       - "${FRONTEND_PORT:-3000}:${FRONTEND_PORT:-3000}"

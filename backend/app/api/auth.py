@@ -15,8 +15,17 @@ from app.middleware.auth import create_access_token, get_current_user
 
 router = APIRouter()
 
-# Initialize auth manager
-auth_manager = AuthManager()
+# Lazily initialized auth manager — avoids hitting MongoDB at import time
+# (module is imported before the lifespan startup and before Docker healthcheck
+# on manager-mongodb passes, so instantiating here would race against MongoDB)
+_auth_manager: AuthManager | None = None
+
+
+def get_auth_manager() -> AuthManager:
+    global _auth_manager
+    if _auth_manager is None:
+        _auth_manager = AuthManager()
+    return _auth_manager
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -28,9 +37,10 @@ def login(request: LoginRequest):
     In development mode (NODE_ENV=development), skip password change requirement.
     """
     username = AuthManager.DEFAULT_USERNAME
+    am = get_auth_manager()
     
     # Verify password
-    if not auth_manager.verify_password(request.password, username):
+    if not am.verify_password(request.password, username):
         raise HTTPException(status_code=401, detail="Invalid password")
     
     # Check if we're in development mode
@@ -38,7 +48,7 @@ def login(request: LoginRequest):
     is_development = node_env == "development"
     
     # Check if using default password (skip in development)
-    if auth_manager.is_default_password(username) and not is_development:
+    if am.is_default_password(username) and not is_development:
         return LoginResponse(
             access_token="",
             username=username,
@@ -47,7 +57,7 @@ def login(request: LoginRequest):
         )
     
     # Create session in MongoDB
-    auth_manager.create_session(username)
+    am.create_session(username)
     
     # Generate JWT token
     token = create_access_token({"username": username})
@@ -66,7 +76,7 @@ def logout(user: dict = Depends(get_current_user)):
     
     # Clear session from MongoDB
     try:
-        auth_manager.sessions_collection.delete_many({"username": username})
+        get_auth_manager().sessions_collection.delete_many({"username": username})
     except Exception:
         pass
     
@@ -79,7 +89,7 @@ def status(user: dict = Depends(get_current_user)):
     username = user.get("username")
     
     # Get session info
-    session = auth_manager.sessions_collection.find_one(
+    session = get_auth_manager().sessions_collection.find_one(
         {"username": username},
         sort=[("created_at", -1)]
     )
@@ -94,10 +104,11 @@ def status(user: dict = Depends(get_current_user)):
 @router.post("/change-password", response_model=MessageResponse)
 def change_password(request: ChangePasswordRequest, user: dict = Depends(get_current_user)):
     """Change password for authenticated user"""
-    username = user.get("username")
+    username: str = user.get("username", "")
+    am = get_auth_manager()
     
     # Verify old password
-    if not auth_manager.verify_password(request.old_password, username):
+    if not am.verify_password(request.old_password, username):
         raise HTTPException(status_code=401, detail="Invalid old password")
     
     # Validate new password
@@ -105,8 +116,8 @@ def change_password(request: ChangePasswordRequest, user: dict = Depends(get_cur
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
     
     # Update password
-    new_hash = auth_manager.hash_password(request.new_password)
-    success = auth_manager.update_user_password(username, new_hash)
+    new_hash = am.hash_password(request.new_password)
+    success = am.update_user_password(username, new_hash)
     
     if not success:
         raise HTTPException(status_code=500, detail="Failed to update password")
@@ -122,13 +133,14 @@ def first_time_password_change(request: FirstTimePasswordChangeRequest):
     for the first time with the default password.
     """
     username = AuthManager.DEFAULT_USERNAME
+    am = get_auth_manager()
     
     # Verify default password
-    if not auth_manager.verify_password(request.old_password, username):
+    if not am.verify_password(request.old_password, username):
         raise HTTPException(status_code=401, detail="Invalid password")
     
     # Ensure they're using the default password
-    if not auth_manager.is_default_password(username):
+    if not am.is_default_password(username):
         raise HTTPException(status_code=400, detail="This endpoint is only for first-time password changes")
     
     # Validate new password
@@ -136,14 +148,14 @@ def first_time_password_change(request: FirstTimePasswordChangeRequest):
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
     
     # Update password
-    new_hash = auth_manager.hash_password(request.new_password)
-    success = auth_manager.update_user_password(username, new_hash)
+    new_hash = am.hash_password(request.new_password)
+    success = am.update_user_password(username, new_hash)
     
     if not success:
         raise HTTPException(status_code=500, detail="Failed to update password")
     
     # Create session
-    auth_manager.create_session(username)
+    am.create_session(username)
     
     # Generate JWT token
     token = create_access_token({"username": username})
