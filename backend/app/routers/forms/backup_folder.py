@@ -12,7 +12,7 @@ def build_backup_folder_connection_options(connections: list[dict]) -> list[dict
             port=conn.get("port", 27017),
             username=conn.get("username"),
             database=conn.get("database"),
-            auth_source=conn.get("auth_source", "admin"),
+            auth_source=conn.get("auth_source"),
         )
         options.append({
             "value": conn["name"],

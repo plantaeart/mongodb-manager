@@ -78,7 +78,7 @@ CONNECT_ADD_FORM = FormSchema(
             default="admin",
             placeholder="admin",
             help_text="Database where user credentials are stored",
-            tooltip="Usually 'admin' - database where the user was created"
+            tooltip="Usually 'admin' - leave empty if no authentication is used"
         ),
 
         # Database
@@ -278,7 +278,7 @@ CONNECT_UPDATE_DETAILS_FORM = FormSchema(
             default="admin",
             placeholder="admin",
             help_text="Database where user credentials are stored",
-            tooltip="Usually 'admin' - database where the user was created"
+            tooltip="Usually 'admin' - leave empty if no authentication is used"
         ),
 
         # Database

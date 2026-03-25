@@ -3,7 +3,7 @@
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, OperationFailure
 
-from app.repositories.connection_repository import ConnectionRepository, get_connection_repository
+from app.repositories.connection_repository import ConnectionRepository, get_connection_repository, _UNSET
 from app.enums import MongoDefault, MongoTool
 
 
@@ -29,7 +29,7 @@ class ConnectionManager:
         username: str | None = None,
         password: str | None = None,
         database: str | None = None,
-        auth_source: str = "admin",
+        auth_source: str | None = None,
         description: str = ""
     ) -> bool:
         """Add a new MongoDB connection
@@ -41,7 +41,7 @@ class ConnectionManager:
             username: Username for authentication
             password: Password for authentication
             database: Default database
-            auth_source: Authentication database (default: "admin")
+            auth_source: Authentication database (None = no authSource in URI)
             description: Optional description
             
         Returns:
@@ -78,7 +78,7 @@ class ConnectionManager:
         username: str | None = None,
         password: str | None = None,
         database: str | None = None,
-        auth_source: str | None = None,
+        auth_source: str | None = _UNSET,  # type: ignore[assignment]
         description: str | None = None
     ) -> bool:
         """Update an existing MongoDB connection
@@ -91,7 +91,7 @@ class ConnectionManager:
             username: New username, None to keep current
             password: New password, None to keep current
             database: New database, None to keep current
-            auth_source: New auth_source, None to keep current
+            auth_source: New auth_source; None clears it; omit to keep current
             description: New description, None to keep current
             
         Returns:

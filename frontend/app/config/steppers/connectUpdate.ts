@@ -91,6 +91,8 @@ export function createConnectUpdateStepper(formId: string): StepperFormConfig {
 
         // Pre-populate step data with components ONLY
         // NO URI building - backend will handle URI construction when needed
+        // auth_source: null (cleared by user) → "" so the text field shows empty
+        // auth_source: undefined (never set)  → undefined so TerminalTextField falls back to field.default ("admin")
         currentStep.data = {
           name: connectionDetails.name,
           description: connectionDetails.description,
@@ -99,7 +101,7 @@ export function createConnectUpdateStepper(formId: string): StepperFormConfig {
           username: connectionDetails.username,
           password: decodedPassword,  // Use decoded password
           database: connectionDetails.database,
-          auth_source: connectionDetails.auth_source
+          auth_source: connectionDetails.auth_source === null ? '' : connectionDetails.auth_source
         }
       }
     },

@@ -15,9 +15,11 @@ class TestBuildMongodbUri:
         uri = build_mongodb_uri("localhost", 27017)
         assert "?" not in uri
 
-    def test_with_auth_appends_auth_source(self):
+    def test_with_auth_no_auth_source_by_default(self):
+        # auth_source defaults to None — no authSource appended unless explicitly set
         uri = build_mongodb_uri("localhost", 27017, "admin", "secret")
-        assert uri == "mongodb://admin:secret@localhost:27017?authSource=admin"
+        assert uri == "mongodb://admin:secret@localhost:27017"
+        assert "authSource" not in uri
 
     def test_with_auth_custom_auth_source(self):
         uri = build_mongodb_uri("localhost", 27017, "user", "pass", auth_source="mydb")
@@ -37,7 +39,8 @@ class TestBuildMongodbUri:
     def test_with_auth_and_database(self):
         uri = build_mongodb_uri("localhost", 27017, "user", "pass", database="mydb")
         assert "/mydb" in uri
-        assert "authSource=admin" in uri
+        # auth_source not set → no authSource in URI
+        assert "authSource" not in uri
 
     def test_with_options_dict(self):
         uri = build_mongodb_uri("localhost", 27017, options={"connectTimeoutMS": "3000", "retryWrites": "true"})
@@ -46,7 +49,8 @@ class TestBuildMongodbUri:
 
     def test_with_auth_and_options(self):
         uri = build_mongodb_uri("localhost", 27017, "user", "pass", options={"ssl": "true"})
-        assert "authSource=admin" in uri
+        # auth_source not set → no authSource in URI
+        assert "authSource" not in uri
         assert "ssl=true" in uri
 
     def test_empty_host_raises_value_error(self):
@@ -106,9 +110,10 @@ class TestBuildMongodbUriMasked:
         assert "secret" not in uri
         assert "password" not in uri.lower().replace("***", "")
 
-    def test_masked_uri_contains_auth_source(self):
+    def test_masked_uri_no_auth_source_by_default(self):
+        # auth_source defaults to None — no authSource in masked URI unless explicitly set
         uri = build_mongodb_uri_masked("localhost", 27017, username="admin")
-        assert "authSource=admin" in uri
+        assert "authSource" not in uri
 
     def test_masked_uri_with_database(self):
         uri = build_mongodb_uri_masked("localhost", 27017, username="admin", database="mydb")

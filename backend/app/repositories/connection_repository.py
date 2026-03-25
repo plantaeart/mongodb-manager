@@ -11,6 +11,9 @@ from pymongo.errors import DuplicateKeyError
 from app.core.database import get_manager_db
 from app.models.connection import ConnectionDocument
 
+# Sentinel value — distinguishes "not provided" from "explicitly set to None"
+_UNSET = object()
+
 
 class ConnectionRepository:
     """Repository for connection CRUD operations"""
@@ -32,7 +35,7 @@ class ConnectionRepository:
         username: str | None = None,
         password: str | None = None,
         database: str | None = None,
-        auth_source: str = "admin",
+        auth_source: str | None = None,
         description: str = "",
         created_by: str = "admin"
     ) -> bool:
@@ -45,7 +48,7 @@ class ConnectionRepository:
             username: Username for authentication
             password: Password for authentication
             database: Default database
-            auth_source: Authentication database (default: "admin")
+            auth_source: Authentication database (default: None = no authSource in URI)
             description: Optional description
             created_by: User who created the connection
             
@@ -103,11 +106,11 @@ class ConnectionRepository:
         username: str | None = None,
         password: str | None = None,
         database: str | None = None,
-        auth_source: str | None = None,
+        auth_source: str | None = _UNSET,  # type: ignore[assignment]
         description: str | None = None
     ) -> bool:
         """Update an existing connection
-        
+
         Args:
             name: Current connection name
             new_name: New name (if renaming), None to keep current
@@ -116,9 +119,9 @@ class ConnectionRepository:
             username: New username, None to keep current
             password: New password, None to keep current
             database: New database, None to keep current
-            auth_source: New auth_source, None to keep current
+            auth_source: New auth_source; None clears it; omit (_UNSET) to keep current
             description: New description, None to keep current
-            
+
         Returns:
             True if updated successfully, False if not found or new_name already exists
         """
@@ -152,7 +155,7 @@ class ConnectionRepository:
         if database is not None:
             update_doc["database"] = database
         
-        if auth_source is not None:
+        if auth_source is not _UNSET:
             update_doc["auth_source"] = auth_source
         
         if description is not None:

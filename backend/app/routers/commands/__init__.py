@@ -86,6 +86,13 @@ def _coerce_port(params: dict) -> CommandExecuteResponse | None:
     return None
 
 
+def _coerce_auth_source(params: dict) -> None:
+    """Coerce auth_source empty string to None so no authSource is added to the URI."""
+    auth_source = params.get("auth_source")
+    if isinstance(auth_source, str) and auth_source.strip() == "":
+        params["auth_source"] = None
+
+
 def _run_generic_cli(command: str, params: dict) -> CommandExecuteResponse:
     """Execute a raw CLI command via the Typer app (generic fallback)."""
     cmd_parts = command.split()
@@ -191,11 +198,12 @@ async def execute_command(
     """
     command = request.command.strip()
 
-    # Port coercion applies before any handler for connect add / update
+    # Port and auth_source coercion applies before any handler for connect add / update
     if command in (Command.CONNECT_ADD, Command.CONNECT_UPDATE):
         err = _coerce_port(request.params)
         if err:
             return err
+        _coerce_auth_source(request.params)
 
     # Dispatch via registry — look up by enum value, fall back to generic CLI
     try:

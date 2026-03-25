@@ -106,7 +106,7 @@ async def get_connection_details(
         "username": connection.get("username", ""),
         "password": connection.get("password", ""),
         "database": connection.get("database", ""),
-        "auth_source": connection.get("auth_source", "admin"),
+        "auth_source": connection.get("auth_source"),
     }
 
 
@@ -654,7 +654,7 @@ async def submit_backup_restore(
             username=connection.get("username"),
             password=connection.get("password"),
             database=target_database,
-            auth_source=connection.get("auth_source", "admin"),
+            auth_source=connection.get("auth_source"),
         )
 
         try:

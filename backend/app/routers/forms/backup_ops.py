@@ -104,7 +104,7 @@ def build_restore_connection_options(connections: list[dict], original_connectio
             port=conn.get("port", 27017),
             username=conn.get("username"),
             database=conn.get("database"),
-            auth_source=conn.get("auth_source", "admin"),
+            auth_source=conn.get("auth_source"),
         )
         connection_options.append({
             "value": conn["name"],

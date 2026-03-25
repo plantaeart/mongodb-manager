@@ -12,7 +12,7 @@ def build_mongodb_uri(
     username: str | None = None,
     password: str | None = None,
     database: str | None = None,
-    auth_source: str = "admin",
+    auth_source: str | None = None,
     options: dict | None = None
 ) -> str:
     """
@@ -95,7 +95,7 @@ def build_mongodb_uri_masked(
     port: int = 27017,
     username: str | None = None,
     database: str | None = None,
-    auth_source: str = "admin",
+    auth_source: str | None = None,
     options: dict | None = None
 ) -> str:
     """

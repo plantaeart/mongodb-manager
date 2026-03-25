@@ -46,14 +46,17 @@ const emit = defineEmits<{
   enter: []
 }>()
 
-const internalValue = ref<string>(props.modelValue || props.field.default || '')
+// Initialize: use modelValue if defined, else fall back to field.default, else ''
+// Explicit "" (cleared) stays "", only undefined triggers the default
+const internalValue = ref<string>(props.modelValue !== undefined ? (props.modelValue ?? '') : (props.field.default ?? ''))
 const errorMessage = ref<string>('')
 const touched = ref<boolean>(false)
 
 // Watch for external changes
 watch(() => props.modelValue, (newValue) => {
   if (newValue !== internalValue.value) {
-    internalValue.value = newValue || ''
+    // Preserve explicit "" — only fall back to default when value is undefined
+    internalValue.value = newValue !== undefined ? (newValue ?? '') : (props.field.default ?? '')
   }
 })
 
@@ -102,8 +105,8 @@ const handleEnter = () => {
   }
 }
 
-// Initialize with default value
-if (props.field.default && !internalValue.value) {
+// Initialize with default value only when no value has been explicitly set (undefined)
+if (props.modelValue === undefined && props.field.default) {
   internalValue.value = props.field.default
 }
 </script>

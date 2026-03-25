@@ -17,7 +17,7 @@ class ConnectionDocument(BaseModel):
     username: str | None = Field(default=None, description="Username for authentication")
     password: str | None = Field(default=None, description="Password for authentication")
     database: str | None = Field(default=None, description="Default database")
-    auth_source: str = Field(default="admin", description="Authentication database")
+    auth_source: str | None = Field(default=None, description="Authentication database")
     description: str = Field(default="", description="Connection description")
     added_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="When connection was created")
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="When connection was last updated")
@@ -52,7 +52,7 @@ class ConnectionCreate(BaseModel):
     username: str | None = None
     password: str | None = None
     database: str | None = None
-    auth_source: str = "admin"
+    auth_source: str | None = None
     description: str = ""
 
 

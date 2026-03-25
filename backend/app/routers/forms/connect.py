@@ -14,7 +14,7 @@ def build_connection_options_with_date(connections: list[dict]) -> list[dict]:
             port=conn.get("port", 27017),
             username=conn.get("username"),
             database=conn.get("database"),
-            auth_source=conn.get("auth_source", "admin"),
+            auth_source=conn.get("auth_source"),
         )
         desc = conn.get("description", "")
         added_at = conn.get("added_at", "")
@@ -49,7 +49,7 @@ def build_connection_options(connections: list[dict]) -> list[dict]:
             port=conn.get("port", 27017),
             username=conn.get("username"),
             database=conn.get("database"),
-            auth_source=conn.get("auth_source", "admin"),
+            auth_source=conn.get("auth_source"),
         )
         desc = conn.get("description", "")
         options.append({
