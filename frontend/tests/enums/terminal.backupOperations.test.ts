@@ -19,4 +19,12 @@ describe('TerminalCommand enum — Backup Operations', () => {
   it('BACKUP_RESTORE equals "backup restore"', () => {
     expect(TerminalCommand.BACKUP_RESTORE).toBe('backup restore')
   })
+
+  it('BACKUP_EXPORT equals "backup export"', () => {
+    expect(TerminalCommand.BACKUP_EXPORT).toBe('backup export')
+  })
+
+  it('BACKUP_IMPORT equals "backup import"', () => {
+    expect(TerminalCommand.BACKUP_IMPORT).toBe('backup import')
+  })
 })

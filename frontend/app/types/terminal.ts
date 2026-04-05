@@ -1,5 +1,31 @@
 import { CommandStatus, WebSocketMessageType } from '~/enums'
 
+// ─────────────────────────────────────────────────────────────────────────────
+// File Widget types (for backup/connect export & import commands)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type FileWidgetMode =
+  | 'backup-export'
+  | 'backup-import'
+  | 'connect-export'
+  | 'connect-import'
+
+export interface FileWidgetOption {
+  value: string
+  label: string
+  description?: string
+}
+
+export interface FileWidgetData {
+  mode: FileWidgetMode
+  /** Available backups for 'backup-export' */
+  backupOptions?: FileWidgetOption[]
+  /** Available registered folders for 'backup-import' */
+  folderOptions?: FileWidgetOption[]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export interface TerminalEntry {
   id: number | string
   command: string
@@ -7,6 +33,7 @@ export interface TerminalEntry {
   timestamp: Date
   status: CommandStatus
   form?: FormRequestMessage | null
+  fileWidget?: FileWidgetData | null
 }
 
 export interface WebSocketMessage {

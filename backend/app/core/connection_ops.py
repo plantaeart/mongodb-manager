@@ -1,5 +1,7 @@
 """MongoDB connection management"""
 
+from pathlib import Path
+
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, OperationFailure
 
@@ -220,3 +222,157 @@ class ConnectionManager:
             True if updated successfully, False if connection or old_path not found
         """
         return self.repository.update_backup_path(connection_name, old_path, new_path)
+
+    # -------------------------------------------------------------------------
+    # Export / Import
+    # -------------------------------------------------------------------------
+
+    def export_connections(self) -> list[dict]:
+        """Return all connections as a list of dicts, with passwords stripped.
+
+        The exported data is safe to share — passwords are removed entirely.
+        All other fields (including backup_paths) are preserved so the export
+        can be used for a full round-trip import on another instance.
+
+        Returns:
+            List of connection dicts without the 'password' field
+        """
+        connections = self.list_connections()
+        sanitized: list[dict] = []
+        for conn in connections:
+            c = dict(conn)
+            c.pop("password", None)
+            # Remove MongoDB internal _id if present
+            c.pop("_id", None)
+            sanitized.append(c)
+        return sanitized
+
+    @staticmethod
+    def _ensure_backup_paths(backup_paths: list[str]) -> list[str]:
+        """Ensure each backup folder path exists, creating it if necessary.
+
+        Args:
+            backup_paths: List of folder path strings from import data.
+
+        Returns:
+            The same list (paths that could not be created are skipped silently).
+        """
+        valid: list[str] = []
+        for raw_path in backup_paths:
+            if not raw_path or not raw_path.strip():
+                continue
+            try:
+                p = Path(raw_path)
+                p.mkdir(parents=True, exist_ok=True)
+                valid.append(raw_path)
+            except Exception:
+                # Path is invalid or not writable — skip it
+                pass
+        return valid
+
+    def import_connections(
+        self,
+        connections: list[dict],
+        overwrite: bool = False,
+        import_backup_paths: bool = False,
+    ) -> dict:
+        """Import a list of connection dicts.
+
+        Args:
+            connections: List of connection dicts (as produced by export_connections)
+            overwrite: When True, existing connections with the same name are updated.
+                       When False, duplicates are silently skipped.
+            import_backup_paths: When True, preserve backup_paths from the import data.
+                                 Each path is created on disk if it does not already exist.
+                                 When False, backup_paths are stripped (default safe behaviour).
+
+        Returns:
+            Summary dict::
+
+                {
+                    "imported": <int>,   # newly added
+                    "overwritten": <int>,# updated (only when overwrite=True)
+                    "skipped": <int>,    # duplicates ignored
+                    "errors": [<str>]    # per-connection error messages
+                }
+        """
+        imported = 0
+        overwritten = 0
+        skipped = 0
+        errors: list[str] = []
+
+        for conn in connections:
+            name = conn.get("name", "").strip()
+            if not name:
+                errors.append("Skipped entry with missing or empty 'name' field")
+                skipped += 1
+                continue
+
+            host = conn.get("host", "localhost")
+            port = conn.get("port", 27017)
+
+            # Strip backup_paths unless requested; auto-create folders when kept
+            raw_paths: list[str] = conn.get("backup_paths", []) if import_backup_paths else []
+            backup_paths: list[str] = self._ensure_backup_paths(raw_paths) if raw_paths else []
+
+            existing = self.get_connection(name)
+
+            if existing:
+                if not overwrite:
+                    skipped += 1
+                    continue
+
+                # Overwrite: update all updatable fields
+                try:
+                    success = self.repository.update_connection(
+                        name=name,
+                        host=host,
+                        port=int(port),
+                        username=conn.get("username"),
+                        password=conn.get("password"),  # may be None / absent
+                        database=conn.get("database"),
+                        auth_source=conn.get("auth_source"),
+                        description=conn.get("description", ""),
+                    )
+                    if success:
+                        # Sync backup_paths: replace entirely
+                        # First clear existing paths, then add new ones
+                        for bp in existing.get("backup_paths", []):
+                            self.repository.remove_backup_path(name, bp)
+                        for bp in backup_paths:
+                            self.repository.add_backup_path(name, bp)
+                        overwritten += 1
+                    else:
+                        errors.append(f"Failed to overwrite connection '{name}'")
+                except Exception as exc:
+                    errors.append(f"Error overwriting '{name}': {exc}")
+                continue
+
+            # New connection
+            try:
+                added = self.repository.add_connection(
+                    name=name,
+                    host=host,
+                    port=int(port),
+                    username=conn.get("username"),
+                    password=conn.get("password"),
+                    database=conn.get("database"),
+                    auth_source=conn.get("auth_source"),
+                    description=conn.get("description", ""),
+                )
+                if added:
+                    for bp in backup_paths:
+                        self.repository.add_backup_path(name, bp)
+                    imported += 1
+                else:
+                    # Race condition: name appeared between get and add
+                    skipped += 1
+            except Exception as exc:
+                errors.append(f"Error importing '{name}': {exc}")
+
+        return {
+            "imported": imported,
+            "overwritten": overwritten,
+            "skipped": skipped,
+            "errors": errors,
+        }

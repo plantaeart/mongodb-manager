@@ -27,6 +27,15 @@
         @cancel="handleFormCancel(entry.form.form_id)"
       />
 
+      <!-- File widget rendering (backup/connect export & import) -->
+      <TerminalFileWidget
+        v-else-if="entry.fileWidget"
+        :widget-data="entry.fileWidget"
+        :readonly="entry.status !== CommandStatus.RUNNING"
+        @done="handleFileWidgetDone(entry.id, $event)"
+        @cancel="handleFileWidgetCancel(entry.id)"
+      />
+
       <!-- Output lines (show after form submitted or for non-form commands) -->
       <div v-if="entry.output.length > 0" class="output-lines">
         <div
@@ -57,6 +66,7 @@
 import { CommandStatus, OutputLinePattern, WebSocketMessageType } from '~/enums'
 import type { TerminalEntry } from '~/types/terminal'
 import TerminalForm from './Forms/TerminalForm.vue'
+import TerminalFileWidget from './Forms/TerminalFileWidget.vue'
 
 interface Props {
   history: TerminalEntry[]
@@ -68,7 +78,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const outputContainer = ref<HTMLElement | null>(null)
-const { submitForm, cancelForm } = useTerminal()
+const { submitForm, cancelForm, resolveFileWidget, cancelFileWidget } = useTerminal()
 
 // Auto-scroll to bottom when new output arrives
 watch(
@@ -109,6 +119,15 @@ const handleFormSubmit = (formId: string | number, data: Record<string, any>) =>
 
 const handleFormCancel = (formId: string | number) => {
   cancelForm(String(formId))
+}
+
+// File widget handlers
+const handleFileWidgetDone = (entryId: string | number, message: string) => {
+  resolveFileWidget(String(entryId), message)
+}
+
+const handleFileWidgetCancel = (entryId: string | number) => {
+  cancelFileWidget(String(entryId))
 }
 </script>
 

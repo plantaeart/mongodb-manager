@@ -29,6 +29,8 @@ export enum TerminalCommand {
   CONNECT_REMOVE = 'connect remove',
   CONNECT_TEST = 'connect test',
   CONNECT_UPDATE = 'connect update',
+  CONNECT_EXPORT = 'connect export',
+  CONNECT_IMPORT = 'connect import',
   
   // Backup folder management
   BACKUP_FOLDER_ADD = 'backup folder add',
@@ -40,6 +42,8 @@ export enum TerminalCommand {
   BACKUP_LIST = 'backup list',
   BACKUP_DELETE = 'backup delete',
   BACKUP_RESTORE = 'backup restore',
+  BACKUP_EXPORT = 'backup export',
+  BACKUP_IMPORT = 'backup import',
   
   // Authentication
   AUTH_CHANGE_PASSWORD = 'auth change-password',

@@ -1,4 +1,5 @@
 # 04 - Business Logic (MongoDB Operations)
+**Last Updated:** 2026-04-05
 
 ## Overview
 
@@ -11,139 +12,153 @@ Core MongoDB management operations: connection management, backup/restore, datab
 **File**: `backend/app/core/connection_ops.py`
 
 #### `connect list`
-Lists all saved MongoDB connections.
-
-```python
-def list_connections() -> List[Connection]:
-    connections = connections_collection.find()
-    return [Connection(**conn) for conn in connections]
-```
+Lists all saved MongoDB connections (opens a form panel).
 
 #### `connect add`
-Adds a new MongoDB connection (interactive).
+Adds a new MongoDB connection (interactive stepper form).
 
 **Flow**:
-1. Prompt for connection details (name, URI, description)
-2. Validate MongoDB URI format
-3. Test connection
-4. Save to MongoDB if successful
+1. Prompt for connection details (name, host, port, credentials, description)
+2. Test connection before saving
+3. Save to MongoDB if successful
 
-#### `connect remove <name>`
-Removes a saved connection by name.
+#### `connect remove`
+Removes one or more saved connections (checkbox list form).
 
-#### `connect test <name>`
-Tests if a connection is valid.
+#### `connect test`
+Tests one or more connections (checkbox list form).
+
+#### `connect update`
+Updates an existing connection (form).
+
+#### `connect export`
+Downloads all connections as a `connections.json` file to the browser. **Passwords are never included.**
+
+Uses the File Widget system — see [12 - File Widget System](12-file-widget-system.md).
 
 ```python
-def test_connection(name: str) -> bool:
-    connection = get_connection_by_name(name)
-    client = MongoClient(connection.uri, serverSelectionTimeoutMS=5000)
-    client.server_info()  # Raises exception if can't connect
-    return True
+# ConnectionManager.export_connections() — strips passwords
+def export_connections(self) -> list[dict]:
+    connections = self.list_connections()
+    return [{k: v for k, v in conn.items() if k not in ('password', '_id')}
+            for conn in connections]
 ```
+
+#### `connect import`
+Imports connections from a `connections.json` file uploaded from the browser.
+
+Options:
+- **Overwrite**: replace existing connections with the same name
+- **Import backup paths**: preserve `backup_paths` from the file (off by default — paths may not exist on the target machine)
+
+Uses the File Widget system — see [12 - File Widget System](12-file-widget-system.md).
 
 ### 2. Backup Operations
 
 **File**: `backend/app/core/backup_ops.py`
 
-#### `backup create <connection_name>`
-Creates a backup using mongodump.
+#### `backup create`
+Creates a backup using `mongodump`.
 
 **Flow**:
-1. Get connection URI from saved connections
-2. Generate backup filename: `{connection_name}_{timestamp}.gz`
-3. Execute mongodump command:
-   ```bash
-   mongodump --uri="<uri>" --archive=<backup_file> --gzip
-   ```
-4. Save to backup directory
-5. Return backup file path
+1. Interactive form: choose connection + provide backup name
+2. Run `mongodump --uri=<uri> --out=<backup_path>`
+3. Save `metadata.json` alongside backup files
+4. Stream output to terminal
 
 #### `backup list`
-Lists all available backup files.
+Lists all backup folders across all registered backup paths.
 
-```python
-def list_backups() -> List[BackupInfo]:
-    backup_dir = Path(BACKUP_DIR)
-    backups = []
-    for file in backup_dir.glob("*.gz"):
-        backups.append(BackupInfo(
-            filename=file.name,
-            size=file.stat().st_size,
-            created=file.stat().st_mtime
-        ))
-    return backups
-```
+#### `backup restore`
+Restores a backup using `mongorestore` (interactive form).
 
-#### `backup restore <filename>`
-Restores a backup using mongorestore.
+#### `backup delete`
+Deletes one or more backup folders.
+
+#### `backup export`
+Downloads a selected backup as a `.zip` file to the browser.
 
 **Flow**:
-1. Verify backup file exists
-2. Prompt for target connection
-3. Execute mongorestore command:
-   ```bash
-   mongorestore --uri="<uri>" --archive=<backup_file> --gzip --drop
-   ```
-4. Stream output to client
+1. File widget loads available backups from `/api/transfer/backup/export/options`
+2. User selects a backup from the dropdown
+3. Backend zips the backup folder in-memory (`zipfile.ZipFile` + `io.BytesIO`)
+4. `StreamingResponse` sends the ZIP; browser downloads it via `downloadBlob()`
 
-#### `backup delete <filename>`
-Deletes a backup file.
+Uses the File Widget system — see [12 - File Widget System](12-file-widget-system.md).
+
+```python
+# BackupManager.export_backup_zip() — zips in memory
+def export_backup_zip(self, backup_name: str) -> bytes:
+    backup_path = self.backup_root / backup_name
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for file_path in backup_path.rglob("*"):
+            if file_path.is_file():
+                arcname = Path(backup_name) / file_path.relative_to(backup_path)
+                zf.write(file_path, arcname)
+    return buffer.getvalue()
+```
+
+#### `backup import`
+Imports a `.zip` file (previously exported from this app) into a registered backup folder.
+
+Options:
+- **Destination folder**: must be a registered backup folder
+- **Overwrite**: replace existing backup with the same name
+
+Uses the File Widget system — see [12 - File Widget System](12-file-widget-system.md).
 
 ### 3. Authentication Commands
 
 **Built-in Commands** (handled in frontend):
-- `auth change-password` - Opens password change modal
-- `auth logout` - Logs out user
+- `auth change-password` — Opens password change modal
+- `auth logout` — Logs out user
 
 **Built-in Terminal Commands**:
-- `help` - Show available commands
-- `clear` - Clear terminal history
+- `help` — Show available commands
+- `clear` — Clear terminal history
 
-## Command Parsing
+## Command Routing
 
-**File**: `backend/app/core/cli.py`
+Commands are routed in `useTerminal.ts` through three paths:
 
-### CLIParser Class
+| Path | Condition | Examples |
+|------|-----------|---------|
+| Built-in | `CLEAR`, `HELP` | `clear`, `help` |
+| Form (REST + WebSocket) | listed in `COMMAND_TO_API_PATH` | `connect add`, `backup create` |
+| File Widget (REST only) | in `FILE_WIDGET_COMMANDS` set | `backup export`, `connect import` |
 
-Parses natural language commands into structured data:
+## Execution Flows
 
-```python
-command = "connect list"
-result = CLIParser.parse(command)
-# Returns: {
-#   "category": "connect",
-#   "action": "list",
-#   "args": {}
-# }
+### WebSocket-based command (e.g. `backup create`)
 ```
-
-**Supported Categories**:
-- `connect`: Connection management
-- `backup`: Backup operations
-- `db`: Database operations
-- `collection`: Collection operations
-- `auth`: Authentication
-
-## Execution Flow
-
-```
-User types: "backup create prod-db"
+User types command
     ↓
 Frontend sends via WebSocket: {"type": "execute", "command": "..."}
     ↓
-Backend receives command
-    ↓
-CLIParser.parse() → {category: "backup", action: "create", args: ["prod-db"]}
-    ↓
-Route to backup_ops.create_backup("prod-db")
+Backend CLI parses command → dispatches to core ops
     ↓
 Execute mongodump subprocess
     ↓
-Stream output to WebSocket:
-    {"type": "output", "line": "Creating backup..."}
-    {"type": "output", "line": "Backup created: prod-db_20240120.gz"}
+Stream output lines: {"type": "output", "line": "..."}
     {"type": "complete", "status": "success"}
+```
+
+### File Widget command (e.g. `backup export`)
+```
+User types command
+    ↓
+useTerminal detects FILE_WIDGET_COMMANDS match
+    ↓
+GET /api/transfer/backup/export/options  (fetch dropdown data)
+    ↓
+TerminalFileWidget.vue rendered in terminal
+    ↓
+User selects backup, clicks Export & Download
+    ↓
+GET /api/transfer/backup/export?backup_selector=...
+    ↓
+StreamingResponse (ZIP bytes) → downloadBlob() → browser saves file
 ```
 
 ## MongoDB Storage
@@ -158,19 +173,13 @@ Stores saved MongoDB connections.
 ```json
 {
   "name": "prod-db",
-  "uri": "mongodb://localhost:27017",
+  "host": "localhost",
+  "port": 27017,
+  "username": null,
+  "database": null,
+  "auth_source": null,
   "description": "Production database",
-  "created_at": "2024-01-20T19:00:00Z"
-}
-```
-
-### `sessions`
-Tracks user sessions.
-
-```json
-{
-  "username": "admin",
-  "created_at": "2024-01-20T19:00:00Z"
+  "backup_paths": ["/data/backups/prod-db"]
 }
 ```
 
@@ -188,33 +197,35 @@ Stores user credentials.
 ## Error Handling
 
 ### Connection Errors
-- Invalid URI → Error message to client
 - Connection timeout → "Failed to connect" message
-- MongoDB down → Connection test fails
+- Auth failure → "Authentication failed" message
 
 ### Backup Errors
-- mongodump not found → "mongodump command not available"
-- Insufficient permissions → Permission error message
-- Disk full → Space error message
+- `mongodump` not found → error message in terminal
+- Backup not found → 404 from transfer endpoint
+- Invalid ZIP → 400 from transfer endpoint
 
-### Command Errors
-- Unknown command → "Command not recognized"
-- Missing arguments → "Usage: <command> <args>"
-- Invalid arguments → Specific validation error
+### Transfer Errors
+- Unregistered folder → 400 "not a registered backup folder"
+- Backup already exists without overwrite → 400 with hint to enable overwrite
 
 ## External Dependencies
 
 **Required System Commands**:
-- `mongodump` - For creating backups
-- `mongorestore` - For restoring backups
+- `mongodump` — For creating backups
+- `mongorestore` — For restoring backups
+
+**Python stdlib** (no extra packages):
+- `zipfile`, `io` — In-memory ZIP pack/unpack for `backup export/import`
 
 **Python Packages**:
-- `pymongo` - MongoDB driver
-- `subprocess` - Execute shell commands
-- `pathlib` - File path operations
+- `pymongo` — MongoDB driver
+- `subprocess` — Execute shell commands
+- `pathlib` — File path operations
 
 ## Related Documentation
 
 - [02 - Backend Architecture](02-backend-architecture.md)
 - [02.2 - WebSocket System](02.2-websocket-system.md)
+- [12 - File Widget System](12-file-widget-system.md)
 - [01 - Overview](01-overview.md)

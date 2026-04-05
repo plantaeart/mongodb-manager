@@ -1,4 +1,5 @@
 # 03 - Frontend Architecture
+**Last Updated:** 2026-04-05
 
 ## Overview
 
@@ -15,7 +16,11 @@ frontend/app/
 │   ├── Terminal/     # Terminal interface
 │   │   ├── TerminalWindow.vue
 │   │   ├── TerminalOutput.vue
-│   │   └── CommandInput.vue
+│   │   ├── CommandInput.vue
+│   │   └── Forms/
+│   │       ├── TerminalForm.vue          # WebSocket form renderer
+│   │       ├── TerminalFileWidget.vue    # File export/import widget
+│   │       └── (field components...)
 │   └── Panel/        # Side panels
 │       └── VisualPanel.vue
 ├── composables/      # Singleton services
@@ -25,9 +30,11 @@ frontend/app/
 │   └── auth.ts       # Authentication store
 ├── pages/            # Route pages
 │   └── index.vue     # Main application page
+├── utils/            # Utility functions
+│   └── downloadFile.ts    # downloadBlob() helper
 ├── types/            # TypeScript type definitions
 │   ├── auth.ts       # Auth types
-│   └── terminal.ts   # Terminal message types
+│   └── terminal.ts   # Terminal message types + FileWidgetData
 └── app.vue           # Root component
 ```
 
@@ -40,6 +47,8 @@ app.vue (Root)
       ├── ChangePasswordModal (v-if needsPasswordChange)
       └── TerminalWindow (v-if authenticated)
           ├── TerminalOutput (displays command history)
+          │   ├── TerminalForm (v-if entry.form)
+          │   └── TerminalFileWidget (v-else-if entry.fileWidget)
           ├── CommandInput (user input)
           └── VisualPanel (optional side panel)
 ```
@@ -57,19 +66,36 @@ Ensures **shared state** across all components. Multiple components can call the
 
 ### 2. TerminalService (`useTerminal.ts`)
 - Manages terminal command history (shared across all components)
-- Executes commands (built-in and server commands)
+- Executes commands via three paths: built-in, form, or file widget
 - Manages favorite commands with localStorage persistence
 - Handles WebSocket message processing
+
+**Command routing:**
+```typescript
+// Built-in
+if (cmd === CLEAR || cmd === HELP) { ... }
+
+// Form (REST + WebSocket)
+if (getApiPathForCommand(cmd)) { await executeFormCommand(...) }
+
+// File widget (REST + browser file APIs)
+if (FILE_WIDGET_COMMANDS.has(cmd)) { await executeFileWidgetCommand(...) }
+
+// Otherwise → WebSocket
+sendCommandFn(cmd)
+```
+
+**File widget lifecycle methods exposed:**
+
+| Method | Purpose |
+|--------|---------|
+| `resolveFileWidget(id, msg)` | Mark entry SUCCESS after download/upload |
+| `cancelFileWidget(id)` | Mark entry ERROR on Cancel |
+| `hasActiveWidget` | Computed boolean (mirrors `hasActiveForm`) |
 
 ## State Management (Pinia)
 
 ### Auth Store (`stores/auth.ts`)
-**Responsibilities**:
-- User authentication state (isAuthenticated, token, username)
-- Login/logout actions
-- Password change actions
-- Token persistence in localStorage
-
 **State**:
 ```typescript
 {
@@ -80,57 +106,12 @@ Ensures **shared state** across all components. Multiple components can call the
 }
 ```
 
-## Component Communication
-
-### Pattern 1: Singleton Service (Terminal)
-```
-CommandInput.vue                    TerminalOutput.vue
-       ↓                                   ↓
-   useTerminal()  ← Same Instance →   useTerminal()
-       ↓                                   ↓
-   executeCommand()                  commandHistory
-       ↓                                   ↓
-Updates shared commandHistory array
-```
-
-### Pattern 2: Pinia Store (Auth)
-```
-LoginModal.vue              index.vue
-      ↓                         ↓
-  authStore.login()      authStore.isAuthenticated
-      ↓                         ↓
-Updates shared auth state
-```
-
-### Pattern 3: WebSocket Messages
-```
-WebSocketService (receives message)
-         ↓
-Notifies all registered handlers
-         ↓
-TerminalService.handleWebSocketMessage()
-         ↓
-Updates commandHistory
-         ↓
-TerminalOutput auto-updates (reactive)
-```
-
-## Styling
-
-**Theme**: Custom Gruvbox color scheme
-**CSS Variables**:
-- `--gb-bg`: Background colors
-- `--gb-fg`: Foreground colors  
-- `--gb-green`, `--gb-red`, `--gb-blue`, etc.: Theme colors
-
-**Approach**: Scoped styles per component + global theme variables
-
 ## TypeScript Types
 
 ### Terminal Types (`types/terminal.ts`)
-- `TerminalEntry`: Command history entry
-- `WebSocketMessage`: WebSocket message types
-- `CommandExecuteRequest`: Command execution request
+- `TerminalEntry` — command history entry (has optional `form` and `fileWidget` fields)
+- `FileWidgetData` / `FileWidgetMode` / `FileWidgetOption` — file widget state
+- `WebSocketMessage`, `FormRequestMessage`, `FormField`, etc. — form system types
 
 ### Auth Types (`types/auth.ts`)
 - `LoginRequest`, `LoginResult`
@@ -144,9 +125,11 @@ TerminalOutput auto-updates (reactive)
 4. **Favorites**: Star commands for quick access
 5. **Syntax Highlighting**: Color-coded output (success/error/warning)
 6. **Auto-scroll**: Terminal scrolls to show latest output
+7. **File Widget**: In-terminal UI for file download/upload operations (no WebSocket needed)
 
 ## Related Documentation
 
 - [03.1 - State Management](03.1-state-management.md) - Detailed singleton pattern
-- [01 - Overview](01-overview.md) - Project overview
+- [07 - Terminal Forms System](07-terminal-forms.md) - WebSocket form system
+- [12 - File Widget System](12-file-widget-system.md) - File export/import widget
 - [02.2 - WebSocket System](02.2-websocket-system.md) - Backend WebSocket

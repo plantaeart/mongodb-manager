@@ -71,6 +71,13 @@ Welcome to the MongoDB Manager documentation. This directory contains comprehens
     - What each test file covers
     - Coverage reports and Docker integration
 
+12. **[12 - File Widget System](12-file-widget-system.md)**
+    - Transfer commands: backup export/import, connect export/import
+    - Why a separate system from WebSocket forms
+    - Backend transfer router (`/api/transfer`)
+    - Frontend `TerminalFileWidget.vue` and `downloadBlob()` utility
+    - How to add new file-widget commands
+
 ### Specialized Topics
 
 #### Backend Deep Dives
@@ -132,6 +139,9 @@ Welcome to the MongoDB Manager documentation. This directory contains comprehens
 **Bump version after changes**
 → See [06 - Version Management](06-version-management.md)
 
+**Add commands that use file upload/download (not WebSocket)**
+→ Read [12 - File Widget System](12-file-widget-system.md)
+
 **Run or write tests**
 → See [11 - Testing Guide](11-testing.md)
 
@@ -155,7 +165,9 @@ Each document is designed to be:
 
 4. **Environment-Based Behavior**: NODE_ENV controls password requirements (dev vs prod)
 
-5. **Docker Deployment**: Separate dev/prod configurations with health checks
+5. **File Widget Pattern**: Used for commands requiring browser file APIs (download or upload) — completely separate from the WebSocket form system
+
+6. **Docker Deployment**: Separate dev/prod configurations with health checks
 
 ## Common Workflows
 
@@ -197,4 +209,4 @@ When adding new documentation:
 
 ---
 
-**Last Updated**: 2026-03-22
+**Last Updated**: 2026-04-05

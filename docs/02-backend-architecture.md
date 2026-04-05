@@ -1,9 +1,10 @@
 # 02 - Backend Architecture
+**Last Updated:** 2026-04-05
 
 ## Overview
 
 The backend is a FastAPI application that provides:
-1. REST API for authentication and configuration
+1. REST API for authentication, forms, and file transfer
 2. WebSocket for real-time terminal communication
 3. MongoDB operations (backup, restore, connection management)
 
@@ -11,24 +12,26 @@ The backend is a FastAPI application that provides:
 
 ```
 backend/app/
-├── api/              # REST API endpoints
+├── routers/          # REST API routers
 │   ├── auth.py       # Login, password change
+│   ├── forms.py      # Form definitions for CLI commands
+│   ├── transfer.py   # File transfer (backup/connect export & import)
 │   └── __init__.py
 ├── websocket/        # WebSocket handlers
 │   └── terminal.py   # Terminal command execution
 ├── core/             # Business logic
 │   ├── auth.py       # Authentication manager
-│   ├── backup_ops.py # Backup/restore operations
+│   ├── backup_ops.py # Backup/restore + ZIP export/import
 │   ├── cli.py        # CLI command parser
-│   ├── connection_ops.py  # Connection management
-│   └── utils/        # Utilities (config, timezone)
+│   ├── connection_ops.py  # Connection management + JSON export/import
+│   └── utils/        # Utilities (config, timezone, backup_utils)
 ├── middleware/       # Request middleware
 │   └── auth.py       # JWT authentication
 ├── models/           # Pydantic models
 │   ├── auth.py       # Auth request/response models
-│   ├── backup.py     # Backup models
-│   ├── connection.py # Connection models
 │   └── terminal.py   # Terminal message models
+├── enums/            # Shared enums
+│   └── commands.py   # Command enum (used by CLI + tests)
 └── main_api.py       # Application entry point
 ```
 
@@ -39,27 +42,33 @@ backend/app/
 Key components:
 - Creates FastAPI app instance
 - Configures CORS middleware
-- Mounts REST API routes (`/api`)
+- Registers routers: `auth`, `forms`, `transfer`, `commands`
 - Registers WebSocket endpoint (`/ws/terminal`)
 - Starts on port 8000 (mapped to 9000/9001 externally)
 
-## Request Flow
+## Request Flows
 
-### REST API Flow
+### REST API (forms / auth)
 ```
-Client → FastAPI → Auth Middleware → API Endpoint → Core Logic → MongoDB
+Client → FastAPI → Auth Middleware → Router → Core Logic → MongoDB
 ```
 
-### WebSocket Flow
+### WebSocket (terminal commands)
 ```
-Client → WebSocket → JWT Verification → Command Parser → Executor → Response Stream
+Client → WebSocket → JWT Verification → CLI Parser → Core Ops → Response Stream
+```
+
+### File Transfer (export / import)
+```
+Client → GET/POST /api/transfer/... → Auth Middleware → Transfer Router
+    export → Core Ops → StreamingResponse (ZIP or JSON bytes)
+    import → Core Ops → JSON result
 ```
 
 ## Key Components
 
 ### 1. Authentication (`core/auth.py`)
 - Manages user authentication with bcrypt
-- Handles session storage in MongoDB
 - Provides password verification and updates
 - Default user: `admin` with configurable password
 
@@ -71,24 +80,30 @@ Client → WebSocket → JWT Verification → Command Parser → Executor → Re
 ### 3. Connection Operations (`core/connection_ops.py`)
 - CRUD operations for MongoDB connections
 - Connection testing and validation
-- Stores connection configs in MongoDB
+- `export_connections()` — sanitises connections (strips passwords)
+- `import_connections()` — upserts connections from JSON payload
 
 ### 4. Backup Operations (`core/backup_ops.py`)
 - Creates backups using `mongodump`
 - Restores backups using `mongorestore`
-- Lists available backup files
-- Manages backup storage directory
+- Lists and deletes backup folders
+- `export_backup_zip()` — zips a backup folder in memory
+- `import_backup_zip()` — extracts a ZIP into a backup folder
+
+### 5. Transfer Router (`routers/transfer.py`)
+- Dedicated REST router for file-based operations (prefix `/api/transfer`)
+- 4 transfer endpoints + 2 options endpoints
+- All require JWT authentication
+- See [12 - File Widget System](12-file-widget-system.md) for full details
 
 ## MongoDB Usage
 
 The backend uses MongoDB for:
-1. **User Sessions**: Track active sessions with timestamps
-2. **Connection Storage**: Save MongoDB connection configurations
-3. **User Credentials**: Store hashed passwords
+1. **Connection Storage**: Save MongoDB connection configurations
+2. **User Credentials**: Store hashed passwords
 
 Database: `mongodb_manager`
 Collections:
-- `sessions`: User session data
 - `connections`: MongoDB connection configs
 - `users`: User credentials (hashed passwords)
 
@@ -102,7 +117,7 @@ Key backend environment variables:
 
 ## Error Handling
 
-- HTTP exceptions for REST API errors
+- HTTP exceptions for REST API errors (4xx / 5xx with `detail` field)
 - WebSocket error messages for command failures
 - Structured error responses with detail messages
 
@@ -111,3 +126,4 @@ Key backend environment variables:
 - [02.1 - Authentication System](02.1-authentication-system.md) - Detailed auth flow
 - [02.2 - WebSocket System](02.2-websocket-system.md) - WebSocket implementation
 - [04 - Business Logic](04-business-logic.md) - Command execution logic
+- [12 - File Widget System](12-file-widget-system.md) - Transfer endpoints

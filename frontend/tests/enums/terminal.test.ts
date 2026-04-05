@@ -23,4 +23,12 @@ describe('TerminalCommand enum — Connection Management', () => {
   it('CONNECT_UPDATE equals "connect update"', () => {
     expect(TerminalCommand.CONNECT_UPDATE).toBe('connect update')
   })
+
+  it('CONNECT_EXPORT equals "connect export"', () => {
+    expect(TerminalCommand.CONNECT_EXPORT).toBe('connect export')
+  })
+
+  it('CONNECT_IMPORT equals "connect import"', () => {
+    expect(TerminalCommand.CONNECT_IMPORT).toBe('connect import')
+  })
 })

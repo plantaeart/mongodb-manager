@@ -6,7 +6,7 @@
  * This file now owns only: state orchestration, WebSocket wiring, command routing.
  */
 
-import type { TerminalEntry, WebSocketMessage, FormRequestMessage } from '~/types/terminal'
+import type { TerminalEntry, WebSocketMessage, FormRequestMessage, FileWidgetData } from '~/types/terminal'
 import { CommandStatus, TerminalCommand, WebSocketMessageType, StorageKey, TerminalConfig } from '~/enums'
 import { getApiPathForCommand } from '~/config/terminalForms'
 import { useTerminalStorage } from '~/composables/useTerminalStorage'
@@ -16,6 +16,15 @@ import { useTerminalHttp } from '~/composables/useTerminalHttp'
  * TerminalService - True Singleton
  * Manages terminal state (history, execution, favorites) for the entire app.
  */
+
+/** Commands that open a file-widget instead of the normal form system */
+const FILE_WIDGET_COMMANDS = new Set<TerminalCommand>([
+  TerminalCommand.BACKUP_EXPORT,
+  TerminalCommand.BACKUP_IMPORT,
+  TerminalCommand.CONNECT_EXPORT,
+  TerminalCommand.CONNECT_IMPORT,
+])
+
 class TerminalService {
   private _commandHistory = ref<TerminalEntry[]>([])
   private _isExecuting = ref(false)
@@ -27,6 +36,7 @@ class TerminalService {
   private isInitialized = false
   private sendCommandFn: ((command: string) => boolean) | null = null
   private activeFormId: string | null = null
+  private activeWidgetEntryId: string | null = null
 
   // Lazily resolved helpers (need Nuxt context)
   private storage = useTerminalStorage()
@@ -46,6 +56,10 @@ class TerminalService {
 
   get hasActiveForm() {
     return this.activeFormId !== null
+  }
+
+  get hasActiveWidget() {
+    return this.activeWidgetEntryId !== null
   }
 
   // ---------------------------------------------------------------------------
@@ -110,6 +124,12 @@ class TerminalService {
     const formPath = getApiPathForCommand(trimmed)
     if (formPath) {
       await this.executeFormCommand(trimmed, formPath)
+      return
+    }
+
+    // File-widget commands (export / import via browser file APIs)
+    if (FILE_WIDGET_COMMANDS.has(trimmed as TerminalCommand)) {
+      await this.executeFileWidgetCommand(trimmed as TerminalCommand)
       return
     }
 
@@ -228,6 +248,89 @@ class TerminalService {
   }
 
   // ---------------------------------------------------------------------------
+  // File-widget lifecycle (backup/connect export & import)
+  // ---------------------------------------------------------------------------
+
+  private async executeFileWidgetCommand(command: TerminalCommand) {
+    const authStore = useAuthStore()
+    if (!authStore.token) {
+      this.addErrorEntry(command, 'Not authenticated')
+      return
+    }
+
+    const config = useRuntimeConfig()
+    const baseUrl = config.public.apiUrl as string
+    const headers = { Authorization: `Bearer ${authStore.token}` }
+
+    let widgetData: FileWidgetData
+
+    try {
+      if (command === TerminalCommand.BACKUP_EXPORT) {
+        const opts = await $fetch<{ backups: { value: string; label: string; description?: string }[] }>(
+          `${baseUrl}/api/transfer/backup/export/options`,
+          { headers }
+        )
+        widgetData = { mode: 'backup-export', backupOptions: opts.backups }
+      } else if (command === TerminalCommand.BACKUP_IMPORT) {
+        const opts = await $fetch<{ folders: { value: string; label: string }[] }>(
+          `${baseUrl}/api/transfer/backup/import/options`,
+          { headers }
+        )
+        widgetData = { mode: 'backup-import', folderOptions: opts.folders }
+      } else if (command === TerminalCommand.CONNECT_EXPORT) {
+        widgetData = { mode: 'connect-export' }
+      } else {
+        // CONNECT_IMPORT
+        widgetData = { mode: 'connect-import' }
+      }
+    } catch (err: any) {
+      this.addErrorEntry(command, `Failed to load options: ${err?.message ?? 'Unknown error'}`)
+      return
+    }
+
+    const entryId = String(this.currentCommandId++)
+    const entry: TerminalEntry = {
+      id: entryId,
+      command,
+      output: [],
+      timestamp: new Date(),
+      status: CommandStatus.RUNNING,
+      fileWidget: widgetData,
+    }
+
+    this.activeWidgetEntryId = entryId
+    this._commandHistory.value.push(entry)
+    this._isExecuting.value = true
+  }
+
+  resolveFileWidget(entryId: string, message: string) {
+    if (this.activeWidgetEntryId !== entryId) return
+
+    const entry = this._commandHistory.value.find(e => String(e.id) === entryId)
+    if (entry) {
+      entry.output = [message]
+      entry.status = CommandStatus.SUCCESS
+      // Keep fileWidget so the readonly done-state shows
+    }
+
+    this.activeWidgetEntryId = null
+    this._isExecuting.value = false
+  }
+
+  cancelFileWidget(entryId: string) {
+    if (this.activeWidgetEntryId !== entryId) return
+
+    const entry = this._commandHistory.value.find(e => String(e.id) === entryId)
+    if (entry) {
+      entry.status = CommandStatus.ERROR
+      entry.output.push('Cancelled by user')
+    }
+
+    this.activeWidgetEntryId = null
+    this._isExecuting.value = false
+  }
+
+  // ---------------------------------------------------------------------------
   // Favorites
   // ---------------------------------------------------------------------------
 
@@ -320,6 +423,8 @@ class TerminalService {
         `    ${TerminalCommand.CONNECT_REMOVE}            - Remove connection(s)`,
         `    ${TerminalCommand.CONNECT_TEST}              - Test connection(s)`,
         `    ${TerminalCommand.CONNECT_UPDATE}            - Update a connection`,
+        `    ${TerminalCommand.CONNECT_EXPORT}            - Export connections to JSON file`,
+        `    ${TerminalCommand.CONNECT_IMPORT}            - Import connections from JSON file`,
         '',
         '  Backup Folder Management:',
         `    ${TerminalCommand.BACKUP_FOLDER_ADD}         - Add backup folder to connection`,
@@ -331,6 +436,8 @@ class TerminalService {
         `    ${TerminalCommand.BACKUP_LIST}               - List all backups`,
         `    ${TerminalCommand.BACKUP_DELETE}             - Delete a backup`,
         `    ${TerminalCommand.BACKUP_RESTORE}            - Restore from backup`,
+        `    ${TerminalCommand.BACKUP_EXPORT}             - Export backup as ZIP to your computer`,
+        `    ${TerminalCommand.BACKUP_IMPORT}             - Import backup ZIP from your computer`,
         '',
         '  Authentication:',
         `    ${TerminalCommand.AUTH_CHANGE_PASSWORD}      - Change your password`,
@@ -360,12 +467,15 @@ export const useTerminal = () => {
     commandHistory: terminalService.commandHistory,
     isExecuting: terminalService.isExecuting,
     hasActiveForm: computed(() => terminalService.hasActiveForm),
+    hasActiveWidget: computed(() => terminalService.hasActiveWidget),
     favorites: terminalService.favorites,
     executeCommand: (cmd: string) => terminalService.executeCommand(cmd),
     clearHistory: () => terminalService.clearHistory(),
     addFavorite: (cmd: string) => terminalService.addFavorite(cmd),
     removeFavorite: (cmd: string) => terminalService.removeFavorite(cmd),
     submitForm: (formId: string, data: Record<string, any>) => terminalService.submitForm(formId, data),
-    cancelForm: (formId: string) => terminalService.cancelForm(formId)
+    cancelForm: (formId: string) => terminalService.cancelForm(formId),
+    resolveFileWidget: (entryId: string, message: string) => terminalService.resolveFileWidget(entryId, message),
+    cancelFileWidget: (entryId: string) => terminalService.cancelFileWidget(entryId)
   }
 }

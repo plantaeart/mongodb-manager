@@ -1,4 +1,5 @@
 # 01 - MongoDB Manager Overview
+**Last Updated:** 2026-04-05
 
 ## Project Description
 
@@ -7,7 +8,7 @@ MongoDB Manager is a full-stack web application for managing MongoDB databases t
 ## Tech Stack
 
 ### Backend
-- **Framework**: FastAPI (Python 3.13)
+- **Framework**: FastAPI (Python 3.14)
 - **WebSocket**: Native FastAPI WebSocket support
 - **Database**: MongoDB 7.0 (for internal session/config storage)
 - **Authentication**: JWT tokens + bcrypt password hashing
@@ -31,25 +32,29 @@ MongoDB Manager is a full-stack web application for managing MongoDB databases t
 mongodb-manager-app/
 ├── backend/               # FastAPI backend
 │   ├── app/
-│   │   ├── api/          # REST API endpoints
+│   │   ├── routers/      # REST API routers (auth, forms, transfer)
 │   │   ├── websocket/    # WebSocket handlers
 │   │   ├── core/         # Business logic
 │   │   ├── models/       # Pydantic models
+│   │   ├── enums/        # Shared enums
 │   │   └── middleware/   # Auth middleware
-│   └── requirements.txt
+│   └── pyproject.toml
 ├── frontend/             # Nuxt frontend
 │   ├── app/
 │   │   ├── components/   # Vue components
 │   │   ├── composables/  # Singleton services
 │   │   ├── stores/       # Pinia stores
 │   │   ├── pages/        # Route pages
+│   │   ├── utils/        # Utilities (downloadFile, etc.)
 │   │   └── types/        # TypeScript types
 │   └── package.json
 ├── docker/               # Docker configurations
 │   ├── docker-compose.dev.yml
 │   └── docker-compose.prod.yml
 ├── scripts/              # Helper scripts
-│   └── docker.sh         # Docker management
+│   ├── docker.sh         # Docker management
+│   ├── test.sh           # Test runner
+│   └── version.sh        # Version bumper
 ├── docs/                 # Documentation (this folder)
 ├── .env.dev             # Dev environment variables
 └── .env.prod            # Prod environment variables
@@ -59,10 +64,11 @@ mongodb-manager-app/
 
 1. **Terminal Interface**: Command-line style UI for MongoDB operations
 2. **Real-time Communication**: WebSocket for live command output
-3. **Connection Management**: Save and manage multiple MongoDB connections
+3. **Connection Management**: Save, manage, export and import MongoDB connections
 4. **Backup/Restore**: Create and restore MongoDB backups (mongodump/mongorestore)
-5. **Authentication**: Secure login with forced password change on first use
-6. **Multi-Environment**: Separate dev/prod configurations
+5. **Backup Export/Import**: Download backups as ZIP files or upload ZIPs to restore on another instance
+6. **Authentication**: Secure login with forced password change on first use
+7. **Multi-Environment**: Separate dev/prod configurations
 
 ## Ports
 
@@ -88,3 +94,4 @@ See `.env.example` for complete list.
 - [03.1 - State Management](03.1-state-management.md)
 - [04 - Business Logic](04-business-logic.md)
 - [05 - Deployment](05-deployment.md)
+- [12 - File Widget System](12-file-widget-system.md)

@@ -3,6 +3,8 @@
 import subprocess
 import json
 import shutil
+import zipfile
+import io
 from pathlib import Path
 
 from .utils import get_current_time, get_backup_timestamp
@@ -214,3 +216,85 @@ class BackupManager:
         """Delete all backup folders"""
         for backup in self.list_backups():
             self.delete_backup(backup["name"])
+
+    def export_backup_zip(self, backup_name: str) -> bytes:
+        """Zip a backup folder into memory and return the raw bytes.
+
+        Args:
+            backup_name: Name of the backup folder inside backup_root
+
+        Returns:
+            ZIP file contents as bytes
+
+        Raises:
+            ValueError: If the backup does not exist
+        """
+        backup_path = self.backup_root / backup_name
+        if not backup_path.exists() or not backup_path.is_dir():
+            raise ValueError(f"Backup '{backup_name}' not found in {self.backup_root}")
+
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for file_path in backup_path.rglob("*"):
+                if file_path.is_file():
+                    # Archive path keeps the backup_name as top-level folder
+                    arcname = Path(backup_name) / file_path.relative_to(backup_path)
+                    zf.write(file_path, arcname)
+
+        return buffer.getvalue()
+
+    def import_backup_zip(self, zip_bytes: bytes, overwrite: bool = False) -> str:
+        """Extract a ZIP archive into backup_root.
+
+        The ZIP must contain exactly one top-level folder whose name becomes
+        the backup_name.  That folder must include a ``metadata.json`` file.
+
+        Args:
+            zip_bytes: Raw ZIP file bytes
+            overwrite: If True, replace an existing backup with the same name
+
+        Returns:
+            The backup name (top-level folder from the ZIP)
+
+        Raises:
+            ValueError: If the ZIP is invalid, has no identifiable backup folder,
+                        or the backup already exists and overwrite is False
+        """
+        try:
+            zf = zipfile.ZipFile(io.BytesIO(zip_bytes))
+        except zipfile.BadZipFile:
+            raise ValueError("Uploaded file is not a valid ZIP archive")
+
+        with zf:
+            names = zf.namelist()
+            if not names:
+                raise ValueError("ZIP archive is empty")
+
+            # Detect the single top-level folder
+            top_dirs: set[str] = set()
+            for name in names:
+                parts = Path(name).parts
+                if parts:
+                    top_dirs.add(parts[0])
+
+            if len(top_dirs) != 1:
+                raise ValueError(
+                    "ZIP must contain exactly one top-level folder (the backup name). "
+                    f"Found: {sorted(top_dirs)}"
+                )
+
+            backup_name = top_dirs.pop()
+            dest = self.backup_root / backup_name
+
+            if dest.exists():
+                if not overwrite:
+                    raise ValueError(
+                        f"Backup '{backup_name}' already exists. "
+                        "Enable overwrite to replace it."
+                    )
+                shutil.rmtree(dest)
+
+            self.backup_root.mkdir(parents=True, exist_ok=True)
+            zf.extractall(self.backup_root)
+
+        return backup_name

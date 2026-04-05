@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import auth
 from app.websocket import terminal
 from app.routers import forms, commands
+from app.routers.transfer import router as transfer_router
 from app.core.database import init_database, close_database
 
 # Configure logging
@@ -63,6 +64,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(forms.router, tags=["forms"])  # HTTP forms API
 app.include_router(commands.router, tags=["commands"])  # HTTP commands API
 app.include_router(terminal.router, tags=["terminal"])  # WebSocket terminal
+app.include_router(transfer_router, tags=["transfer"])  # Export / Import
 
 # Health check endpoint
 @app.get("/health")

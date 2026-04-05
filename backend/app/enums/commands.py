@@ -14,10 +14,14 @@ class Command(StrEnum):
     CONNECT_REMOVE = "connect remove"
     CONNECT_TEST = "connect test"
     CONNECT_UPDATE = "connect update"
+    CONNECT_EXPORT = "connect export"
+    CONNECT_IMPORT = "connect import"
     BACKUP_FOLDER_ADD = "backup folder add"
     BACKUP_FOLDER_DELETE = "backup folder delete"
     BACKUP_CREATE = "backup create"
     BACKUP_RESTORE = "backup restore"
+    BACKUP_EXPORT = "backup export"
+    BACKUP_IMPORT = "backup import"
 
 
 class FormPath(StrEnum):
