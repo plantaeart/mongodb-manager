@@ -28,7 +28,7 @@ BACKEND_TOML="$SCRIPT_DIR/../backend/pyproject.toml"
 echo "Bumping frontend ($BUMP_TYPE)..."
 (cd "$FRONTEND_DIR" && npm version "$BUMP_TYPE" --no-git-tag-version)
 
-NEW_VERSION=$(cd "$FRONTEND_DIR" && node -e "process.stdout.write(require('./package.json').version)")
+NEW_VERSION=$(grep '"version"' "$FRONTEND_DIR/package.json" | sed 's/.*"version": "\([^"]*\)".*/\1/')
 echo "Frontend → $NEW_VERSION"
 
 # --------------------------------------------------------------------------- #
@@ -36,17 +36,32 @@ echo "Frontend → $NEW_VERSION"
 # --------------------------------------------------------------------------- #
 
 echo "Bumping backend..."
-sed -i "s/^version = \"[0-9]*\.[0-9]*\.[0-9]*\"/version = \"$NEW_VERSION\"/" "$BACKEND_TOML"
+sed -i'' "s/^version = \"[0-9]*\.[0-9]*\.[0-9]*\"/version = \"$NEW_VERSION\"/" "$BACKEND_TOML"
 echo "Backend → $NEW_VERSION"
+
+# --------------------------------------------------------------------------- #
+# Backend — regenerate uv.lock
+# uv is not installed on the host; run it in a throwaway Docker container
+# --------------------------------------------------------------------------- #
+
+BACKEND_DIR="$SCRIPT_DIR/../backend"
+
+echo "Regenerating uv.lock..."
+docker run --rm \
+  -v "$(cd "$BACKEND_DIR" && pwd):/app" \
+  -w /app \
+  python:3.14-rc-slim \
+  sh -c "pip install --quiet uv && uv lock"
+echo "uv.lock → updated"
 
 # --------------------------------------------------------------------------- #
 # Done
 # --------------------------------------------------------------------------- #
 
 echo ""
-echo "Both versions bumped to $NEW_VERSION"
+echo "All versions bumped to $NEW_VERSION"
 echo ""
 echo "Next steps:"
-echo "  git add frontend/package.json backend/pyproject.toml"
+echo "  git add frontend/package.json backend/pyproject.toml backend/uv.lock"
 echo "  git commit -m \"chore: bump version to $NEW_VERSION\""
 echo "  git tag v$NEW_VERSION"
