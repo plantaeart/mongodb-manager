@@ -21,24 +21,33 @@
       </div>
 
       <!-- Logout button -->
-      <button @click="handleLogout" class="logout-button" title="Logout">
-        <span>Logout</span>
-      </button>
+      <BaseButton
+        :variant="ButtonVariant.OUTLINE"
+        :type="ButtonType.BUTTON"
+        :loading="isLoggingOut"
+        :disabled="isLoggingOut"
+        title="Logout"
+        @click="handleLogout"
+      >
+        {{ isLoggingOut ? 'Logging out...' : 'Logout' }}
+      </BaseButton>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ConnectionStatus, ConnectionStatusClass } from '~/enums'
+import { ConnectionStatus, ConnectionStatusClass, ButtonVariant, ButtonType } from '~/enums'
 
 interface Props {
   isConnected?: boolean
   username?: string
+  isLoggingOut?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   isConnected: false,
-  username: 'admin'
+  username: 'admin',
+  isLoggingOut: false
 })
 
 const emit = defineEmits<{
@@ -122,23 +131,5 @@ const handleLogout = () => {
 .status-hint {
   color: var(--gb-fg-dim);
   font-style: italic;
-}
-
-.logout-button {
-  background: transparent;
-  border: 1px solid var(--gb-gray);
-  color: var(--gb-fg);
-  padding: 0.25rem 0.75rem;
-  border-radius: 4px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.logout-button:hover {
-  background: var(--gb-red);
-  border-color: var(--gb-red);
-  color: var(--gb-bg-hard);
 }
 </style>

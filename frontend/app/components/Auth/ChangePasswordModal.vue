@@ -52,13 +52,14 @@
         </div>
 
         <div class="button-group">
-          <button 
-            type="submit" 
-            class="terminal-button"
+          <BaseButton
+            :type="ButtonType.SUBMIT"
+            :variant="ButtonVariant.AUTH_YELLOW"
             :disabled="isLoading || !isFormValid"
+            :loading="isLoading"
           >
             {{ isLoading ? 'Changing...' : 'Change Password' }}
-          </button>
+          </BaseButton>
         </div>
       </form>
 
@@ -77,7 +78,7 @@
 </template>
 
 <script setup lang="ts">
-import { ToastColor, ToastDuration, PasswordChangeDelay } from '~/enums'
+import { ToastColor, ToastDuration, PasswordChangeDelay, ButtonVariant, ButtonType } from '~/enums'
 import type { PasswordChangeResult } from '~/types/auth'
 
 interface Props {
@@ -217,15 +218,7 @@ const handleChangePassword = async () => {
   border-color: var(--gb-yellow);
 }
 
-/* Change password button uses yellow theme */
-.terminal-button {
-  background: var(--gb-yellow);
-  color: var(--gb-bg-hard);
-}
-
-.terminal-button:hover:not(:disabled) {
-  background: var(--gb-yellow-bright);
-}
+/* Change password button uses yellow theme — handled by BaseButton auth-yellow variant */
 
 .button-group {
   display: flex;

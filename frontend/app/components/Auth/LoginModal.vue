@@ -33,13 +33,15 @@
           </label>
         </div>
 
-        <button 
-          type="submit" 
-          class="terminal-button w-full"
+        <BaseButton
+          :type="ButtonType.SUBMIT"
+          :variant="ButtonVariant.AUTH_GREEN"
           :disabled="isLoading || !password"
+          :loading="isLoading"
+          :full-width="true"
         >
           {{ isLoading ? 'Logging in...' : 'Login' }}
-        </button>
+        </BaseButton>
 
         <div v-if="needsPasswordChange" class="warning-message">
           Default password detected. You must change your password.
@@ -56,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import { ToastColor, ToastDuration } from '~/enums'
+import { ToastColor, ToastDuration, ButtonVariant, ButtonType } from '~/enums'
 import type { LoginResult } from '~/types/auth'
 
 interface Props {
@@ -214,15 +216,7 @@ const handleLogin = async () => {
   cursor: not-allowed;
 }
 
-/* Login button uses green theme */
-.terminal-button {
-  background: var(--gb-green);
-  color: var(--gb-bg-hard);
-}
-
-.terminal-button:hover:not(:disabled) {
-  background: var(--gb-green-bright);
-}
+/* Login button uses green theme — handled by BaseButton auth-green variant */
 
 .warning-message {
   background: rgba(250, 189, 47, 0.1);

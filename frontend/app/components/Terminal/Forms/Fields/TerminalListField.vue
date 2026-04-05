@@ -41,7 +41,7 @@
                       class="path-item"
                     >
                       <span class="path-indicator">•</span>
-                      <span>{{ listItem }}</span>
+                      <span>{{ stripBackupSuffix(listItem) }}</span>
                     </div>
                   </div>
                 </template>
@@ -51,7 +51,7 @@
                 </template>
                 
                 <template v-else>
-                  <span class="detail-value">{{ item[fieldConfig.key] }}</span>
+                  <span class="detail-value">{{ stripBackupSuffix(item[fieldConfig.key]) }}</span>
                 </template>
               </template>
             </div>
@@ -71,6 +71,7 @@
 
 <script setup lang="ts">
 import type { FormField, ListItemField } from '~/types/terminal'
+import { stripBackupSuffix } from '~/utils/backupHelpers'
 
 interface Props {
   field: FormField

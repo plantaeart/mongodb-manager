@@ -11,6 +11,7 @@ import { CommandStatus, TerminalCommand, WebSocketMessageType, StorageKey, Termi
 import { getApiPathForCommand } from '~/config/terminalForms'
 import { useTerminalStorage } from '~/composables/useTerminalStorage'
 import { useTerminalHttp } from '~/composables/useTerminalHttp'
+import { stripBackupSuffix } from '~/utils/backupHelpers'
 
 /**
  * TerminalService - True Singleton
@@ -276,7 +277,7 @@ class TerminalService {
           `${baseUrl}/api/transfer/backup/import/options`,
           { headers }
         )
-        widgetData = { mode: 'backup-import', folderOptions: opts.folders }
+        widgetData = { mode: 'backup-import', folderOptions: opts.folders.map(f => ({ value: f.value, label: stripBackupSuffix(f.label) })) }
       } else if (command === TerminalCommand.CONNECT_EXPORT) {
         widgetData = { mode: 'connect-export' }
       } else {

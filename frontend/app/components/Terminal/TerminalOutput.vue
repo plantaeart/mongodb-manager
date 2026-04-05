@@ -49,7 +49,7 @@
             'text-gb-blue': isInfoLine(line)
           }"
         >
-          {{ line }}
+          {{ stripBackupSuffixFromLine(line) }}
         </div>
       </div>
 
@@ -65,6 +65,7 @@
 <script setup lang="ts">
 import { CommandStatus, OutputLinePattern, WebSocketMessageType } from '~/enums'
 import type { TerminalEntry } from '~/types/terminal'
+import { stripBackupSuffixFromLine } from '~/utils/backupHelpers'
 import TerminalForm from './Forms/TerminalForm.vue'
 import TerminalFileWidget from './Forms/TerminalFileWidget.vue'
 

@@ -132,17 +132,23 @@
 
     <!-- Actions -->
     <div class="widget-actions">
-      <button
-        class="action-btn action-primary"
+      <BaseButton
+        :variant="ButtonVariant.PRIMARY"
+        :type="ButtonType.BUTTON"
         :disabled="!canSubmit || isBusy"
+        :loading="isBusy"
         @click="handleSubmit"
       >
-        <span v-if="isBusy" class="spinner"></span>
         {{ isBusy ? 'Processing…' : submitLabel }}
-      </button>
-      <button class="action-btn action-secondary" :disabled="isBusy" @click="emit('cancel')">
+      </BaseButton>
+      <BaseButton
+        :variant="ButtonVariant.SECONDARY"
+        :type="ButtonType.BUTTON"
+        :disabled="isBusy"
+        @click="emit('cancel')"
+      >
         Cancel
-      </button>
+      </BaseButton>
     </div>
   </div>
 </template>
@@ -151,6 +157,7 @@
 import { ref, computed } from 'vue'
 import type { FileWidgetData } from '~/types/terminal'
 import { downloadBlob } from '~/utils/downloadFile'
+import { ButtonVariant, ButtonType } from '~/enums'
 
 interface Props {
   widgetData: FileWidgetData
@@ -552,60 +559,6 @@ const doConnectImport = async () => {
   margin-top: 4px;
 }
 
-.action-btn {
-  padding: 8px 16px;
-  border-radius: 3px;
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  border: none;
-}
-
-.action-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.action-primary {
-  background: var(--color-primary, #83a598);
-  color: var(--color-bg-primary, #1d2021);
-  font-weight: 500;
-}
-
-.action-primary:hover:not(:disabled) {
-  background: var(--color-primary-hover, #8ec07c);
-}
-
-.action-secondary {
-  background: transparent;
-  color: var(--color-text-primary, #ebdbb2);
-  border: 1px solid var(--color-border-secondary, #504945) !important;
-}
-
-.action-secondary:hover:not(:disabled) {
-  background: var(--color-bg-secondary, #3c3836);
-}
-
-/* ── Spinner ── */
-.spinner {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border: 2px solid currentColor;
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-  flex-shrink: 0;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
 /* ── Done state ── */
 .widget-done-state {
   font-family: 'JetBrains Mono', 'Courier New', monospace;
@@ -633,9 +586,8 @@ code {
   .widget-actions {
     flex-direction: column;
   }
-  .action-btn {
+  .widget-actions :deep(.base-btn) {
     width: 100%;
-    justify-content: center;
   }
   .file-input-wrapper {
     flex-direction: column;

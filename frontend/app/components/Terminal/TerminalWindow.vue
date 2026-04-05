@@ -36,6 +36,7 @@
     <StatusBar 
       :is-connected="wsConnected"
       :username="currentUser"
+      :is-logging-out="isLoggingOut"
       @logout="handleLogout"
     />
   </div>
@@ -56,6 +57,7 @@ const authStore = useAuthStore()
 // Computed values to pass as props
 const wsConnected = computed(() => isConnected.value)
 const currentUser = computed(() => authStore.getUsername)
+const isLoggingOut = ref(false)
 // Deep copy to remove readonly constraints from nested arrays
 const terminalHistory = computed(() => 
   commandHistory.value.map(entry => {
@@ -86,7 +88,12 @@ const handleExecuteCommand = async (command: string) => {
 }
 
 const handleLogout = async () => {
-  await authStore.logout()
+  isLoggingOut.value = true
+  try {
+    await authStore.logout()
+  } finally {
+    isLoggingOut.value = false
+  }
   window.location.reload()
 }
 </script>

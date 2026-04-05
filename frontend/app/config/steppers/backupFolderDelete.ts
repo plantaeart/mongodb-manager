@@ -7,6 +7,7 @@
 import type { StepDefinition, StepperFormConfig } from '~/types/stepper'
 import { createStep } from '~/utils/stepperHelpers'
 import { loadStepSchema } from '~/composables/useStepLoader'
+import { stripBackupSuffix } from '~/utils/backupHelpers'
 
 /**
  * Create stepper configuration for 'backup folder delete' command
@@ -69,7 +70,7 @@ export function createBackupFolderDeleteStepper(formId: string): StepperFormConf
         if (folderField && backupPaths.length > 0) {
           folderField.options = backupPaths.map((path: string) => ({
             value: path,
-            label: path
+            label: stripBackupSuffix(path)
           }))
         }
 

@@ -70,46 +70,47 @@
     <!-- Navigation Buttons -->
     <div class="stepper-actions">
       <!-- Previous Button -->
-      <button
-        type="button"
-        class="btn btn-secondary"
+      <BaseButton
+        :variant="ButtonVariant.SECONDARY"
+        :type="ButtonType.BUTTON"
         :disabled="!hasPrevious || isSubmitting"
         @click="handlePrevious"
       >
         ← Previous
-      </button>
+      </BaseButton>
 
       <!-- Next Button (not on last step) -->
-      <button
+      <BaseButton
         v-if="hasNext"
-        type="button"
-        class="btn btn-primary"
-        @click="handleNext"
+        :variant="ButtonVariant.PRIMARY"
+        :type="ButtonType.BUTTON"
         :disabled="!canProceed || isSubmitting"
+        @click="handleNext"
       >
         Next →
-      </button>
+      </BaseButton>
 
       <!-- Submit Button (last step) -->
-      <button
+      <BaseButton
         v-else
-        type="button"
-        class="btn btn-primary"
-        @click="handleSubmit"
+        :variant="ButtonVariant.PRIMARY"
+        :type="ButtonType.BUTTON"
         :disabled="!canSubmit || isSubmitting"
+        :loading="isSubmitting"
+        @click="handleSubmit"
       >
-        {{ isSubmitting ? 'Submitting...' : submitButtonText }}
-      </button>
+        {{ submitButtonText }}
+      </BaseButton>
 
       <!-- Cancel Button -->
-      <button
-        type="button"
-        class="btn btn-secondary"
-        @click="handleCancel"
+      <BaseButton
+        :variant="ButtonVariant.SECONDARY"
+        :type="ButtonType.BUTTON"
         :disabled="isSubmitting"
+        @click="handleCancel"
       >
         Cancel
-      </button>
+      </BaseButton>
     </div>
   </div>
 </template>
@@ -122,7 +123,7 @@ import CommandsConnectUpdateUpdateDetails from '~/components/Commands/Connect/Up
 import type { StepperFormConfig, StepContext } from '~/types/stepper'
 import { isStepValid, canProceedFromStep, getAllStepData } from '~/utils/stepperHelpers'
 import { getFieldComponent } from '~/composables/useFieldComponent'
-import { CommandStatus } from '~/enums'
+import { CommandStatus, ButtonVariant, ButtonType } from '~/enums'
 import { useAuthStore } from '~/stores/auth'
 
 interface Props {
@@ -326,18 +327,29 @@ const handleSubmit = async () => {
   
   isSubmitting.value = true
   
-  try {
-    const allData = getAllStepData(stepsRef.value)
-    
-    if (props.config.onSubmit) {
+  // Run optional pre-submit hook (awaitable)
+  if (props.config.onSubmit) {
+    try {
+      const allData = getAllStepData(stepsRef.value)
       await props.config.onSubmit(allData)
+    } catch {
+      isSubmitting.value = false
+      return
     }
-    
-    emit('submit', allData)
-  } finally {
+  }
+
+  // Emit to parent — spinner stays on until isReadonly becomes true
+  // (parent sets status to SUCCESS/ERROR which triggers the watch below)
+  const allData = getAllStepData(stepsRef.value)
+  emit('submit', allData)
+}
+
+// Reset isSubmitting when the form transitions to readonly (success or error)
+watch(isReadonly, (readonly) => {
+  if (readonly) {
     isSubmitting.value = false
   }
-}
+})
 
 const handleCancel = () => {
   if (props.config.onCancel) {
@@ -478,41 +490,6 @@ watch(() => props.config, (config) => {
   border-top: 1px solid var(--color-border-secondary, #504945);
 }
 
-.btn {
-  padding: 10px 20px;
-  border-radius: 3px;
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: none;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  background: var(--color-primary, #83a598);
-  color: var(--color-bg-primary, #1d2021);
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: var(--color-primary-hover, #689d6a);
-}
-
-.btn-secondary {
-  background: transparent;
-  color: var(--color-text-primary, #ebdbb2);
-  border: 1px solid var(--color-border-secondary, #504945);
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: var(--color-bg-secondary, #3c3836);
-}
-
 .form-status {
   margin-top: 12px;
   padding-top: 12px;
@@ -537,6 +514,15 @@ watch(() => props.config, (config) => {
 
 .terminal-form-stepper-generic {
     padding: 12px;
+  }
+
+.stepper-actions {
+    flex-wrap: wrap;
+  }
+
+.stepper-actions :deep(.base-btn) {
+    flex: 1;
+    min-width: 0;
   }
 }
 </style>

@@ -7,6 +7,7 @@
 import type { StepDefinition, StepperFormConfig } from '~/types/stepper'
 import { createStep } from '~/utils/stepperHelpers'
 import { loadStepSchema } from '~/composables/useStepLoader'
+import { stripBackupSuffix } from '~/utils/backupHelpers'
 
 /**
  * Create stepper configuration for 'backup create' command
@@ -71,7 +72,7 @@ export function createBackupCreateStepper(formId: string): StepperFormConfig {
         if (locationField && backupPaths.length > 0) {
           locationField.options = backupPaths.map((path: string) => ({
             value: path,
-            label: path
+            label: stripBackupSuffix(path)
           }))
           
           currentStep.data = {

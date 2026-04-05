@@ -196,7 +196,12 @@ const handleSubmit = async (action: string) => {
   // Submit all field values
   const submitData = { ...fieldValues.value }
   
-  emit('submit', submitData)
+  try {
+    emit('submit', submitData)
+  } catch {
+    // Reset on error so user can retry
+    isSubmitting.value = false
+  }
 }
 
 const handleStepperSubmit = (data: Record<string, any>) => {
