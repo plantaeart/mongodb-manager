@@ -12,8 +12,7 @@ dist
 .vscode
 .idea
 
-# Exclude lock file - let Docker generate it for Linux platform
-package-lock.json
+# Keep lockfile so installs are reproducible (excluded = causes ERESOLVE on fresh builds)
 npm-debug.log*
 
 # Test files
