@@ -83,10 +83,13 @@ MongoDB Manager provides separate configurations for **development** and **produ
 1. **Clone the repository**:
    ```bash
    git clone <your-repo-url>
-   cd mongodb-manager-app
+   cd mongodb-manager
    ```
 
-2. **Start development environment**:
+2. **Define .env or .env.dev file**:
+   Use .env.example to define your env files in local
+
+3. **Start development environment**:
    ```bash
    ./scripts/docker.sh dev up
    ```
@@ -96,7 +99,7 @@ MongoDB Manager provides separate configurations for **development** and **produ
    docker-compose -f docker/docker-compose.dev.yml --env-file .env.dev up -d
    ```
 
-3. **Access the web interface**:
+4. **Access the web interface**:
    - Frontend: http://localhost:3000 (hot-reload enabled)
    - Backend API: http://localhost:8000 (hot-reload enabled)
    - API Docs: http://localhost:8000/docs
