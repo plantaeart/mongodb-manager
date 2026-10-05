@@ -136,7 +136,7 @@ MongoDB Manager provides separate configurations for **development** and **produ
 
 3. **Start production environment**:
    ```bash
-   ./scripts/docker.sh prod up
+   bash ./scripts/docker.sh prod up
    ```
 
    Or manually:
