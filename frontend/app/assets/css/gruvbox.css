@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@nuxt/ui";
 @import "./auth-modals.css";
 
 :root {
@@ -8,7 +9,7 @@
   --gb-bg-soft: #32302f;
   --gb-fg: #ebdbb2;
   --gb-fg-dim: #a89984;
-  
+
   /* Gruvbox accent colors */
   --gb-red: #fb4934;
   --gb-green: #b8bb26;

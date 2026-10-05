@@ -63,7 +63,7 @@ case "$ACTION" in
         echo -e "${GREEN}Starting services...${NC}"
         $DC -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
         echo -e "${GREEN}Services started successfully!${NC}"
-        $DC -f "$COMPOSE_FILE" ps
+        $DC -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps
         ;;
     down)
         # Check for --volumes or -v flag
@@ -162,10 +162,10 @@ case "$ACTION" in
             $DC -f "$COMPOSE_FILE" --env-file "$ENV_FILE" restart
             echo -e "${GREEN}Services restarted!${NC}"
         fi
-        $DC -f "$COMPOSE_FILE" ps
+        $DC -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps
         ;;
     ps)
-        $DC -f "$COMPOSE_FILE" ps
+        $DC -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps
         ;;
     exec)
         if [[ -z "${3}" ]]; then
@@ -173,7 +173,7 @@ case "$ACTION" in
             echo "Usage: $0 $ENV exec <service> <command>"
             exit 1
         fi
-        $DC -f "$COMPOSE_FILE" exec "${@:3}"
+        $DC -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec "${@:3}"
         ;;
     *)
         echo -e "${RED}Error: Unknown action '$ACTION'${NC}"

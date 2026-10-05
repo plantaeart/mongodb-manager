@@ -1,6 +1,6 @@
 # MongoDB Manager - Web UI
 
-A modern web-based tool for managing MongoDB backups and restores with a terminal-style interface. Built with FastAPI backend and Nuxt 3 frontend featuring a beautiful Gruvbox theme.
+A web-based tool for managing MongoDB backups and restores with a terminal-style interface. FastAPI backend, Nuxt frontend, Gruvbox theme. Everything runs in Docker.
 
 ## Features
 
@@ -20,27 +20,25 @@ A modern web-based tool for managing MongoDB backups and restores with a termina
 MongoDB Manager uses a modern full-stack architecture:
 
 ### Backend (FastAPI)
-- **Port**: 8000
+- **Port**: `BACKEND_PORT` on the host (default 9000)
 - **API**: RESTful endpoints for authentication and operations
 - **WebSocket**: Real-time command execution and output streaming
 - **Database**: Internal MongoDB for sessions and user data
 - **CLI Core**: Wrapped existing CLI logic for command execution
 
-### Frontend (Nuxt 3)
-- **Port**: 3000
-- **Framework**: Nuxt 3 with Vue 3 Composition API
-- **UI**: Terminal-style interface with split view
+### Frontend (Nuxt 4)
+- **Port**: `FRONTEND_PORT` on the host (default 4000)
+- **Framework**: Nuxt 4 + Vue 3, with Nuxt UI
+- **UI**: Terminal-style interface
 - **Theme**: Gruvbox color palette
-- **State**: Composables for auth, WebSocket, and terminal
+- **State**: Pinia store + composables for auth, WebSocket, and terminal
 
 ### Internal MongoDB (Session Storage)
-- **Purpose**: Stores user authentication and sessions
-- **Database**: `manager_app`
-- **Collections**: `users`, `sessions`
-- **Features**: 
-  - Automatic session expiration via TTL index
-  - Isolated Docker network (no external access)
-  - Secure password hashing with bcrypt
+- **Purpose**: Stores user authentication, sessions, and connection definitions
+- **Database**: `MONGODB_MANAGER_DB` (`NUXT_MONGODB_DATABASE`)
+- **Collections**: `users`, `sessions`, connections
+- **Never exposed** to the host — reachable only inside the Docker network
+- **Features**: automatic session expiration via TTL index, bcrypt password hashing
 
 ### External MongoDB (Backup Target)
 - **Purpose**: Your production/VPS MongoDB instances
@@ -53,8 +51,8 @@ MongoDB Manager uses a modern full-stack architecture:
 │                                                      │
 │  ┌─────────────┐   ┌──────────────┐   ┌──────────┐│
 │  │  Frontend   │──►│   Backend    │──►│ Internal ││
-│  │  (Nuxt 3)   │   │  (FastAPI)   │   │ MongoDB  ││
-│  │  Port 3000  │   │  Port 8000   │   │ Sessions ││
+│  │  (Nuxt 4)   │   │  (FastAPI)   │   │ MongoDB  ││
+│  │:FRONTEND_PORT│   │:BACKEND_PORT │   │ Sessions ││
 │  └─────────────┘   └──────┬───────┘   └──────────┘│
 └────────────────────────────┼──────────────────────┘
                              │
@@ -67,104 +65,157 @@ MongoDB Manager uses a modern full-stack architecture:
                     └────────────────────┘
 ```
 
-## Quick Start
+## Installation
 
 ### Prerequisites
 
-- Docker and Docker Compose
-- At least 1GB free disk space
+- [Docker](https://docs.docker.com/get-docker/) with the Compose plugin (`docker compose`)
+- At least 2 GB free disk space (images + backups)
+- The ports you plan to use free on your machine: `FRONTEND_PORT` (4000) and `BACKEND_PORT` (9000) by default (see [Ports](#ports))
 
-### Installation
+### 1. Get the code
 
-MongoDB Manager provides separate configurations for **development** and **production** environments.
+```bash
+git clone https://github.com/plantaeart/mongodb-manager.git
+cd mongodb-manager
+```
 
-#### Development Mode (with hot-reload)
+### 2. Create your environment file
 
-1. **Clone the repository**:
-   ```bash
-   git clone <your-repo-url>
-   cd mongodb-manager
-   ```
+Everything is configured in a single env file. `.env.example` documents every
+variable inline — read the comments, then copy it:
 
-2. **Define .env or .env.dev file**:
-   Use .env.example to define your env files in local
+```bash
+cp .env.example .env.prod
+```
 
-3. **Start development environment**:
-   ```bash
-   ./scripts/docker.sh dev up
-   ```
+**Before starting, change these two lines in `.env.prod`:**
 
-   Or manually:
-   ```bash
-   docker-compose -f docker/docker-compose.dev.yml --env-file .env.dev up -d
-   ```
+```bash
+# The password you will type in the web UI login form
+NUXT_ADMIN_PASSWORD=choose-a-strong-password
 
-4. **Access the web interface**:
-   - Frontend: http://localhost:3000 (hot-reload enabled)
-   - Backend API: http://localhost:8000 (hot-reload enabled)
-   - API Docs: http://localhost:8000/docs
+# Signs session tokens. Generate a random one:
+#   openssl rand -base64 64
+NUXT_JWT_SECRET=paste-your-random-secret-here
+```
 
-**Development Features**:
-- ✅ Hot-reload for backend (uvicorn --reload)
-- ✅ Hot-reload for frontend (Nuxt dev server)
-- ✅ Source code mounted as volumes
-- ✅ Verbose logging for debugging
-- ✅ No resource limits
-- ✅ Separate dev database volumes
+That is the minimum for a working install. Everything else in `.env.example` has
+a working default, including the ports.
 
-#### Production Mode (optimized builds)
+### 3. Start the app
 
-1. **Copy and configure production environment**:
-   ```bash
-   cp .env.prod .env.prod.local
-   ```
+```bash
+./scripts/docker.sh prod up
+```
 
-2. **Update production credentials** (`.env.prod.local`):
-   ```bash
-   # CRITICAL: Change these before deploying!
-   MANAGER_DB_USERNAME=manager_admin_prod
-   MANAGER_DB_PASSWORD=$(openssl rand -base64 24)
-   JWT_SECRET=$(openssl rand -base64 64)
-   
-   # Ports (optional)
-   FRONTEND_PORT=3000
-   BACKEND_PORT=8000
-   
-   # Timezone
-   TZ=UTC
-   ```
+The first run builds the images (a few minutes). Subsequent starts are fast.
 
-3. **Start production environment**:
-   ```bash
-   bash ./scripts/docker.sh prod up
-   ```
+```bash
+./scripts/docker.sh prod ps      # check status
+./scripts/docker.sh prod logs   # follow logs
+```
 
-   Or manually:
-   ```bash
-   docker-compose -f docker/docker-compose.prod.yml --env-file .env.prod.local up -d
-   ```
+### 4. Log in
 
-4. **Access the web interface**:
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8000
-   - API Docs: http://localhost:8000/docs
+Open **http://localhost:`${FRONTEND_PORT}`** and log in with:
 
-**Production Features**:
-- ✅ Multi-stage Docker builds (optimized size)
-- ✅ Resource limits (CPU/memory)
-- ✅ Log rotation (10MB max, 3 files)
-- ✅ Health checks with auto-restart
-- ✅ Non-root user execution
-- ✅ Separate production volumes
+- **Username**: `admin` (always `admin`, not configurable)
+- **Password**: the `NUXT_ADMIN_PASSWORD` you set in step 2
 
-### First Login
+With `NODE_ENV=production` you are forced to change the password immediately.
+The new password is stored hashed in the internal MongoDB.
 
-1. Open http://localhost:3000 in your browser
-2. Login with default credentials:
-   - Password: `admin123`
-3. You'll be forced to change the password immediately
-4. Set a strong password (minimum 8 characters)
-5. Done! Your new password is stored securely in MongoDB
+### 5. Add a MongoDB connection
+
+In the web UI, run `connect add` and enter the URI of the MongoDB instance you
+want to back up, e.g. `mongodb://user:password@vps-host:27017/mydb`. Then
+`backup create <connection-name>`.
+
+### Ports
+
+Both ports are configured in section 4 of your env file:
+
+| Variable | Default | What it is |
+| --- | --- | --- |
+| `FRONTEND_PORT` | `4000` | the web UI — this is the one you open |
+| `BACKEND_PORT` | `9000` | the API, also serves the WebSocket terminal |
+
+Change either one and everything else follows automatically: `CORS_ORIGINS`
+reuses `FRONTEND_PORT`, and `NUXT_PUBLIC_API_URL` / `NUXT_PUBLIC_WS_URL` reuse
+`BACKEND_PORT`. There is nothing to keep in sync by hand.
+
+Throughout this README, `${FRONTEND_PORT}` and `${BACKEND_PORT}` mean "the
+value you set in your env file", not a literal string to copy. With the
+defaults shown above, that is `http://localhost:4000`.
+
+Remember that port changes need a **recreate**, not a restart (see
+[troubleshooting](#you-forgot-the-admin-password)).
+
+API docs (FastAPI): **http://localhost:`${BACKEND_PORT}`/docs**
+
+### Updating
+
+```bash
+git pull
+./scripts/docker.sh prod restart --cache   # rebuild and restart
+```
+
+Your data lives in Docker volumes and is untouched by updates. Your env file is
+gitignored, so `git pull` never overwrites it.
+
+### Uninstall
+
+```bash
+./scripts/docker.sh prod down            # stop, keep data
+./scripts/docker.sh prod down --volumes  # stop and delete all data
+```
+
+### Development mode
+
+Same setup, but with hot-reload and source code mounted as volumes:
+
+```bash
+cp .env.example .env.dev
+./scripts/docker.sh dev up
+```
+
+Useful while you are working on the code:
+
+```bash
+./scripts/docker.sh dev logs             # follow logs
+./scripts/docker.sh dev exec backend bash # shell inside the API container
+./scripts/docker.sh dev reset             # wipe data and start fresh
+```
+
+### Without Docker
+
+<details>
+<summary>Run backend and frontend directly (for development only)</summary>
+
+Backend:
+
+```bash
+cd backend
+uv venv && source .venv/bin/activate
+uv pip install -e .
+uvicorn app.main_api:app --reload --host 0.0.0.0 --port ${BACKEND_PORT:-9000}
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The frontend reads `NUXT_PUBLIC_API_URL` / `NUXT_PUBLIC_WS_URL` (see
+`nuxt.config.ts`) and needs a MongoDB reachable at `NUXT_MONGODB_HOST`. Start
+one with `docker compose -f docker/docker-compose.dev.yml --env-file .env.dev up -d manager-mongodb`,
+or point `MANAGER_DB_URI` at an external MongoDB.
+
+</details>
 
 ## Usage
 
@@ -229,32 +280,29 @@ Commands execute on the backend and stream output in real-time to your browser v
 ### Project Structure
 
 ```
-mongodb-manager-app/
+mongodb-manager/
 ├── backend/
 │   ├── app/
-│   │   ├── api/              # FastAPI routes
-│   │   ├── core/             # CLI logic (auth, backups, etc.)
+│   │   ├── api/              # FastAPI routes (auth, forms)
+│   │   ├── core/             # Auth manager, database client
 │   │   ├── models/           # Pydantic models
 │   │   ├── middleware/       # JWT authentication
-│   │   ├── websocket/        # WebSocket handlers
+│   │   ├── websocket/        # WebSocket terminal
+│   │   ├── stores/           # CLI command handlers
 │   │   └── main_api.py       # FastAPI app entry point
 │   ├── Dockerfile
-│   ├── pyproject.toml
-│   └── main.py               # CLI entry point (legacy)
+│   └── pyproject.toml
 │
 ├── frontend/
-│   ├── app/
-│   │   ├── components/       # Vue components
-│   │   │   ├── Auth/         # Login, password change
-│   │   │   ├── Terminal/     # Terminal UI components
-│   │   │   └── Panel/        # Visual panel
-│   │   ├── composables/      # Vue composables
-│   │   │   ├── useAuth.ts
-│   │   │   ├── useWebSocket.ts
-│   │   │   └── useTerminal.ts
+│   ├── app/                  # Nuxt 4 srcDir
+│   │   ├── app.vue           # Root component (mounts UApp → toasts)
+│   │   ├── components/       # Vue components (Auth, Terminal, Forms, Base)
+│   │   ├── composables/      # useWebSocket, useTerminal, useVersion, ...
+│   │   ├── stores/           # Pinia auth store
+│   │   ├── enums/            # Shared enums (Toast, Terminal, WebSocket)
 │   │   ├── types/            # TypeScript types
 │   │   ├── pages/            # Nuxt pages
-│   │   └── assets/           # CSS, images
+│   │   └── assets/css/       # Tailwind + Gruvbox theme
 │   ├── Dockerfile
 │   ├── nuxt.config.ts
 │   └── package.json
@@ -262,70 +310,86 @@ mongodb-manager-app/
 ├── docker/
 │   ├── docker-compose.dev.yml   # Development configuration
 │   ├── docker-compose.prod.yml  # Production configuration
-│   └── docker-compose.yml       # Legacy (points to prod)
+│   └── docker-compose.yml       # Root copy of the production stack
 │
 ├── scripts/
 │   └── docker.sh                # Docker helper script
 │
-├── .env.dev                     # Development environment
-├── .env.prod                    # Production template
-├── .env.example                 # Legacy example
+├── .env.example                 # Annotated template — copy to .env.dev / .env.prod
+├── .env.dev                     # Development environment (gitignored)
+├── .env.prod                    # Production environment (gitignored)
 └── README.md
 ```
 
 ### Docker Helper Script
 
-A convenience script is provided to manage both dev and prod environments:
+`./scripts/docker.sh <dev|prod> <action>` — the script reads the env file
+matching the environment name (`.env.dev` / `.env.prod`):
 
 ```bash
-# Development
-./scripts/docker.sh dev up          # Start dev environment
-./scripts/docker.sh dev down        # Stop dev environment
-./scripts/docker.sh dev build       # Rebuild dev images
-./scripts/docker.sh dev logs        # View dev logs
-./scripts/docker.sh dev restart     # Restart dev services
-./scripts/docker.sh dev ps          # Show dev containers
+# Actions (same for dev and prod)
+./scripts/docker.sh prod up              # Start
+./scripts/docker.sh prod ps              # Show status
+./scripts/docker.sh prod logs            # Follow logs
+./scripts/docker.sh prod restart         # Restart
+./scripts/docker.sh prod restart --cache # Restart, rebuild with cache
+./scripts/docker.sh prod restart --no-cache  # Restart, clean rebuild
+./scripts/docker.sh prod build           # Build images
+./scripts/docker.sh prod down            # Stop (keep data)
+./scripts/docker.sh prod down --volumes  # Stop and delete all data
+./scripts/docker.sh prod reset           # Wipe data and start fresh
 
-# Production
-./scripts/docker.sh prod up         # Start prod environment
-./scripts/docker.sh prod down       # Stop prod environment
-./scripts/docker.sh prod build      # Rebuild prod images
-./scripts/docker.sh prod logs       # View prod logs
-
-# Execute commands in containers
-./scripts/docker.sh dev exec backend bash
+# Shell inside a container
+./scripts/docker.sh prod exec backend bash
 ./scripts/docker.sh prod exec frontend sh
 ```
 
-### Running Without Docker (Local Development)
+Prefer plain Docker? The equivalent of `prod up`:
 
-#### Backend (with hot reload):
 ```bash
-cd backend
-uv venv
-source .venv/bin/activate  # or .venv\Scripts\activate on Windows
-uv pip install -e .
-uvicorn app.main_api:app --reload --host 0.0.0.0 --port 8000
+docker compose -f docker/docker-compose.prod.yml --env-file .env.prod up -d
 ```
-
-#### Frontend (with hot reload):
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Frontend will be available at http://localhost:3000 with hot module replacement.
 
 ### Environment Files
 
-The project includes three environment file templates:
+| File | Tracked in git | Purpose |
+| --- | --- | --- |
+| `.env.example` | yes | Annotated template, copy it to start |
+| `.env.dev` | no | Development environment |
+| `.env.prod` | no | Production environment |
 
-- **`.env.dev`** - Development settings (hot-reload, verbose logging)
-- **`.env.prod`** - Production template (strong credentials required)
-- **`.env.example`** - Legacy example file
+Only `.env.example` is committed. Your env files are gitignored, so updates
+never overwrite them. Every variable is documented inline in `.env.example`.
 
-**Important**: Never commit `.env.prod.local` or any file with real credentials to version control!
+**Never commit a file containing real credentials.**
+
+### Environment Variables
+
+**Passwords you set:**
+
+| Variable | What it is |
+| --- | --- |
+| `NUXT_ADMIN_PASSWORD` | The web UI login password. Username is always `admin`. |
+| `NUXT_JWT_SECRET` | Secret used to sign session tokens. `openssl rand -base64 64` |
+
+**Ports:**
+
+| Variable | Default | What it is |
+| --- | --- | --- |
+| `BACKEND_PORT` | `9000` | API + WebSocket, on the host |
+| `FRONTEND_PORT` | `4000` | Web UI, on the host |
+
+**Internal MongoDB** (the app's own database, not your backup targets):
+`NUXT_MONGODB_USERNAME`, `NUXT_MONGODB_PASSWORD`, `NUXT_MONGODB_HOST`,
+`NUXT_MONGODB_PORT`, `NUXT_MONGODB_DATABASE`.
+
+**Browser-side URLs** (baked into the frontend bundle at build time):
+`NUXT_PUBLIC_API_URL`, `NUXT_PUBLIC_WS_URL`.
+
+**Other**: `NODE_ENV`, `TZ`, `CORS_ORIGINS`, `BACKUP_BASE_DIR`,
+`MANAGER_DB_URI`, `COOLIFY`.
+
+See `.env.example` for what each one does.
 
 ### API Endpoints
 
@@ -342,119 +406,136 @@ The project includes three environment file templates:
 #### Health
 - `GET /health` - Health check endpoint
 
-### Environment Variables
-
-#### Backend
-```bash
-# Internal MongoDB connection
-MANAGER_DB_URI=mongodb://user:pass@host:port/database
-
-# JWT authentication
-JWT_SECRET=your-secret-key-here
-
-# Timezone
-TZ=Europe/Paris
-```
-
-#### Frontend
-```bash
-# API endpoints (configured in nuxt.config.ts)
-NUXT_PUBLIC_API_URL=http://localhost:8000
-NUXT_PUBLIC_WS_URL=ws://localhost:8000
-```
-
 ## Security
 
 ### Best Practices
 
-1. **Change Default Passwords**: The default admin password (`admin123`) must be changed on first login
-2. **Secure JWT Secret**: Use a strong random string for `JWT_SECRET`
-3. **Update DB Credentials**: Change `MANAGER_DB_PASSWORD` in production
-4. **HTTPS in Production**: Use a reverse proxy (nginx/Caddy) with SSL
-5. **Network Isolation**: Internal MongoDB is not exposed to the host
-6. **Session Expiration**: JWT tokens expire after 24 hours
-7. **Password Requirements**: Minimum 8 characters, hashed with bcrypt
+1. **Set a strong `NUXT_ADMIN_PASSWORD`**: this is the web UI login password. You are forced to change it on first login in production.
+2. **Set a random `NUXT_JWT_SECRET`**: `openssl rand -base64 64`
+3. **HTTPS in production**: put a reverse proxy (nginx/Caddy) in front, and set `NUXT_PUBLIC_API_URL` / `NUXT_PUBLIC_WS_URL` to `https://` / `wss://` before building.
+4. **Network isolation**: the internal MongoDB is never published to the host, only reachable inside the Docker network.
+5. **Session expiration**: JWT tokens expire automatically, and refresh before expiry.
+6. **Password storage**: hashed with bcrypt in the internal MongoDB, never in the env file.
 
-### Production Deployment
+### Behind a reverse proxy
 
-#### Using Docker Compose
+The frontend is served on `FRONTEND_PORT` and the API on `BACKEND_PORT`. Point
+your proxy at both, and use `wss://` for the WebSocket path.
 
-1. Update `.env` with secure credentials:
-   ```bash
-   JWT_SECRET=$(openssl rand -base64 32)
-   MANAGER_DB_PASSWORD=$(openssl rand -base64 24)
-   ```
+nginx does not read your `.env` file, so replace the ports below with the
+values you set (`4000` for the web UI, `9000` for the API, unless you changed
+them):
 
-2. Build and start:
-   ```bash
-   docker-compose -f docker/docker-compose.yml up -d --build
-   ```
+```nginx
+server {
+    listen 443 ssl;
+    server_name manager.yourdomain.com;
 
-3. Set up reverse proxy (nginx example):
-   ```nginx
-   server {
-       listen 443 ssl;
-       server_name manager.yourdomain.com;
-       
-       ssl_certificate /path/to/cert.pem;
-       ssl_certificate_key /path/to/key.pem;
-       
-       location / {
-           proxy_pass http://localhost:3000;
-           proxy_http_version 1.1;
-           proxy_set_header Upgrade $http_upgrade;
-           proxy_set_header Connection 'upgrade';
-           proxy_set_header Host $host;
-           proxy_cache_bypass $http_upgrade;
-       }
-       
-       location /api/ {
-           proxy_pass http://localhost:8000;
-       }
-       
-       location /ws/ {
-           proxy_pass http://localhost:8000;
-           proxy_http_version 1.1;
-           proxy_set_header Upgrade $http_upgrade;
-           proxy_set_header Connection "upgrade";
-       }
-   }
-   ```
+    ssl_certificate     /path/to/cert.pem;
+    ssl_certificate_key /path/to/key.pem;
 
-#### Using Coolify
+    # Web UI — replace 4000 with your FRONTEND_PORT
+    location / {
+        proxy_pass http://localhost:4000;
+        proxy_set_header Host $host;
+    }
 
-1. Set environment variable in Coolify dashboard:
-   ```bash
-   COOLIFY=true
-   JWT_SECRET=<your-secret>
-   ```
+    # API — replace 9000 with your BACKEND_PORT
+    location /api/ {
+        proxy_pass http://localhost:9000;
+        proxy_set_header Host $host;
+    }
 
-2. Deploy from Git repository
-3. Coolify will automatically handle SSL and domains
+    # WebSocket terminal — replace 9000 with your BACKEND_PORT
+    location /ws/ {
+        proxy_pass http://localhost:9000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }
+}
+```
+
+Then update the browser-facing URLs and rebuild, because they are baked into the
+bundle at build time:
+
+```bash
+# in .env.prod
+NUXT_PUBLIC_API_URL=https://manager.yourdomain.com
+NUXT_PUBLIC_WS_URL=wss://manager.yourdomain.com
+CORS_ORIGINS=https://manager.yourdomain.com
+NODE_ENV=production
+```
+
+```bash
+./scripts/docker.sh prod restart --no-cache
+```
+
+### Using Coolify
+
+Deploy from the Git repository, then set the same variables in the Coolify
+dashboard (`NUXT_ADMIN_PASSWORD`, `NUXT_JWT_SECRET`, `COOLIFY=true`, ports,
+and the `NUXT_PUBLIC_*` URLs for your domain). Coolify handles SSL and domains.
 
 ## Troubleshooting
 
-### Frontend won't connect to backend
+### Login fails, or the browser console shows a CORS error
 
-Check CORS settings in `backend/app/main_api.py`. In development, both `localhost:3000` and `127.0.0.1:3000` should be allowed.
+`CORS_ORIGINS` must list the origin you actually open. It follows
+`FRONTEND_PORT` automatically, so if you changed the port *above* it, it is
+already correct. If you hardcoded a value, fix it:
 
-### WebSocket connection fails
+```bash
+# in .env.prod (or .env.dev)
+CORS_ORIGINS=http://localhost:${FRONTEND_PORT},http://127.0.0.1:${FRONTEND_PORT}
+```
 
-1. Verify JWT token is being sent in URL: `ws://backend:8000/ws/terminal?token=<jwt>`
-2. Check browser console for WebSocket errors
-3. Ensure backend health check passes: `curl http://localhost:8000/health`
+Then recreate the containers so they pick it up:
 
-### Commands not executing
+```bash
+./scripts/docker.sh prod down && ./scripts/docker.sh prod up
+```
 
-1. Check WebSocket connection status in status bar (should show green dot)
-2. Verify backend logs: `docker logs mongodb-manager-backend`
-3. Test API directly: `curl http://localhost:8000/health`
+### The WebSocket connection fails
 
-### Backend container won't start
+1. Check the browser console for WebSocket errors.
+2. Make sure `NUXT_PUBLIC_WS_URL` reuses `BACKEND_PORT` in your env file. It is baked in at build time in production, so rebuild after changing it: `./scripts/docker.sh prod restart --no-cache`.
+3. Test the API directly: `curl http://localhost:${BACKEND_PORT}/health`
 
-1. Check logs: `docker logs mongodb-manager-backend`
-2. Verify internal MongoDB is healthy: `docker ps` (should show "healthy")
-3. Ensure `.env` file exists with correct credentials
+### Commands don't execute
+
+1. Check the WebSocket status in the status bar (should show a green dot).
+2. Follow the logs: `./scripts/docker.sh prod logs`
+3. Test the API: `curl http://localhost:${BACKEND_PORT}/health`
+
+### A container won't start
+
+1. Follow the logs: `./scripts/docker.sh prod logs`
+2. Check the internal MongoDB is healthy: `docker ps` (should show `healthy`)
+3. Make sure your env file exists and is named `.env.prod` (or `.env.dev`)
+
+### You forgot the admin password
+
+Edit `NUXT_ADMIN_PASSWORD` in your env file, then **recreate** the containers
+(`restart` is not enough — it reuses the existing containers, so they keep the
+environment they were created with):
+
+```bash
+./scripts/docker.sh prod down && ./scripts/docker.sh prod up
+```
+
+Or, without the helper script:
+
+```bash
+docker compose -f docker/docker-compose.prod.yml --env-file .env.prod up -d
+```
+
+The new password applies on the next login, and also re-triggers the forced
+password change.
+
+Same rule for any other variable: `NUXT_PUBLIC_API_URL`, `NUXT_PUBLIC_WS_URL`,
+`CORS_ORIGINS` and the ports only change after a recreate.
 
 ## License
 
