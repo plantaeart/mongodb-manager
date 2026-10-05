@@ -539,7 +539,7 @@ Same rule for any other variable: `NUXT_PUBLIC_API_URL`, `NUXT_PUBLIC_WS_URL`,
 
 ## License
 
-[Your License Here]
+MIT — see [LICENSE](LICENSE).
 
 ## Contributing
 
